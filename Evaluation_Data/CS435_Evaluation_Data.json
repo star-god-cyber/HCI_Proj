@@ -1,0 +1,52 @@
+[
+  {
+    "id": 2,
+    "participant_id": "P_TEST",
+    "target_role": "UX Research",
+    "prototype_tested": "Both",
+    "task_completed": 1,
+    "task_time_seconds": 180,
+    "sus_scores": [
+      5,
+      1,
+      5,
+      1,
+      5,
+      1,
+      5,
+      1,
+      5,
+      1
+    ],
+    "sus_total_score": 100.0,
+    "feedback_realism": "Excellent speech and voice response.",
+    "feedback_learning": "Rubric deltas were clear.",
+    "ethical_consent_signed": 1,
+    "created_at": "2026-11-03 07:35:40"
+  },
+  {
+    "id": 1,
+    "participant_id": "P_TEST",
+    "target_role": "UX Research",
+    "prototype_tested": "Both",
+    "task_completed": 1,
+    "task_time_seconds": 180,
+    "sus_scores": [
+      5,
+      1,
+      5,
+      1,
+      5,
+      1,
+      5,
+      1,
+      5,
+      1
+    ],
+    "sus_total_score": 100.0,
+    "feedback_realism": "Excellent speech and voice response.",
+    "feedback_learning": "Rubric deltas were clear.",
+    "ethical_consent_signed": 1,
+    "created_at": "2026-11-03 07:34:48"
+  }
+]
