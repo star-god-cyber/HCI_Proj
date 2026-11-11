@@ -694,7 +694,7 @@ async def transcribe_audio(audio: UploadFile = File(...)):
         b64 = base64.b64encode(audio_bytes).decode("utf-8")
         mime = audio.content_type or "audio/wav"
         prompt = "Transcribe the candidate's spoken interview response verbatim. Return ONLY the transcribed text without extra commentary."
-        for m in ["gemini-3.5-flash", "gemini-3.5-flash-lite"]:
+        for m in ["gemini-3.5-flash-lite"]:
             try:
                 async with httpx.AsyncClient(timeout=15.0) as client:
                     resp = await client.post(

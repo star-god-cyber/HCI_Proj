@@ -18,8 +18,8 @@ from app.env_loader import get_env_variable
 
 logger = logging.getLogger(__name__)
 
-GEMINI_MODELS = ["gemini-3.5-flash", "gemini-3.5-flash-lite", "gemini-flash-latest"]
-DEFAULT_GEMINI_MODEL = "gemini-3.5-flash"
+GEMINI_MODELS = ["gemini-3.5-flash-lite"]
+DEFAULT_GEMINI_MODEL = "gemini-3.5-flash-lite"
 GEMINI_API_URL = f"https://generativelanguage.googleapis.com/v1beta/models/{DEFAULT_GEMINI_MODEL}:generateContent"
 OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
 OPENROUTER_MODEL = "nvidia/nemotron-3.5-super-vl:free"
@@ -539,12 +539,7 @@ class InterviewEvaluator:
         if not contents:
             return None
 
-        candidate_models = []
-        if preferred_model:
-            candidate_models.append(preferred_model)
-        for m in GEMINI_MODELS:
-            if m not in candidate_models:
-                candidate_models.append(m)
+        candidate_models = ["gemini-3.5-flash-lite"]
 
         for model_name in candidate_models:
             url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={key}"
@@ -678,7 +673,7 @@ Respond ONLY with a JSON object in this exact format:
             if content:
                 parsed = self._clean_json_output(content)
                 if isinstance(parsed, dict) and "followup_question" in parsed:
-                    parsed["source"] = "gemini_3.5_flash"
+                    parsed["source"] = "gemini_3.5_flash_lite"
                     return parsed
         except Exception as e:
             logger.warning(f"Gemini API call failed, falling back to local engine: {e}")
@@ -750,7 +745,7 @@ Respond ONLY with a JSON object in this format:
                         base_eval.actionable_suggestions = [str(a) for a in parsed["actionable_suggestions"]]
                     if "example_improved_answer" in parsed and parsed["example_improved_answer"]:
                         base_eval.example_improved_answer = str(parsed["example_improved_answer"])
-                    base_eval.why_feedback_summary["evaluator_engine"] = "gemini_3.5_flash"
+                    base_eval.why_feedback_summary["evaluator_engine"] = "gemini_3.5_flash_lite"
         except Exception as e:
             logger.warning(f"Gemini API call for evaluation failed, retaining deterministic feedback: {e}")
 
@@ -1140,7 +1135,7 @@ Respond ONLY with a valid JSON array of {count} question objects in this exact f
                                     "competency": q.get("competency", "Core Competencies"),
                                     "ideal_structure": q.get("ideal_structure", "STAR Method (Situation, Task, Action, Result)"),
                                     "key_lookouts": q.get("key_lookouts", ["Specific actions", "Measurable outcomes"]),
-                                    "source": "gemini_3.5_flash"
+                                    "source": "gemini_3.5_flash_lite"
                                 })
                         if sanitized:
                             logger.info(f"Generated {len(sanitized)} custom questions via Google Gemini.")
@@ -1776,24 +1771,7 @@ Every time you respond:
         if not messages or messages[-1].get("content") != clean_user_msg:
             messages.append({"role": "user", "content": clean_user_msg})
 
-        # Tier 1A: If Gemini is active and OpenRouter is empty/dummy, prioritize Gemini directly
-        if has_gemini and is_openrouter_dummy:
-            try:
-                gemini_content = await self.call_gemini_turn(messages, temperature=0.65)
-                if gemini_content and len(gemini_content.strip()) > 15:
-                    clean_reply = self._clean_llm_reply(gemini_content)
-                    return {
-                        "interviewer_message": clean_reply,
-                        "followup_question": clean_reply,
-                        "reasoning": f"Stage {turn_index + 1} official Google Gemini live probe.",
-                        "turn_index": turn_index + 1,
-                        "is_concluded": (turn_index >= max_turns or "conclude" in clean_reply.lower() or "evaluation" in clean_reply.lower()),
-                        "source": "gemini_3.5_flash"
-                    }
-            except Exception as e:
-                logger.warning(f"Primary Gemini official turn failed, falling back: {e}")
-
-        # Tier 1B: Try OpenRouter (NVIDIA Nemotron 3.5 Super VL)
+        # Tier 1: Try OpenRouter (NVIDIA Nemotron 3.5 Super VL) as primary provider
         if openrouter_key and not is_openrouter_dummy:
             try:
                 content = await self.call_openrouter(messages, temperature=0.65, max_tokens=1500)
@@ -1808,9 +1786,9 @@ Every time you respond:
                         "source": "openrouter_nemotron"
                     }
             except Exception as e:
-                logger.warning(f"OpenRouter official turn failed, attempting secondary provider: {e}")
+                logger.warning(f"OpenRouter official turn failed, attempting secondary provider (Google Gemini 3.5 Flash-Lite): {e}")
 
-        # Tier 2: Try Google Gemini (gemini-3.5-flash) if not already run in Tier 1A
+        # Tier 2: Try Google Gemini (gemini-3.5-flash-lite) as second option after Nemotron
         if has_gemini:
             try:
                 gemini_content = await self.call_gemini_turn(messages, temperature=0.65)
@@ -1819,10 +1797,10 @@ Every time you respond:
                     return {
                         "interviewer_message": clean_reply,
                         "followup_question": clean_reply,
-                        "reasoning": f"Stage {turn_index + 1} official Google Gemini live probe.",
+                        "reasoning": f"Stage {turn_index + 1} official Google Gemini 3.5 Flash-Lite live probe.",
                         "turn_index": turn_index + 1,
                         "is_concluded": (turn_index >= max_turns or "conclude" in clean_reply.lower() or "evaluation" in clean_reply.lower()),
-                        "source": "gemini_3.5_flash"
+                        "source": "gemini_3.5_flash_lite"
                     }
             except Exception as e:
                 logger.warning(f"Gemini official turn failed, engaging semantic dialogue engine: {e}")
@@ -3240,7 +3218,7 @@ Return a valid JSON object with EXACTLY this structure:
                 if gem_content:
                     parsed = self._clean_json_output(gem_content)
                     if isinstance(parsed, dict) and "overall_score" in parsed and "competency_matrix" in parsed:
-                        parsed["evaluator_engine"] = "gemini_3.5_flash"
+                        parsed["evaluator_engine"] = "gemini_3.5_flash_lite"
                         parsed["ambiguity_detected"] = base_eval.get("ambiguity_detected", False)
                         parsed["ambiguity_notice"] = base_eval.get("ambiguity_notice")
                         if base_eval.get("ambiguity_detected"):

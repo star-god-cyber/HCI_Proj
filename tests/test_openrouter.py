@@ -100,8 +100,7 @@ class TestOpenRouterIntegration(unittest.TestCase):
 
     def test_gemini_model_configuration(self):
         from app.evaluator import GEMINI_MODELS
-        self.assertIn("gemini-3.5-flash", GEMINI_MODELS)
-        self.assertIn("gemini-3.5-flash-lite", GEMINI_MODELS)
+        self.assertEqual(GEMINI_MODELS, ["gemini-3.5-flash-lite"])
 
 
 if __name__ == "__main__":
