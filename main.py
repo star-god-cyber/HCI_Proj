@@ -86,10 +86,15 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 @app.get("/", response_class=HTMLResponse)
 async def serve_home():
     index_file = os.path.join(STATIC_DIR, "index.html")
+    headers = {
+        "Cache-Control": "no-cache, no-store, must-revalidate",
+        "Pragma": "no-cache",
+        "Expires": "0"
+    }
     if os.path.exists(index_file):
         with open(index_file, "r", encoding="utf-8") as f:
-            return HTMLResponse(content=f.read())
-    return HTMLResponse("<h2>AI Interview Practice System is loading...</h2>")
+            return HTMLResponse(content=f.read(), headers=headers)
+    return HTMLResponse("<h2>AI Interview Practice System is loading...</h2>", headers=headers)
 
 
 @app.get("/api/personas")
