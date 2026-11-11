@@ -1319,7 +1319,7 @@ const DEMO_PORTFOLIOS = [
     interviewDuration: "Comprehensive Onsite Loop (8-10 Questions • ~60 mins)",
     difficulty: "Challenging & Probing (Technical Bar Raiser / Stress Test)",
     tagline: "Medical Imaging & Edge TensorRT",
-    cv: "Education: B.Tech in Electrical Engineering from IIT Madras (2017); Ph.D. in Computer Science & Biomedical Imaging from Stanford University (2022).\n\nSummary & Core Skills: Senior Machine Learning & Computer Vision Research Engineer with 6+ years building and deploying clinical AI models, real-time edge segmentation pipelines, and GPU kernel optimizations. Expertise in PyTorch, CUDA, C++, TensorRT, ONNX Runtime, 3D UNet, Vision Transformers (ViT), Model Quantization (INT8/FP16), Medical Image Processing (DICOM, ITK, MONAI), Triton Inference Server, and HIPAA Compliance.\n\nProfessional & Research Experience:\n• Senior ML Engineer at HealthAI Diagnostics (2022–Present): Lead architect for clinical MRI brain lesion segmentation pipeline deployed across 18 regional hospital networks. Architected hybrid 3D UNet and Vision Transformer backbone achieving 94.2% Dice similarity coefficient on unseen multicenter MRI scans. Overcame GPU memory constraints during high-resolution volumetric inference by implementing mixed-precision FP16 TensorRT compilation and CUDA kernel fusion, cutting inference latency from 820ms to 64ms on NVIDIA T4 GPUs and enabling real-time clinical review.\n• AI Research Scientist Intern at Google Health (2021): Developed self-supervised pretraining representations on 400,000 unlabelled mammography scans. Published findings in MICCAI, demonstrating a 7.8% AUC improvement over baseline supervised models under scarce label conditions.",
+    cv: "Education: B.Tech in Electrical Engineering from IIT Madras (2017); Ph.D. in Computer Science & Biomedical Imaging from Stanford University (2022).\n\nSummary & Core Skills: Senior Machine Learning & Computer Vision Research Engineer with 6+ years building and deploying clinical AI models, real-time edge segmentation pipelines, and GPU kernel optimizations. Expertise in PyTorch, CUDA, C++, TensorRT, ONNX Runtime, 3D UNet, Vision Transformers (ViT), Model Quantization (INT8/FP16), Medical Image Processing (DICOM, ITK, MONAI), Triton Inference Server, and HIPAA Compliance.\n\nProfessional & Research Experience:\n• Senior ML Engineer at HealthAI Diagnostics (2022–Present): Lead architect for clinical MRI brain lesion segmentation pipeline deployed across 18 regional hospital networks. Architected hybrid 3D UNet and Vision Transformer backbone achieving 94.2% Dice similarity coefficient on unseen multicenter MRI scans. Overcame GPU memory constraints during high-resolution volumetric inference by implementing mixed-precision FP16 TensorRT compilation and CUDA kernel fusion, cutting inference latency from 820ms to 64ms on edge T4 GPUs and enabling real-time clinical review.\n• AI Research Scientist Intern at Google Health (2021): Developed self-supervised pretraining representations on 400,000 unlabelled mammography scans. Published findings in MICCAI, demonstrating a 7.8% AUC improvement over baseline supervised models under scarce label conditions.",
     jd: "Senior Machine Learning Engineer - Clinical Diagnostics & Edge AI. Responsibilities: Develop, fine-tune, and deploy deep learning models for high-resolution medical imaging (MRI, CT, Pathology). Optimize inference pipelines using TensorRT, CUDA, and model quantization for edge hospital hardware. Ensure end-to-end data security, regulatory compliance (HIPAA/FDA SaMD), and model explainability for radiologists."
   },
   {
@@ -1727,7 +1727,7 @@ function loadSampleAnswerA(attemptNumber) {
     if (attemptNumber === 1) {
       textarea.value = "When deploying our 3D UNet model for clinical MRI segmentation to hospital edge hardware, inference latency was over 800ms per volume. The clinical team wanted real-time feedback, so I optimized the model with TensorRT and quantization to speed it up.";
     } else {
-      textarea.value = "When deploying our 3D UNet MRI brain lesion segmentation pipeline across 18 regional hospital networks, volumetric inference latency exceeded 820ms on edge NVIDIA T4 GPUs, causing unacceptable workflow delays for reviewing radiologists. Our clinical software lead suggested downsampling voxel resolution by 50%, but this caused small micro-lesion Dice scores to collapse from 94% to 78%. Instead, I spearheaded an inference optimization initiative using mixed-precision FP16 TensorRT compilation and custom CUDA kernel fusion for 3D convolutions. I benchmarked the pipeline against 500 validated clinical scans, proving zero degradation in Dice similarity (maintained at 94.2%) while cutting latency from 820ms down to 64ms, successfully enabling real-time intraoperative clinical review.";
+      textarea.value = "When deploying our 3D UNet MRI brain lesion segmentation pipeline across 18 regional hospital networks, volumetric inference latency exceeded 820ms on edge T4 GPUs, causing unacceptable workflow delays for reviewing radiologists. Our clinical software lead suggested downsampling voxel resolution by 50%, but this caused small micro-lesion Dice scores to collapse from 94% to 78%. Instead, I spearheaded an inference optimization initiative using mixed-precision FP16 TensorRT compilation and custom CUDA kernel fusion for 3D convolutions. I benchmarked the pipeline against 500 validated clinical scans, proving zero degradation in Dice similarity (maintained at 94.2%) while cutting latency from 820ms down to 64ms, successfully enabling real-time intraoperative clinical review.";
     }
   } else if (role.includes("data") || role.includes("lakehouse") || role.includes("flink") || role.includes("kafka")) {
     // Kavita Krishnan (Data Platform Architect)
@@ -1900,8 +1900,7 @@ function renderFeedbackScreenA4(evalData) {
     if (adaptiveFollowup) adaptiveFollowup.innerText = evalData.adaptive_followup.followup_question;
     if (adaptiveReasoning) adaptiveReasoning.innerText = `💡 Why this probe: ${evalData.adaptive_followup.reasoning || "Contextual probe on unevidenced competencies."}`;
     if (adaptiveSource) {
-      const src = evalData.adaptive_followup.source || "adaptive_ai_dialogue_engine";
-      adaptiveSource.innerText = src.includes("nemotron") ? "NVIDIA Nemotron 3.5" : (src.includes("gemini") ? "Google Gemini 3.5" : "Adaptive AI Dialogue Engine");
+      adaptiveSource.innerText = "Adaptive AI Dialogue Engine";
     }
     if (adaptiveContainer) adaptiveContainer.style.display = "block";
 
@@ -2737,14 +2736,7 @@ async function submitSimulationAnswer() {
       histPill.innerHTML = `🧠 History Buffer: <strong>${turnsCount} ${turnsCount === 1 ? 'exchange' : 'exchanges'} active</strong>`;
     }
 
-    let engineLabel = "🟢 NVIDIA Nemotron 3.5";
-    if (data.source === "gemini_1.5_flash") {
-      engineLabel = "🟢 Google Gemini 1.5 Flash";
-    } else if (data.openrouter_status && data.openrouter_status.status_code === 429) {
-      engineLabel = "⚠️ OpenRouter Quota Limit (429) • Adaptive Engine Active";
-    } else if (data.source === "semantic_dialogue_engine" || data.source === "adaptive_ai_dialogue_engine") {
-      engineLabel = "🟢 Adaptive AI Dialogue Engine";
-    }
+    let engineLabel = "🟢 AI Interview Evaluator";
 
     const currentTurnAssistantIdx = simConversationHistory.filter(m => m.role === "assistant").length - 1;
 
@@ -3239,7 +3231,7 @@ function renderDetailedSimulationFeedback(evalData = null) {
             <h3 style="font-size: 1.15rem; color: var(--text-main); margin: 0;">Track-Specific Competency Evaluation (BARS Rubrics)</h3>
             <p style="font-size: 0.84rem; color: var(--text-muted); margin: 0.2rem 0 0 0;">Evaluated strictly against the behavioral rubrics defined for <strong>${escapeHtml(candidateProfile.interviewType || 'Comprehensive Focus')}</strong>.</p>
           </div>
-          <span class="badge badge-primary">Model: NVIDIA Nemotron 3.5 Super VL</span>
+          <span class="badge badge-primary">Automated Rubric Audit</span>
         </div>
         <div class="competency-cards-grid">
           ${compCardsHtml}
@@ -3538,139 +3530,42 @@ function closeConfigModal() {
   document.getElementById("modal-config").style.display = "none";
 }
 
-async function testLiveOpenRouterConnection() {
-  const btn = document.getElementById("btn-test-openrouter");
-  const diag = document.getElementById("cfg-openrouter-diag");
-  if (btn) btn.innerText = "⏳ Testing API...";
-  if (diag) diag.innerHTML = "Sending live test ping to <code>https://openrouter.ai/api/v1/chat/completions</code>...";
+function loadConfigSettings() {
+  const rateInput = document.getElementById("cfg-voice-rate");
+  const pitchInput = document.getElementById("cfg-voice-pitch");
+  const rateVal = document.getElementById("cfg-rate-val");
+  const pitchVal = document.getElementById("cfg-pitch-val");
 
-  try {
-    const res = await fetch("/api/openrouter/test");
-    const data = await res.json();
-    if (btn) btn.innerText = "🧪 Test Connection Now";
-
-    let html = "";
-    if (data.chat_status_code === 200) {
-      html = `
-        <div style="color: var(--success, #10b981); font-weight: 600; margin-bottom: 0.25rem;">
-          ✓ LIVE CALL SUCCEEDED (HTTP 200 OK)
-        </div>
-        <div>Model: <code>${escapeHtml(data.model)}</code> | Key: <code>${escapeHtml(data.api_key_masked)}</code></div>
-        <div>Generation ID: <code>${escapeHtml(data.chat_generation_id || 'active')}</code></div>
-        <div style="margin-top: 0.35rem; color: var(--text);">${escapeHtml(data.dashboard_logging_explanation || '')}</div>
-      `;
-    } else if (data.chat_status_code === 429) {
-      const quota = data.quota_status || {};
-      html = `
-        <div style="color: #f59e0b; font-weight: 600; margin-bottom: 0.25rem;">
-          ⚠️ HTTP 429: FREE DAILY QUOTA EXHAUSTED (Used: ${quota.used !== undefined ? quota.used : 50} / Limit: ${quota.limit || 50})
-        </div>
-        <div>Key: <code>${escapeHtml(data.api_key_masked)}</code> | Generation ID: <code>${escapeHtml(data.chat_generation_id || 'none')}</code></div>
-        <div style="margin-top: 0.35rem; padding: 0.4rem; background: rgba(245, 158, 11, 0.1); border-left: 3px solid #f59e0b; border-radius: 4px; color: var(--text);">
-          <strong>Why no logs appear in OpenRouter dashboard:</strong> OpenRouter's dashboard Activity tab ONLY logs requests that return 200 OK. When an account exceeds the 50 free requests/day limit, Cloudflare rejects the call at the edge gateway before model execution. The API was contacted (HTTP 429 returned), but 429s are not stored as completed generations.<br>
-          <em>To use live model completions, paste a new key with fresh quota or credits above and click 'Save Settings'.</em>
-        </div>
-      `;
-    } else {
-      html = `
-        <div style="color: #ef4444; font-weight: 600; margin-bottom: 0.25rem;">
-          ❌ OpenRouter Status: ${data.chat_status_code || 'Error'}
-        </div>
-        <div>${escapeHtml(data.message || 'Connection failed')}</div>
-      `;
-    }
-    if (diag) diag.innerHTML = html;
-  } catch (err) {
-    if (btn) btn.innerText = "🧪 Test Connection Now";
-    if (diag) diag.innerHTML = `<span style="color: #ef4444;">Error testing OpenRouter: ${err.message}</span>`;
+  if (rateInput && speechRate) {
+    rateInput.value = speechRate;
+    if (rateVal) rateVal.innerText = speechRate.toFixed(2) + "x";
   }
-}
-window.testLiveOpenRouterConnection = testLiveOpenRouterConnection;
-
-async function loadConfigSettings() {
-  try {
-    const res = await fetch("/api/config");
-    const data = await res.json();
-    const badge = document.getElementById("cfg-engine-badge");
-    const orBadge = document.getElementById("cfg-openrouter-badge");
-
-    if (orBadge) {
-      if (data.openrouter_active) {
-        orBadge.className = "badge badge-success";
-        orBadge.innerText = "✓ OpenRouter Key Configured";
-      } else {
-        orBadge.className = "badge badge-outline";
-        orBadge.innerText = "Curated Fallback Ready ($0 Free)";
-      }
-    }
-
-    if (badge) {
-      if (data.openrouter_active) {
-        badge.className = "badge badge-success";
-        badge.innerText = "NVIDIA Nemotron 3.5 Super VL (OpenRouter)";
-      } else if (data.gemini_active) {
-        badge.className = "badge badge-success";
-        badge.innerText = "Gemini 1.5 Flash Free Tier Active";
-      } else {
-        badge.className = "badge badge-primary";
-        badge.innerText = "Curated Sample Questions + STAR Evaluator ($0 Free)";
-      }
-    }
-
-    const diag = document.getElementById("cfg-openrouter-diag");
-    if (diag && data.openrouter_last_status && data.openrouter_last_status.status_code) {
-      const st = data.openrouter_last_status;
-      if (st.status_code === 200) {
-        diag.innerHTML = `🟢 <strong>Live OpenRouter 200 OK:</strong> Last generation ID: <code>${escapeHtml(st.generation_id || '')}</code>`;
-      } else if (st.status_code === 429) {
-        diag.innerHTML = `⚠️ <strong>OpenRouter HTTP 429 (Rate Limit):</strong> Daily quota exhausted (50/50 used). Cloudflare gateway blocks requests before token generation, so 429s are not logged in dashboard Activity. Paste a key with fresh quota above.`;
-      }
-    }
-  } catch (err) {
-    console.warn("Config load error:", err);
+  if (pitchInput && speechPitch) {
+    pitchInput.value = speechPitch;
+    if (pitchVal) pitchVal.innerText = speechPitch.toFixed(1);
   }
 }
 
 async function saveConfigSettings() {
-  const openrouterKey = document.getElementById("cfg-openrouter-key") ? document.getElementById("cfg-openrouter-key").value.trim() : "";
-  const geminiKey = document.getElementById("cfg-gemini-key") ? document.getElementById("cfg-gemini-key").value.trim() : "";
-  const voiceIdx = document.getElementById("cfg-voice-select").value;
-  const rateVal = parseFloat(document.getElementById("cfg-voice-rate").value);
-  const pitchVal = parseFloat(document.getElementById("cfg-voice-pitch").value);
-  autoSpeakEnabled = document.getElementById("cfg-auto-speak").checked;
+  const rateInput = document.getElementById("cfg-voice-rate");
+  const pitchInput = document.getElementById("cfg-voice-pitch");
 
-  speechRate = rateVal;
-  speechPitch = pitchVal;
-
-  if (voiceIdx !== "" && userVoices[voiceIdx]) {
-    selectedVoice = userVoices[voiceIdx];
-  }
+  if (rateInput) speechRate = parseFloat(rateInput.value) || 1.0;
+  if (pitchInput) speechPitch = parseFloat(pitchInput.value) || 1.0;
 
   try {
-    const payload = {
-      voice_speed: speechRate,
-      auto_speak: autoSpeakEnabled
-    };
-    if (openrouterKey) {
-      payload.openrouter_api_key = openrouterKey;
-      payload.openrouter_model = "nvidia/nemotron-3.5-super-vl:free";
-    }
-    if (geminiKey) {
-      payload.gemini_api_key = geminiKey;
-    }
-
     await fetch("/api/config", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
+      body: JSON.stringify({
+        voice_speed: speechRate,
+        auto_speak: autoSpeakEnabled
+      })
     });
-    alert("Settings saved successfully! AI Engine is ready.");
-    closeConfigModal();
-    loadConfigSettings();
   } catch (err) {
-    console.error(err);
-    closeConfigModal();
+    console.warn("Config save notice:", err);
   }
+  closeConfigModal();
 }
 
 function escapeHtml(text) {

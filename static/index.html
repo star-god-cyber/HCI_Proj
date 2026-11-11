@@ -45,9 +45,9 @@
           <button class="tab-pill" id="nav-eval" onclick="switchMainTab('E')">User Evaluation & Ethics</button>
         </div>
 
-        <!-- Audio & Settings Button -->
-        <button class="btn btn-secondary btn-sm" onclick="openConfigModal()" title="Configure Voice & Gemini Free API">
-          ⚙️ AI & Voice
+        <!-- Voice Settings Button -->
+        <button class="btn btn-secondary btn-sm" onclick="openConfigModal()" title="Voice Settings">
+          ⚙️ Voice Settings
         </button>
 
         <!-- Candidate Profile Header Badge -->
@@ -1218,7 +1218,7 @@
         <div id="b6-loading-state" style="text-align: center; padding: 3rem 1rem;">
           <div class="typing-dots" style="margin-bottom: 1rem;"><span></span><span></span><span></span></div>
           <h3 style="color: var(--text-main); font-size: 1.3rem;">Convening Hiring Committee Evaluation...</h3>
-          <p style="color: var(--text-muted); font-size: 0.9rem; max-width: 540px; margin: 0.5rem auto;">Dr. Marcus Vance and NVIDIA Nemotron 3.5 are auditing all conversation turns against track-specific BARS rubrics, job description prerequisites, and interview rigor criteria.</p>
+          <p style="color: var(--text-muted); font-size: 0.9rem; max-width: 540px; margin: 0.5rem auto;">Dr. Marcus Vance and the Evaluation Engine are auditing all conversation turns against track-specific BARS rubrics, job description prerequisites, and interview rigor criteria.</p>
         </div>
 
         <!-- Rendered Dashboard Content Container -->
@@ -1508,91 +1508,31 @@
   </div>
 
   <!-- ========================================== -->
-  <!-- MODAL: AI & VOICE CONFIGURATION            -->
+  <!-- MODAL: VOICE SETTINGS                      -->
   <!-- ========================================== -->
   <div class="modal-overlay" id="modal-config" style="display: none;">
-    <div class="modal-content">
-      <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 0.75rem; margin-bottom: 1rem;">
-        <h3 style="font-size: 1.2rem; color: var(--text-main);">⚙️ AI Engine & Voice Settings</h3>
-        <button onclick="closeConfigModal()" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-muted);">&times;</button>
+    <div class="modal-content" style="max-width: 440px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 0.75rem; margin-bottom: 1.25rem;">
+        <h3 style="font-size: 1.2rem; color: var(--text-main); margin: 0;">⚙️ Voice Settings</h3>
+        <button onclick="closeConfigModal()" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-muted); line-height: 1;">&times;</button>
       </div>
 
-      <!-- Zero-Cost Guaranteed Mode -->
-      <div class="cost-status-banner">
-        <div style="display: flex; align-items: center; justify-content: space-between;">
-          <strong class="cost-status-heading">💰 Cost Status: ₹0.00 / $0.00 (Zero-Cost Guaranteed)</strong>
-          <span class="badge badge-success" id="cfg-engine-badge">Deterministic Offline + Web Speech</span>
-        </div>
-        <p class="cost-status-sub">
-          Speech-to-Text and Text-to-Speech run 100% free inside the browser with zero cloud costs.
-        </p>
+      <!-- Voice Pitch & Speed Controls Only -->
+      <div class="form-group" style="margin-bottom: 1.25rem;">
+        <label class="form-label" style="font-weight: 600; margin-bottom: 0.4rem;">Speech Speed: <span id="cfg-rate-val">1.0x</span></label>
+        <input type="range" class="form-control" id="cfg-voice-rate" min="0.75" max="1.3" step="0.05" value="1.0" oninput="document.getElementById('cfg-rate-val').innerText = this.value + 'x'">
       </div>
 
-      <!-- OpenRouter API Key & Live Diagnostics -->
-      <div class="form-group api-key-panel">
-        <label class="form-label" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.35rem;">
-          <span><strong>OpenRouter API Key</strong> (NVIDIA Nemotron 3.5 Super VL - Free)</span>
-          <span class="badge badge-success" id="cfg-openrouter-badge">Free Model Ready</span>
-        </label>
-        <input type="password" class="form-control" id="cfg-openrouter-key" placeholder="sk-or-v1-... (Paste OpenRouter key here)">
-        <p style="font-size: 0.78rem; color: var(--text-muted); margin-top: 0.35rem; line-height: 1.4;">
-          Powers <strong>AI-driven personalized interview questioning</strong> & rubric evaluations using <code>nvidia/nemotron-3.5-super-vl:free</code>. Get a key at <a href="https://openrouter.ai/keys" target="_blank" style="color: var(--primary); text-decoration: underline;">OpenRouter Keys</a>. If quota is exceeded, the system automatically uses the zero-downtime Adaptive Dialogue Engine ($0.00 fallback).
-        </p>
-
-        <!-- Live Diagnostics & Test Action -->
-        <div style="margin-top: 0.75rem; padding: 0.75rem; background: var(--surface-secondary, rgba(0,0,0,0.04)); border: 1px solid var(--border); border-radius: 6px;">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem; flex-wrap: wrap; gap: 0.5rem;">
-            <span style="font-size: 0.82rem; font-weight: 600; color: var(--text);">📡 OpenRouter Live Quota & Gateway Status</span>
-            <button type="button" class="btn btn-secondary btn-sm" id="btn-test-openrouter" onclick="testLiveOpenRouterConnection()">🧪 Test Connection Now</button>
-          </div>
-          <div id="cfg-openrouter-diag" style="font-size: 0.78rem; color: var(--text-muted); line-height: 1.45;">
-            Click <em>'Test Connection Now'</em> to inspect live HTTP headers, rate limit status, and OpenRouter dashboard logging.
-          </div>
-        </div>
+      <div class="form-group" style="margin-bottom: 1.5rem;">
+        <label class="form-label" style="font-weight: 600; margin-bottom: 0.4rem;">Voice Pitch: <span id="cfg-pitch-val">1.0</span></label>
+        <input type="range" class="form-control" id="cfg-voice-pitch" min="0.8" max="1.2" step="0.1" value="1.0" oninput="document.getElementById('cfg-pitch-val').innerText = this.value">
       </div>
 
-      <!-- Optional Gemini Free Tier API Key -->
-      <div class="form-group">
-        <label class="form-label">
-          Google Gemini Free Tier API Key <em>(Secondary Fallback)</em>
-        </label>
-        <input type="password" class="form-control" id="cfg-gemini-key" placeholder="AIzaSy... (Optional)">
-        <p style="font-size: 0.78rem; color: var(--text-muted); margin-top: 0.25rem;">
-          Get a free key from <a href="https://aistudio.google.com/apikey" target="_blank" style="color: var(--primary);">Google AI Studio</a>.
-        </p>
-      </div>
-
-      <!-- Voice Synthesis Settings -->
-      <div class="form-group">
-        <label class="form-label">Synthesized Interviewer Voice</label>
-        <select class="form-control" id="cfg-voice-select">
-          <option value="">Default Browser Voice</option>
-        </select>
-      </div>
-
-      <div class="form-group" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
-        <div>
-          <label class="form-label">Speech Rate: <span id="cfg-rate-val">1.0x</span></label>
-          <input type="range" class="form-control" id="cfg-voice-rate" min="0.75" max="1.3" step="0.05" value="1.0" oninput="document.getElementById('cfg-rate-val').innerText = this.value + 'x'">
-        </div>
-        <div>
-          <label class="form-label">Voice Pitch: <span id="cfg-pitch-val">1.0</span></label>
-          <input type="range" class="form-control" id="cfg-voice-pitch" min="0.8" max="1.2" step="0.1" value="1.0" oninput="document.getElementById('cfg-pitch-val').innerText = this.value">
-        </div>
-      </div>
-
-      <div style="margin-bottom: 1.5rem;">
-        <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.88rem; cursor: pointer;">
-          <input type="checkbox" id="cfg-auto-speak" checked style="width: 16px; height: 16px;">
-          Automatically speak interviewer questions when they appear
-        </label>
-      </div>
-
-      <div style="display: flex; justify-content: space-between;">
-        <button class="btn btn-outline" onclick="testVoicePlayback()">🔊 Test Voice</button>
-        <div style="display: flex; gap: 0.75rem;">
-          <button class="btn btn-secondary" onclick="closeConfigModal()">Cancel</button>
-          <button class="btn btn-primary" onclick="saveConfigSettings()">Save Settings</button>
+      <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border); padding-top: 1rem;">
+        <button class="btn btn-outline btn-sm" onclick="testVoicePlayback()">🔊 Test Voice</button>
+        <div style="display: flex; gap: 0.5rem;">
+          <button class="btn btn-secondary btn-sm" onclick="closeConfigModal()">Cancel</button>
+          <button class="btn btn-primary btn-sm" onclick="saveConfigSettings()">Save Settings</button>
         </div>
       </div>
     </div>
