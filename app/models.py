@@ -71,10 +71,15 @@ class InterviewTurnRequest(BaseModel):
     session_id: str
     user_message: str
     turn_index: int = 1
+    candidate_name: Optional[str] = "Candidate"
     job_role: Optional[str] = "Software Engineer"
+    target_company: Optional[str] = ""
+    experience_level: Optional[str] = "Mid-Level"
     interview_type: Optional[str] = None
     interview_duration: Optional[str] = None
     interviewer_tone: Optional[str] = None
+    cv_text: Optional[str] = ""
+    job_description: Optional[str] = ""
     conversation_history: Optional[List[Dict[str, str]]] = []
 
 

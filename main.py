@@ -327,17 +327,17 @@ async def compare_user_attempts(session_id: str, question_id: int):
 @app.post("/api/interview/turn")
 async def handle_interview_turn(req: InterviewTurnRequest):
     sess = active_sessions.get(req.session_id)
-    cand_name = sess.get("candidate_name", "Candidate") if sess else "Candidate"
-    target_comp = sess.get("target_company", "") if sess else ""
-    exp_level = sess.get("experience_level", "") if sess else ""
-    cv_text = sess.get("cv_text", "") if sess else ""
-    jd_text = sess.get("job_description", "") if sess else ""
+    cand_name = (req.candidate_name or (sess.get("candidate_name") if sess else None) or "Candidate").strip()
+    target_comp = req.target_company or (sess.get("target_company") if sess else "")
+    exp_level = req.experience_level or (sess.get("experience_level") if sess else "Mid-Level")
+    cv_text = req.cv_text or (sess.get("cv_text") if sess else "")
+    jd_text = req.job_description or (sess.get("job_description") if sess else "")
     role = req.job_role or (sess.get("job_role", "Software Engineer") if sess else "Software Engineer")
     history = req.conversation_history or (sess.get("conversation_history", []) if sess else [])
 
-    int_type = sess.get("interview_type", "Full Mixed Mock (Behavioral + Technical Architecture)") if sess else (req.interview_type or "Full Mixed Mock (Behavioral + Technical Architecture)")
-    int_duration = sess.get("interview_duration", "Standard Round (6-7 Questions • ~45 mins)") if sess else (req.interview_duration or "Standard Round (6-7 Questions • ~45 mins)")
-    int_tone = sess.get("interviewer_tone") or sess.get("difficulty") or req.interviewer_tone or "Neutral Corporate (Standard Hiring Bar / Objective)" if sess else (req.interviewer_tone or "Neutral Corporate (Standard Hiring Bar / Objective)")
+    int_type = req.interview_type or (sess.get("interview_type") if sess else "Full Mixed Mock (Behavioral + Technical Architecture)")
+    int_duration = req.interview_duration or (sess.get("interview_duration") if sess else "Standard Round (6-7 Questions • ~45 mins)")
+    int_tone = req.interviewer_tone or (sess.get("interviewer_tone") or sess.get("difficulty") if sess else "Neutral Corporate (Standard Hiring Bar / Objective)")
 
     turn_res = await evaluator.conduct_official_interview_turn(
         conversation_history=history,

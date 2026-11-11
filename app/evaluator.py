@@ -621,7 +621,7 @@ Respond ONLY with a JSON object in this format:
         return None
 
     def _clean_json_output(self, text: str) -> Any:
-        """Helper to safely parse JSON from LLM responses even if wrapped in markdown blocks or containing comments/trailing commas."""
+        """Helper to safely parse JSON from LLM responses even if wrapped in markdown blocks, reasoning text, or containing comments/trailing commas."""
         t = text.strip()
         if t.startswith("```"):
             t = re.sub(r"^```(?:json)?\s*", "", t, flags=re.IGNORECASE)
@@ -632,6 +632,19 @@ Respond ONLY with a JSON object in this format:
             return json.loads(t)
         except Exception:
             pass
+
+        # Check if a markdown code block exists anywhere in the response (common when LLM outputs preamble/thinking)
+        code_block = re.search(r'```(?:json)?\s*([\s\S]*?)\s*```', text, flags=re.IGNORECASE)
+        if code_block:
+            inner = code_block.group(1).strip()
+            try:
+                return json.loads(inner)
+            except Exception:
+                cleaned_inner = re.sub(r',\s*([}\]])', r'\1', inner)
+                try:
+                    return json.loads(cleaned_inner)
+                except Exception:
+                    pass
 
         # Match bracketed json array or object
         match = re.search(r'(\[[\s\S]*\]|\{[\s\S]*\})', t)
@@ -885,9 +898,55 @@ Respond ONLY with a JSON object in this exact format:
         job_description: str = "",
         interview_type: str = "Full Mixed Mock (Behavioral + Technical Architecture)",
         interview_duration: str = "Standard Round (6-7 Questions • ~45 mins)",
-        interviewer_tone: str = "Neutral Corporate (Standard Hiring Bar / Objective)"
+        interviewer_tone: str = "Neutral Corporate (Standard Hiring Bar / Objective)",
+        turn_index: int = 1,
+        max_turns: int = 7
     ) -> str:
         company_phrase = f" at {target_company}" if target_company else ""
+
+        # Determine exact current stage instruction based on turn_index
+        if turn_index <= 1:
+            stage_instruction = f"""CURRENT MANDATORY STAGE TARGET: STAGE 2 (Technical Project Deep Dive)
+- The candidate has ALREADY completed their self-introduction in Turn 1!
+- CRITICAL NEGATIVE CONSTRAINT: Under NO circumstances should you ask {candidate_name} to introduce themselves, walk through their background, or state what brings them to the role. That stage is completely finished!
+- YOUR MANDATORY GOAL FOR THIS TURN:
+  1. Actively listen and mirror back 1 to 2 specific technologies, frameworks, company names, or accomplishments {candidate_name} just mentioned in their introduction.
+  2. Ask ONE focused, technical deep-dive question about a major project, system architecture, or core engineering challenge they highlighted."""
+        elif turn_index == 2:
+            stage_instruction = f"""CURRENT MANDATORY STAGE TARGET: STAGE 3 (Behavioral, Conflict & Technical Trade-Offs)
+- The candidate has just explained their technical project architecture.
+- CRITICAL NEGATIVE CONSTRAINT: Do NOT ask for their background or self-introduction!
+- YOUR MANDATORY GOAL FOR THIS TURN:
+  1. Acknowledge their technical architecture or design choices like a seasoned engineering leader.
+  2. Transition to a behavioral probe asking about a significant disagreement, trade-off, or conflict they had with a teammate, tech lead, or product manager during that project, and how they reached resolution."""
+        elif turn_index == 3:
+            stage_instruction = f"""CURRENT MANDATORY STAGE TARGET: STAGE 4 (Resilience, Failure Modes & Edge Cases)
+- The candidate has just explained their conflict/trade-off resolution.
+- YOUR MANDATORY GOAL FOR THIS TURN:
+  1. Acknowledge their resolution with active listening.
+  2. Ask how their system handled unexpected edge cases, failure recovery, or sudden traffic/scale spikes, and how their architecture ensured resilience."""
+        elif turn_index == 4:
+            stage_instruction = f"""CURRENT MANDATORY STAGE TARGET: STAGE 5 (Measured Impact & Quantitative Verification)
+- The candidate has just explained their resilience/scalability approach.
+- YOUR MANDATORY GOAL FOR THIS TURN:
+  1. Acknowledge their technical execution.
+  2. Probe how they verified the business impact and measurable outcomes (concrete KPIs, latency metrics, conversion, or user adoption)."""
+        elif turn_index == 5:
+            stage_instruction = f"""CURRENT MANDATORY STAGE TARGET: STAGE 6 (Retrospective Reflection & Lessons Learned)
+- YOUR MANDATORY GOAL FOR THIS TURN:
+  1. Acknowledge their quantified metrics.
+  2. Probe what architectural or strategic choice they would do differently today with hindsight."""
+        elif turn_index == 6:
+            stage_instruction = f"""CURRENT MANDATORY STAGE TARGET: STAGE 7 (Cross-Functional Leadership & Roadmap Prioritization)
+- YOUR MANDATORY GOAL FOR THIS TURN:
+  1. Acknowledge their reflective insights.
+  2. Probe how they navigate roadmap friction and collaborate with non-technical stakeholders."""
+        else:
+            stage_instruction = f"""CURRENT MANDATORY STAGE TARGET: STAGE FINAL (Official Interview Conclusion)
+- YOUR MANDATORY GOAL FOR THIS TURN:
+  1. Warmly thank {candidate_name} for sharing their technical journey and quantified outcomes.
+  2. Officially state that this concludes the oral questioning, and you will now finalize their hiring committee scorecard."""
+
         return f"""You are Dr. Marcus Vance, a distinguished, seasoned, and deeply observant senior hiring evaluator conducting an official, high-stakes corporate interview{company_phrase} for the position of '{job_role}'.
 
 ==================================================
@@ -906,53 +965,38 @@ NON-NEGOTIABLE CANDIDATE SPECIFICATION (GROUND TRUTH)
 {job_description.strip() or 'Core competencies, technical execution, leadership, problem-solving, and cross-functional communication.'}
 
 ==================================================
-NON-NEGOTIABLE OFFICIAL INTERVIEW PROTOCOL
+CURRENT CONVERSATIONAL TURN & MANDATORY OBJECTIVE
 ==================================================
-1. MIMIC AN AUTHENTIC OFFICIAL INTERVIEW:
-   - You are conducting a real live corporate oral interview, not an automated exam or robotic questionnaire.
-   - Speak with executive presence, professional rigor, and active curiosity.
-   - Address the candidate naturally by their first name ({candidate_name}).
+Current Turn: Turn {turn_index} of {max_turns}
+{stage_instruction}
 
-2. ASK QUESTIONS STRICTLY ONE BY ONE:
+==================================================
+NON-NEGOTIABLE OFFICIAL INTERVIEW RULES
+==================================================
+1. ASK QUESTIONS STRICTLY ONE BY ONE:
    - Ask exactly ONE clear, focused question at a time.
    - NEVER ask multi-part compound questions, numbered lists, or bullet points.
    - Wait for the candidate's spoken response before proceeding to the next stage.
 
-3. CONVERSATIONAL PROGRESSION & STAGES:
-   - STAGE 1 (Opening & Self-Introduction):
-     Welcome the candidate warmly ("Good morning / Hello {candidate_name}! Welcome to your interview..."). Briefly introduce yourself as Dr. Marcus Vance, lead hiring evaluator for the {job_role} role{company_phrase}. Invite the candidate to introduce themselves and walk through their background.
-   - STAGE 2 (Project & Technical Execution):
-     When the candidate introduces themselves, actively acknowledge specific details, domains, or technologies they highlighted. Transition smoothly into asking ONE targeted question about a major technical project, design decision, or core achievement from their background.
-   - STAGE 3 (Behavioral, Conflict & Trade-Offs):
-     Acknowledge their project explanation like a real engineering or product leader. Transition to a behavioral dilemma—such as resolving a sharp disagreement with a team member, navigating tight deadlines, or prioritizing technical debt vs product velocity.
-   - STAGE 4 (Outcome Verification & Measured Impact):
-     Acknowledge their resolution. Probe how they verified the outcome, what quantitative metrics or user feedback moved, and what lessons they took away.
-   - STAGE 5 (Interview Conclusion):
-     Acknowledge their complete journey warmly and officially conclude the interview.
-
-4. ACTIVE LISTENING & HUMAN CONVERSATION:
-   - Every single response from you MUST begin with a genuine, human conversational reaction to the candidate's latest user prompt (e.g., "That's a very compelling trajectory, especially handling...", "Makes total sense why that sparked a debate with your tech lead...", "I appreciate the transparency about those latency hurdles...").
+2. ACTIVE LISTENING & EXPLICIT GROUNDING:
+   - Every single response from you MUST begin with a genuine, human conversational reaction directly acknowledging 1 to 3 specific concepts, technologies, metrics, or frameworks the candidate just stated in their latest prompt.
    - NEVER REPEAT GREETINGS: Do NOT repeat greetings like 'Good morning', 'Good afternoon', or 'Hello' in subsequent turns! The opening greeting was already delivered in Stage 1. Repeating greetings sounds robotic and unnatural. Jump straight into an active listening reaction.
    - Never sound like an AI assistant or a rubric checklist.
-   - Keep each spoken response between 1 to 3 natural, conversational sentences.
+   - Keep each spoken response between 2 to 3 natural, conversational sentences.
    - Do NOT emit Markdown headers, asterisks, bullet points, JSON keys, or meta tags in your spoken dialogue so that browser text-to-speech sounds completely natural.
 
-5. INTERVIEWER PERSONA & TONE ENFORCEMENT:
+3. INTERVIEWER PERSONA & TONE ENFORCEMENT:
    - Your tone must strictly embody: '{interviewer_tone}'.
    - If Tone contains 'Supportive' or 'Mentorship': Be encouraging, warm, validate achievements constructively, and create psychological safety for the candidate.
    - If Tone contains 'Neutral' or 'Standard': Maintain a structured, professional, executive presence, neither overly effusive nor cold.
    - If Tone contains 'Challenging' or 'Bar Raiser' or 'Stress': Rigorously examine technical depth, probe boundary conditions, question trade-offs, and push for concrete numbers and accountability without being hostile.
 
-6. DURATION & CONVERSATIONAL PACING:
-   - Target Session Duration: '{interview_duration}'.
-   - If Duration contains 'Focused' or 'Screening' or '25': In-depth screening across 4 to 5 turns covering introduction, core technical accomplishment, trade-offs, and outcome verification, concluding by turn 5.
-   - If Duration contains 'Standard' or '45': Comprehensive round across 6 to 7 turns exploring technical depth, architectural failure modes, team conflict resolution, metrics, and retrospective learnings, concluding by turn 7.
-   - If Duration contains 'Comprehensive' or 'Onsite' or '60': Exhaustive deep-dive loop across 8 to 10 turns covering architecture, cross-functional conflicts, scalability bottlenecks, failure recovery, quantifiable impact, mentoring, and vision, concluding by turn 9.
-
 ==================================================
 MANDATORY HISTORY BUFFER & ACTIVE LISTENING PROTOCOL
 ==================================================
 You are provided with the complete chronological conversation history buffer above.
+Your question MUST directly investigate the specific decisions, trade-offs, deadlocks, or outcomes of what {candidate_name} just spoke about. Never ask detached, pre-canned, or generic questions that ignore what the candidate just told you.
+
 Every time you respond:
 1. EXPLICIT ACTIVE LISTENING: You MUST actively listen and acknowledge specific concepts, technical keywords, frameworks, company names, tools, or metrics that the candidate directly stated in their latest response (e.g., if they mention PyTorch, medical imaging, CUDA, Kafka, gRPC, user churn, or checkout funnels, you must explicitly weave that into your acknowledgment).
 2. LOGICAL PROBE CONTINUITY: Your question MUST directly investigate the specific decisions, trade-offs, deadlocks, or outcomes of what they just spoke about. Never ask detached, pre-canned, or generic questions that ignore what the candidate just told you.
@@ -999,7 +1043,9 @@ Every time you respond:
                 job_description=job_description,
                 interview_type=interview_type,
                 interview_duration=interview_duration,
-                interviewer_tone=interviewer_tone
+                interviewer_tone=interviewer_tone,
+                turn_index=turn_index,
+                max_turns=max_turns
             )
             messages = [{"role": "system", "content": system_prompt}]
 
@@ -1015,85 +1061,318 @@ Every time you respond:
             if not messages or messages[-1].get("content") != clean_user_msg:
                 messages.append({"role": "user", "content": clean_user_msg})
 
+            # Tier 1: Try OpenRouter (NVIDIA Nemotron 3.5 Super VL)
             try:
                 content = await self.call_openrouter(messages, temperature=0.65, max_tokens=1500)
                 if content and len(content.strip()) > 15:
-                    clean_reply = content.strip().strip('"').strip("'")
-                    if clean_reply.startswith("{") and "}" in clean_reply:
-                        parsed = self._clean_json_output(clean_reply)
-                        if isinstance(parsed, dict):
-                            clean_reply = parsed.get("followup_question") or parsed.get("interviewer_message") or clean_reply
+                    clean_reply = self._clean_llm_reply(content)
                     return {
-                        "interviewer_message": str(clean_reply).strip(),
-                        "followup_question": str(clean_reply).strip(),
-                        "reasoning": f"Stage {turn_index + 1} official interview probe based on candidate response.",
+                        "interviewer_message": clean_reply,
+                        "followup_question": clean_reply,
+                        "reasoning": f"Stage {turn_index + 1} official Nemotron 3.5 live probe.",
                         "turn_index": turn_index + 1,
                         "is_concluded": (turn_index >= max_turns or "conclude" in clean_reply.lower() or "evaluation" in clean_reply.lower()),
                         "source": "openrouter_nemotron"
                     }
             except Exception as e:
-                logger.warning(f"OpenRouter official turn failed, using fallback: {e}")
+                logger.warning(f"OpenRouter official turn failed, attempting secondary provider: {e}")
 
-        # Intelligent context-aware deterministic fallback (extracts key topics spoken by user)
-        company_ref = f" at {target_company}" if target_company else ""
-        extracted_topics = []
-        lowered_user = user_message.lower()
-        for word in ["pytorch", "cuda", "mri", "imaging", "grpc", "rest", "raft", "postgres", "sql", "kafka", "docker", "kubernetes", "latency", "funnel", "usability", "research", "pipeline", "model", "cloud", "aws", "security"]:
-            if word in lowered_user:
-                extracted_topics.append(word)
-        topic_phrase = f" on {', '.join(extracted_topics[:2])}" if extracted_topics else ""
+        # Tier 2: Try Google Gemini 1.5 Flash
+        gemini_key = self.get_gemini_api_key()
+        if gemini_key and not gemini_key.startswith("test_mock") and len(gemini_key) > 10:
+            try:
+                system_prompt = self.build_official_interview_system_prompt(
+                    candidate_name=candidate_name,
+                    job_role=job_role,
+                    target_company=target_company,
+                    experience_level=experience_level,
+                    cv_text=cv_text,
+                    job_description=job_description,
+                    interview_type=interview_type,
+                    interview_duration=interview_duration,
+                    interviewer_tone=interviewer_tone,
+                    turn_index=turn_index,
+                    max_turns=max_turns
+                )
+                messages = [{"role": "system", "content": system_prompt}]
+                for msg in conversation_history:
+                    c = msg.get("content", "").strip()
+                    if c:
+                        messages.append({"role": msg.get("role", "user"), "content": c})
+                if not messages or messages[-1].get("content") != user_message.strip():
+                    messages.append({"role": "user", "content": user_message.strip()})
 
-        if turn_index == 1:
-            reply = (
-                f"Thank you for that thorough introduction, {candidate_name}. "
-                f"That's a very compelling background leading up to this {job_role} role{company_ref}. "
-                f"Diving into your direct experience{topic_phrase}: could you walk me through the most technically demanding project or system architecture you've spearheaded recently, and the core engineering challenge you had to solve?"
-            )
-        elif turn_index == 2:
-            reply = (
-                f"I appreciate that breakdown{topic_phrase}, {candidate_name}. "
-                "Working through complex technical architectures naturally surfaces trade-offs and team friction. "
-                f"Tell me about a specific time during that project where you had a significant disagreement with a teammate or engineering manager over technical priorities or trade-offs. What was the conflict, and how did you resolve it?"
-            )
-        elif turn_index == 3 and turn_index < max_turns:
-            reply = (
-                f"Navigating technical deadlocks with structured evidence is essential in high-impact teams, {candidate_name}. "
-                f"Looking back on that solution{topic_phrase}: when requirements or scale unexpectedly spiked, how did you handle bottlenecks, failure modes, or architectural trade-offs to ensure resilience?"
-            )
-        elif turn_index == 4 and turn_index < max_turns:
-            reply = (
-                f"That demonstrates strong systems thinking and resilience, {candidate_name}. "
-                f"Beyond the technical execution, how did you verify the measurable outcome and business impact? What concrete quantitative metrics or KPIs validated that this succeeded?"
-            )
-        elif turn_index == 5 and turn_index < max_turns:
-            reply = (
-                f"I appreciate those quantified results{topic_phrase}, {candidate_name}. "
-                f"If you had to reflect on that entire lifecycle from inception to deployment, what was your single biggest retrospective takeaway or something you would redesign with hindsight?"
-            )
-        elif turn_index == 6 and turn_index < max_turns:
-            reply = (
-                f"That self-awareness and iterative mindset are critical for senior leadership, {candidate_name}. "
-                f"Moving into cross-functional collaboration: how do you typically bridge the gap between engineering priorities and non-technical stakeholders or product managers when deadlines are tight?"
-            )
-        elif turn_index >= 7 and turn_index < max_turns:
-            reply = (
-                f"Managing stakeholder expectations while upholding quality is a vital balance, {candidate_name}. "
-                f"Can you describe how you mentor peers, elevate team standards, or drive technical strategy across broader initiatives?"
-            )
-        else:
-            reply = (
-                f"Those are great insights and quantified results{topic_phrase}, {candidate_name}. "
-                "Thank you for walking through your experience with me today—it gave me a great window into how you lead and solve complex challenges. "
-                "That brings our interview questions to a close, and I'll now finalize your comprehensive rubric scorecard."
-            )
+                gemini_content = await self.call_gemini_turn(messages, temperature=0.65)
+                if gemini_content and len(gemini_content.strip()) > 15:
+                    clean_reply = self._clean_llm_reply(gemini_content)
+                    return {
+                        "interviewer_message": clean_reply,
+                        "followup_question": clean_reply,
+                        "reasoning": f"Stage {turn_index + 1} official Gemini 1.5 Flash live probe.",
+                        "turn_index": turn_index + 1,
+                        "is_concluded": (turn_index >= max_turns or "conclude" in clean_reply.lower() or "evaluation" in clean_reply.lower()),
+                        "source": "gemini_1.5_flash"
+                    }
+            except Exception as e:
+                logger.warning(f"Gemini official turn failed, engaging semantic dialogue engine: {e}")
+
+        # Tier 3: Adaptive Semantic Dialogue Engine (High-Fidelity Context-Aware NLP)
+        return self._synthesize_semantic_interview_turn(
+            conversation_history=conversation_history,
+            user_message=user_message,
+            candidate_name=candidate_name,
+            job_role=job_role,
+            target_company=target_company,
+            experience_level=experience_level,
+            interview_type=interview_type,
+            interview_duration=interview_duration,
+            interviewer_tone=interviewer_tone,
+            turn_index=turn_index,
+            max_turns=max_turns
+        )
+
+    def _clean_llm_reply(self, text: str) -> str:
+        """Helper to extract clean dialogue from LLM replies, stripping markdown fences or nested JSON."""
+        clean = text.strip().strip('"').strip("'")
+        if clean.startswith("{") and "}" in clean:
+            parsed = self._clean_json_output(clean)
+            if isinstance(parsed, dict):
+                clean = parsed.get("followup_question") or parsed.get("interviewer_message") or clean
+        clean = re.sub(r'\*\*(.*?)\*\*', r'\1', str(clean))
+        return clean.strip()
+
+    async def call_gemini_turn(self, messages: List[Dict[str, str]], temperature: float = 0.65) -> Optional[str]:
+        """Executes a multi-turn conversation turn using Google Gemini 1.5 Flash."""
+        key = self.get_gemini_api_key()
+        if not key or key.startswith("test_mock") or len(key) < 10:
+            return None
+
+        contents = []
+        for msg in messages:
+            role = "user" if msg.get("role") in ("user", "system") else "model"
+            contents.append({"role": role, "parts": [{"text": msg.get("content", "")}]})
+
+        try:
+            async with httpx.AsyncClient(timeout=20.0) as client:
+                resp = await client.post(
+                    f"{GEMINI_API_URL}?key={key}",
+                    json={
+                        "contents": contents,
+                        "generationConfig": {
+                            "temperature": temperature,
+                            "maxOutputTokens": 600
+                        }
+                    }
+                )
+                if resp.status_code == 200:
+                    data = resp.json()
+                    candidates = data.get("candidates", [])
+                    if candidates:
+                        text = candidates[0].get("content", {}).get("parts", [{}])[0].get("text", "")
+                        if text and len(text.strip()) > 15:
+                            return text.strip()
+                else:
+                    logger.warning(f"Gemini turn HTTP {resp.status_code}: {resp.text[:200]}")
+        except Exception as e:
+            logger.warning(f"Gemini turn call failed: {e}")
+        return None
+
+    def _extract_candidate_semantics(self, text: str, conversation_history: List[Dict[str, str]] = None) -> Dict[str, Any]:
+        """
+        Deep semantic entity extraction, action mining, and metric identification
+        from candidate responses to dynamically ground interviewer turns in what the candidate actually spoke.
+        """
+        cleaned = text.strip()
+        lowered = cleaned.lower()
+
+        # Domain Taxonomy (Distributed, Languages, AI/ML, Cloud, Frontend, UX, Product, Finance, Healthcare, Hardware)
+        domain_vocabulary = [
+            "raft", "paxos", "consensus", "grpc", "rest", "graphql", "microservices", "kafka", "rabbitmq",
+            "flink", "spark", "postgres", "postgresql", "mysql", "mongodb", "redis", "dynamodb", "cassandra",
+            "elasticsearch", "docker", "kubernetes", "k8s", "terraform", "aws", "gcp", "azure", "ci/cd",
+            "latency", "throughput", "concurrency", "distributed", "sharding", "replication", "partition",
+            "caching", "2pc", "saga", "rate limiting", "load balancer", "websocket", "fault tolerance",
+            "python", "java", "c++", "c#", "go", "golang", "rust", "typescript", "javascript", "scala",
+            "kotlin", "swift", "php", "ruby", "sql", "bash", "shell", "unity",
+            "pytorch", "tensorflow", "keras", "opencv", "tensorrt", "cuda", "ros", "ros2", "llm", "rag",
+            "transformer", "nlp", "computer vision", "segmentation", "bert", "embeddings", "vector db",
+            "react", "vue", "angular", "next.js", "tailwind", "swiftui", "jetpack compose", "flutter",
+            "react native", "webrtc", "canvas", "webgl", "figma", "usability", "wireframe", "heuristic",
+            "cognitive walkthrough", "sus", "user research", "a/b test", "conversion", "retention",
+            "onboarding", "checkout funnel", "accessibility", "wcag",
+            "prd", "roadmap", "backlog", "sprint", "agile", "scrum", "stakeholders", "kpi", "okr",
+            "arr", "gmv", "roi", "ltv", "cac", "mvp", "feature toggle", "dynamic pricing",
+            "telehealth", "mri", "imaging", "dicom", "hipaa", "clinical", "ledger", "checkout", "payment",
+            "stripe", "billing", "fraud", "drone", "quadcopter", "robotics", "embedded", "firmware", "iot",
+            "sensor", "telemetry", "monolith", "technical debt", "bottleneck", "failover", "resilience"
+        ]
+
+        found_tech = []
+        for term in domain_vocabulary:
+            if re.search(r'\b' + re.escape(term) + r'\b', lowered):
+                found_tech.append(term)
+
+        # PascalCase / Acronyms / CamelCase discovery (e.g. OpenCV, TensorRT, FastAPI, gRPC, NoSQL, ClickHouse)
+        capitalized_terms = re.findall(r'\b(?:[A-Z]{2,}|[A-Z][a-z0-9]+[A-Z][a-zA-Z0-9]*)\b', cleaned)
+        for cap in capitalized_terms:
+            if cap.lower() not in [t.lower() for t in found_tech] and len(cap) > 2:
+                if cap.lower() not in {"and", "the", "for", "with", "this", "that", "from", "doctor", "vance"}:
+                    found_tech.append(cap)
+
+        # Metrics, Timelines & Quantified Outcomes
+        metrics = re.findall(
+            r'(?:\$\d+(?:\.\d+)?[kKmMbB]?|\b\d+(?:\.\d+)?%|\b\d+(?:\.\d+)?\s*(?:ms|seconds|minutes|hours|days|weeks|months|years|tps|qps|requests|events|clusters|nodes|users|customers|drop-offs|pts)\b)',
+            cleaned,
+            re.IGNORECASE
+        )
+
+        # Action phrases and target achievements (e.g. "built an autonomous drone", "led the migration from Postgres")
+        actions = re.findall(
+            r'\b(?:i|we)\s+(?:spearheaded|built|designed|implemented|migrated|optimized|developed|architected|resolved|negotiated|launched|reduced|cut|increased|improved|scaled|benchmarked|managed|led|created|automated|refactored)\s+([^,.?!;]{4,60})',
+            cleaned,
+            re.IGNORECASE
+        )
+        clean_actions = []
+        for a in actions:
+            act = a.strip()
+            act_clean = re.sub(r'^(?:a|an|the|our|my)\s+', '', act, flags=re.IGNORECASE).strip()
+            if len(act_clean.split()) >= 2:
+                clean_actions.append(act_clean)
+
+        # Pull prior context from conversation history if current message is brief
+        prior_tech = []
+        if conversation_history:
+            for past in conversation_history:
+                if past.get("role") == "user":
+                    past_low = past.get("content", "").lower()
+                    for term in domain_vocabulary:
+                        if re.search(r'\b' + re.escape(term) + r'\b', past_low) and term not in prior_tech:
+                            prior_tech.append(term)
 
         return {
-            "interviewer_message": reply,
-            "followup_question": reply,
-            "reasoning": f"Stage {turn_index + 1} official staged interview probe.",
+            "tech": found_tech,
+            "metrics": metrics,
+            "actions": clean_actions,
+            "prior_tech": prior_tech
+        }
+
+    def _synthesize_semantic_interview_turn(
+        self,
+        conversation_history: List[Dict[str, str]],
+        user_message: str,
+        candidate_name: str,
+        job_role: str,
+        target_company: str,
+        experience_level: str,
+        interview_type: str,
+        interview_duration: str,
+        interviewer_tone: str,
+        turn_index: int,
+        max_turns: int
+    ) -> Dict[str, Any]:
+        """
+        Generates deeply context-aware, adaptive official interview turns that interpret,
+        quote, and probe candidate responses using semantic NLP.
+        """
+        semantics = self._extract_candidate_semantics(user_message, conversation_history)
+        techs = semantics["tech"]
+        metrics = semantics["metrics"]
+        actions = semantics["actions"]
+        prior_techs = semantics["prior_tech"]
+
+        # Select primary conversational anchor from candidate statements
+        if actions:
+            primary_topic = actions[0]
+        elif len(techs) >= 2:
+            primary_topic = f"{techs[0]} and {techs[1]}"
+        elif techs:
+            primary_topic = techs[0]
+        elif prior_techs:
+            primary_topic = prior_techs[0]
+        else:
+            words = [w for w in re.findall(r'\b[a-zA-Z]{4,}\b', user_message) if w.lower() not in {
+                'this', 'that', 'with', 'from', 'have', 'been', 'would', 'could', 'their', 'about',
+                'which', 'there', 'good', 'morning', 'afternoon', 'hello', 'thank', 'thanks', 'role'
+            }]
+            primary_topic = words[0] if words else f"{job_role} architecture"
+
+        company_ref = f" at {target_company}" if target_company else ""
+        metric_cite = f", particularly achieving {metrics[0]}" if metrics else ""
+
+        # Construct Stage-by-Stage tailored responses
+        if turn_index == 1:
+            reaction = (
+                f"Thank you for that thorough introduction, {candidate_name}. "
+                f"Your background with {primary_topic}{metric_cite} directly aligns with what we look for in our {job_role} team{company_ref}."
+            )
+            probe = (
+                f"Diving into your direct work on {primary_topic}: could you walk me through the most technically complex project or architecture you spearheaded there, "
+                f"and what specific engineering hurdle or bottleneck you had to overcome?"
+            )
+        elif turn_index == 2:
+            reaction = (
+                f"I appreciate that deep-dive into {primary_topic}, {candidate_name}. "
+                f"Building systems under those operational constraints{metric_cite} inevitably surfaces competing technical priorities and team friction."
+            )
+            probe = (
+                f"Tell me about a specific time during that project where you encountered a significant disagreement or differing viewpoint with a teammate, tech lead, or product partner over technical priorities or architecture trade-offs. "
+                f"What was the core debate, and how did you resolve it?"
+            )
+        elif turn_index == 3 and turn_index < max_turns:
+            reaction = (
+                f"Navigating technical deadlocks around {primary_topic} with objective data is essential in high-impact engineering teams, {candidate_name}."
+            )
+            probe = (
+                f"Looking back on that solution: when requirements, scale surges, or system dependencies unexpectedly spiked, how did you handle bottlenecks, failure modes, or architectural trade-offs to ensure resilience?"
+            )
+        elif turn_index == 4 and turn_index < max_turns:
+            reaction = (
+                f"That demonstrates strong systems thinking and operational resilience regarding {primary_topic}, {candidate_name}."
+            )
+            probe = (
+                f"Beyond the engineering delivery, how did you verify the measurable outcome and business impact? "
+                f"What concrete quantitative metrics, KPIs, or user feedback validated that this implementation succeeded?"
+            )
+        elif turn_index == 5 and turn_index < max_turns:
+            reaction = (
+                f"Those are compelling insights and quantified outcomes for {primary_topic}{metric_cite}, {candidate_name}."
+            )
+            probe = (
+                f"If you had to reflect on that entire lifecycle from inception to deployment, what was your single biggest retrospective takeaway or architectural choice you would redesign with hindsight?"
+            )
+        elif turn_index == 6 and turn_index < max_turns:
+            reaction = (
+                f"That self-awareness and iterative engineering mindset are critical for senior leadership, {candidate_name}."
+            )
+            probe = (
+                f"Moving into cross-functional execution: how do you typically bridge the gap between engineering complexities and non-technical stakeholders or product managers when roadmap deadlines are under pressure?"
+            )
+        elif turn_index >= 7 and turn_index < max_turns:
+            reaction = (
+                f"Managing stakeholder expectations while upholding quality across {primary_topic} is a vital leadership balance, {candidate_name}."
+            )
+            probe = (
+                f"Can you describe how you mentor peers, elevate team engineering standards, or drive technical strategy across broader initiatives?"
+            )
+        else:
+            reaction = (
+                f"Those are thorough insights and impressive results across {primary_topic}, {candidate_name}."
+            )
+            probe = (
+                f"Thank you for walking through your experience with me today—it gave me a great window into how you lead and solve complex challenges. "
+                f"That brings our interview questions to a close, and I'll now finalize your comprehensive rubric scorecard."
+            )
+
+        full_reply = f"{reaction} {probe}"
+        return {
+            "interviewer_message": full_reply,
+            "followup_question": full_reply,
+            "reasoning": f"Adaptive Semantic NLP probe interpreting: {primary_topic}{metric_cite}.",
             "turn_index": turn_index + 1,
             "is_concluded": turn_index >= max_turns,
-            "source": "deterministic_official_protocol"
+            "source": "semantic_dialogue_engine",
+            "extracted_topic": primary_topic,
+            "extracted_metrics": metrics
         }
 
     async def evaluate_answer_ai(

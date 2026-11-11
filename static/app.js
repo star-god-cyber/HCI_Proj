@@ -1981,7 +1981,12 @@ async function submitSimulationAnswer() {
         session_id: currentSessionId || "sess_sim",
         user_message: answer,
         turn_index: simulationTurn,
+        candidate_name: candidateProfile.name || "Candidate",
         job_role: candidateProfile.role || "Software Engineer",
+        target_company: candidateProfile.company || "",
+        experience_level: candidateProfile.level || "Mid-Level",
+        cv_text: candidateProfile.cv || "",
+        job_description: candidateProfile.jd || "",
         interview_type: candidateProfile.interviewType || "Comprehensive (STAR Behavioral + Technical)",
         interview_duration: candidateProfile.interviewDuration || "Standard Round (6-7 Questions • ~45 mins)",
         interviewer_tone: candidateProfile.interviewerTone || "Professional & Rigorous (Standard FAANG/Corporate)",
@@ -2033,11 +2038,18 @@ async function submitSimulationAnswer() {
       histPill.innerHTML = `🧠 History Buffer: <strong>${turnsCount} ${turnsCount === 1 ? 'exchange' : 'exchanges'} active</strong>`;
     }
 
+    let engineLabel = "🟢 NVIDIA Nemotron 3.5";
+    if (data.source === "gemini_1.5_flash") {
+      engineLabel = "🟢 Google Gemini 1.5 Flash";
+    } else if (data.source === "semantic_dialogue_engine") {
+      engineLabel = "⚡ Semantic NLP Engine";
+    }
+
     const currentTurnAssistantIdx = simConversationHistory.filter(m => m.role === "assistant").length - 1;
 
     chat.innerHTML += `
       <div class="chat-bubble interviewer">
-        <div class="chat-meta">DR. MARCUS VANCE • OFFICIAL INTERVIEW (${stageTitle})</div>
+        <div class="chat-meta">DR. MARCUS VANCE • OFFICIAL INTERVIEW (${stageTitle}) • <span style="color: #047857; font-weight: 600;">${engineLabel}</span></div>
         <p>${escapeHtml(reply)}</p>
         <div style="margin-top: 0.4rem;">
           <button class="btn btn-secondary btn-sm" onclick="replayInterviewerTurn(${currentTurnAssistantIdx})">🔊 Hear Audio</button>
