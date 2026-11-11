@@ -412,3 +412,13 @@ def get_user_evaluations() -> List[Dict[str, Any]]:
                 pass
             result.append(d)
         return result
+
+
+def reset_longitudinal_progress() -> bool:
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM attempts")
+        cursor.execute("DELETE FROM reflections")
+        conn.commit()
+    return True
+

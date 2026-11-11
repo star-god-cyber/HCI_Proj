@@ -40,6 +40,10 @@ document.addEventListener("DOMContentLoaded", () => {
   loadLoggedEvaluations();
   calculateLiveSusScore();
   setupSusListeners();
+  switchMainTab("B");
+  if (typeof updateContextBannerVisibility === "function") {
+    updateContextBannerVisibility("b1");
+  }
 });
 
 // ==========================================
@@ -1072,6 +1076,10 @@ function switchMainTab(tab) {
   if (secB) secB.style.display = tab === "B" ? "block" : "none";
   if (secE) secE.style.display = tab === "E" ? "block" : "none";
 
+  if (typeof updateContextBannerVisibility === "function") {
+    updateContextBannerVisibility(tab === "A" ? "a1" : "b1");
+  }
+
   stopAllAudio();
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
@@ -1463,9 +1471,56 @@ function changePersona(personaId) {
 }
 
 // ==========================================
+// 3C. NAVIGATION HISTORY & CONTEXT VISIBILITY
+// ==========================================
+let screenHistoryStack = [];
+let currentActiveScreen = "b1";
+
+function updateContextBannerVisibility(screenId) {
+  const banner = document.getElementById("interview-context-banner");
+  if (!banner) return;
+  const clean = screenId ? screenId.replace("screen-", "") : "b1";
+  // Remove candidate, role, and level banner on home screens (b1 and a1)
+  if (clean === "b1" || clean === "a1") {
+    banner.style.display = "none";
+  } else {
+    banner.style.display = "flex";
+  }
+}
+
+function recordNavigation(targetScreenId, pushHistory = true) {
+  const cleanTarget = targetScreenId.replace("screen-", "");
+  if (pushHistory && currentActiveScreen && currentActiveScreen !== cleanTarget) {
+    screenHistoryStack.push(currentActiveScreen);
+    if (screenHistoryStack.length > 30) screenHistoryStack.shift();
+  }
+  currentActiveScreen = cleanTarget;
+  updateContextBannerVisibility(cleanTarget);
+}
+
+function goBackUniversal(fallback) {
+  stopAllAudio();
+  if (typeof stopActiveRecognition === "function") {
+    try { stopActiveRecognition(); } catch (e) {}
+  }
+
+  let prev = screenHistoryStack.pop();
+  if (!prev) {
+    prev = fallback ? fallback.replace("screen-", "") : "b1";
+  }
+
+  if (prev.startsWith("a")) {
+    goToScreenA(prev, false);
+  } else {
+    goToScreenB(prev, false);
+  }
+}
+
+// ==========================================
 // 4. PROTOTYPE A (LEARNING-ORIENTED FLOW)
 // ==========================================
-function goToScreenA(screenId) {
+function goToScreenA(screenId, pushHistory = true) {
+  const cleanId = screenId.replace("screen-", "");
   const secA = document.getElementById("section-proto-a");
   if (secA && secA.style.display === "none") {
     switchMainTab("A");
@@ -1473,23 +1528,25 @@ function goToScreenA(screenId) {
   const screens = ["screen-a1", "screen-a2", "screen-a3", "screen-a4", "screen-a6", "screen-a7", "screen-a8", "screen-a9"];
   screens.forEach(id => {
     const el = document.getElementById(id);
-    if (el) el.style.display = (id === `screen-${screenId}`) ? "block" : "none";
+    if (el) el.style.display = (id === `screen-${cleanId}`) ? "block" : "none";
   });
   stopAllAudio();
   window.scrollTo({ top: 0, behavior: "smooth" });
 
-  if (screenId === "a3") {
+  recordNavigation(cleanId, pushHistory);
+
+  if (cleanId === "a3") {
     setCockpitInputModeA('voice', 'a3');
     if (autoSpeakEnabled) setTimeout(speakCurrentQuestionA, 400);
-  } else if (screenId === "a4") {
+  } else if (cleanId === "a4") {
     if (autoSpeakEnabled) setTimeout(speakFeedbackA4, 400);
-  } else if (screenId === "a6") {
+  } else if (cleanId === "a6") {
     setCockpitInputModeA('voice', 'a6');
     if (autoSpeakEnabled) setTimeout(speakFeedforwardA6, 400);
-  } else if (screenId === "a7") {
+  } else if (cleanId === "a7") {
     setCockpitInputModeA('voice', 'a7');
     if (autoSpeakEnabled) setTimeout(speakAdaptiveProbeA7, 400);
-  } else if (screenId === "a8") {
+  } else if (cleanId === "a8") {
     if (autoSpeakEnabled) setTimeout(speakComparisonA8, 400);
   }
 }
@@ -2290,18 +2347,65 @@ function renderComparisonTable(comp) {
   }
 }
 
-// Longitudinal Progress Chart
+// Open Longitudinal Progress from Interview Simulation Mode
+function openLongitudinalProgress() {
+  loadLongitudinalProgress();
+  goToScreenA("a9");
+}
+
+// Reset all longitudinal progress data (forget all data)
+async function resetLongitudinalProgress() {
+  const confirmed = confirm("Are you sure you want to forget all evaluation data and reset your progress graph? This cannot be undone.");
+  if (!confirmed) return;
+
+  try {
+    const res = await fetch("/api/progress/reset", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" }
+    });
+    const result = await res.json();
+    console.log("Progress reset response:", result);
+
+    await loadLongitudinalProgress();
+    alert("Evaluation progress data has been successfully reset.");
+  } catch (err) {
+    console.error("Failed to reset progress:", err);
+    alert("Error resetting progress data. Please try again.");
+  }
+}
+
+// Longitudinal Progress Chart (Plots all 5 parameters on time series graph)
 async function loadLongitudinalProgress() {
   try {
     const res = await fetch(`/api/progress?persona_id=${activePersona}`);
     const data = await res.json();
 
     const ctx = document.getElementById("progressChart");
+    const emptyState = document.getElementById("prog-empty-state");
+    const chartContainer = document.getElementById("prog-chart-container");
     if (!ctx) return;
 
-    const labels = data.trajectory.map(t => t.attempt_label);
-    const overallScores = data.trajectory.map(t => t.overall_score);
-    const evidenceScores = data.trajectory.map(t => t.evidence_score);
+    const trajectory = (data && Array.isArray(data.trajectory)) ? data.trajectory : [];
+
+    if (trajectory.length === 0) {
+      if (emptyState) emptyState.style.display = "block";
+      if (chartContainer) chartContainer.style.display = "none";
+      if (progressChartInstance) {
+        progressChartInstance.destroy();
+        progressChartInstance = null;
+      }
+      return;
+    }
+
+    if (emptyState) emptyState.style.display = "none";
+    if (chartContainer) chartContainer.style.display = "block";
+
+    const labels = trajectory.map((t, idx) => `Attempt ${idx + 1}`);
+    const overallScores = trajectory.map(t => Number(t.overall_score) || 0);
+    const relevanceScores = trajectory.map(t => Number(t.relevance_score != null ? t.relevance_score : t.overall_score) || 0);
+    const specificityScores = trajectory.map(t => Number(t.specificity_score != null ? t.specificity_score : t.overall_score) || 0);
+    const evidenceScores = trajectory.map(t => Number(t.evidence_score != null ? t.evidence_score : t.overall_score) || 0);
+    const structureScores = trajectory.map(t => Number(t.structure_score != null ? t.structure_score : t.overall_score) || 0);
 
     if (progressChartInstance) {
       progressChartInstance.destroy();
@@ -2313,20 +2417,60 @@ async function loadLongitudinalProgress() {
         labels: labels,
         datasets: [
           {
-            label: "Overall Score (0-10)",
+            label: "1. Overall Rating",
             data: overallScores,
             borderColor: "#2563eb",
-            backgroundColor: "rgba(37, 99, 235, 0.1)",
+            backgroundColor: "rgba(37, 99, 235, 0.08)",
+            pointBackgroundColor: "#2563eb",
+            pointRadius: 5,
+            pointHoverRadius: 7,
             tension: 0.3,
-            fill: true,
-            borderWidth: 3
+            borderWidth: 3,
+            fill: false
           },
           {
-            label: "Evidence & Outcome Score (0-10)",
-            data: evidenceScores,
-            borderColor: "#ea580c",
+            label: "2. Relevance & Directness",
+            data: relevanceScores,
+            borderColor: "#10b981",
             backgroundColor: "transparent",
-            borderDash: [5, 5],
+            pointBackgroundColor: "#10b981",
+            pointRadius: 4,
+            pointHoverRadius: 6,
+            tension: 0.3,
+            borderWidth: 2,
+            borderDash: [4, 4]
+          },
+          {
+            label: "3. Specificity & Depth",
+            data: specificityScores,
+            borderColor: "#8b5cf6",
+            backgroundColor: "transparent",
+            pointBackgroundColor: "#8b5cf6",
+            pointRadius: 4,
+            pointHoverRadius: 6,
+            tension: 0.3,
+            borderWidth: 2
+          },
+          {
+            label: "4. Evidence & Outcome (STAR Result)",
+            data: evidenceScores,
+            borderColor: "#f59e0b",
+            backgroundColor: "transparent",
+            pointBackgroundColor: "#f59e0b",
+            pointRadius: 4,
+            pointHoverRadius: 6,
+            tension: 0.3,
+            borderWidth: 2,
+            borderDash: [6, 3]
+          },
+          {
+            label: "5. Structure & Clarity",
+            data: structureScores,
+            borderColor: "#06b6d4",
+            backgroundColor: "transparent",
+            pointBackgroundColor: "#06b6d4",
+            pointRadius: 4,
+            pointHoverRadius: 6,
             tension: 0.3,
             borderWidth: 2
           }
@@ -2335,25 +2479,61 @@ async function loadLongitudinalProgress() {
       options: {
         responsive: true,
         maintainAspectRatio: false,
+        interaction: {
+          mode: "index",
+          intersect: false
+        },
+        plugins: {
+          legend: {
+            display: true,
+            position: "top",
+            labels: {
+              boxWidth: 14,
+              padding: 14,
+              font: {
+                weight: "600",
+                size: 12
+              }
+            }
+          },
+          tooltip: {
+            callbacks: {
+              title: function(items) {
+                const idx = items[0].dataIndex;
+                const item = trajectory[idx];
+                const dateStr = item && item.date ? ` (${item.date})` : "";
+                return `Attempt #${idx + 1}${dateStr}`;
+              },
+              afterTitle: function(items) {
+                const idx = items[0].dataIndex;
+                const item = trajectory[idx];
+                return item && item.question ? `Scenario: ${item.question}` : "";
+              }
+            }
+          }
+        },
         scales: {
+          x: {
+            title: {
+              display: true,
+              text: "Number of Attempt (Time Series Progression)",
+              font: { weight: "700" }
+            },
+            grid: { display: false }
+          },
           y: {
             min: 0,
             max: 10,
-            title: { display: true, text: "Rubric Rating" }
+            ticks: { stepSize: 1 },
+            title: {
+              display: true,
+              text: "Evaluation Score (0 - 10)",
+              font: { weight: "700" }
+            }
           }
         }
       }
     });
-
-    const wList = document.getElementById("prog-weaknesses");
-    if (wList && data.profile.recurring_weaknesses) {
-      wList.innerHTML = data.profile.recurring_weaknesses.map(w => `<li>${w}</li>`).join("");
-    }
-
-    const focusEl = document.getElementById("prog-focus");
-    if (focusEl) {
-      focusEl.innerText = `${data.current_focus_area}. ${data.action_advice}`;
-    }
 
   } catch (err) {
     console.error("Progress fetch error:", err);
@@ -2365,7 +2545,8 @@ async function loadLongitudinalProgress() {
 // ==========================================
 let simConversationHistory = [];
 
-function goToScreenB(screenId) {
+function goToScreenB(screenId, pushHistory = true) {
+  const cleanId = screenId.replace("screen-", "");
   const secB = document.getElementById("section-proto-b");
   if (secB && secB.style.display === "none") {
     switchMainTab("B");
@@ -2373,10 +2554,122 @@ function goToScreenB(screenId) {
   const screens = ["screen-b1", "screen-b2", "screen-b3", "screen-b6", "screen-b8"];
   screens.forEach(id => {
     const el = document.getElementById(id);
-    if (el) el.style.display = (id === `screen-${screenId}`) ? "block" : "none";
+    if (el) el.style.display = (id === `screen-${cleanId}`) ? "block" : "none";
   });
   stopAllAudio();
   window.scrollTo({ top: 0, behavior: "smooth" });
+
+  recordNavigation(cleanId, pushHistory);
+}
+
+function handleHomeModeSelectChange(mode) {
+  stopAllAudio();
+  const selA = document.getElementById("home-mode-select-a");
+  const selB = document.getElementById("home-mode-select");
+  if (selA) selA.value = mode;
+  if (selB) selB.value = mode;
+
+  if (mode === "A") {
+    goToScreenA("a1");
+  } else {
+    goToScreenB("b1");
+  }
+}
+
+function goToHomeUniversal() {
+  stopAllAudio();
+  if (typeof stopActiveRecognition === "function") {
+    try { stopActiveRecognition(); } catch (e) {}
+  }
+
+  // If inside an active simulation interview session, prompt user before navigating away
+  if (currentActiveScreen === "b3") {
+    const confirmExit = confirm("Are you sure you want to pause/exit the current interview and return to Home?");
+    if (!confirmExit) return;
+  }
+
+  // Determine current preferred mode
+  const selA = document.getElementById("home-mode-select-a");
+  const selB = document.getElementById("home-mode-select");
+  const preferredMode = (selB && selB.value) || (selA && selA.value) || (currentActiveScreen && currentActiveScreen.startsWith("a") ? "A" : "B");
+
+  if (preferredMode === "A") {
+    goToScreenA("a1");
+  } else {
+    goToScreenB("b1");
+  }
+}
+
+function handleStartFromHome() {
+  const select = document.getElementById("home-mode-select");
+  const mode = select ? select.value : "B";
+  if (mode === "A") {
+    goToScreenA("a2");
+  } else {
+    goToScreenB("b2");
+  }
+}
+
+function handleAutoFillFromHome() {
+  const select = document.getElementById("home-mode-select");
+  const mode = select ? select.value : "B";
+  if (mode === "A") {
+    cycleDemoPortfolioAndOpen("A");
+  } else {
+    cycleDemoPortfolioAndOpen("B");
+  }
+}
+
+function handleB2ModeSwitch(mode) {
+  const btn = document.getElementById("btn-start-b");
+  const hint = document.getElementById("b2-mode-hint");
+  if (mode === "A") {
+    if (btn) btn.innerText = "🚀 Begin Feedback-Based Practice →";
+    if (hint) hint.innerHTML = "Switched to <strong>Feedback-Based Interview Practice</strong>. Clicking start will launch the rubric-guided practice loop.";
+  } else {
+    if (btn) btn.innerText = "🎙️ Begin Interview Simulation";
+    if (hint) hint.innerHTML = "Configuring <strong>Interview Simulation</strong>. Feedback withheld until wrap-up.";
+  }
+}
+
+function handleStartSimulationOrPractice() {
+  const modeSelect = document.getElementById("b2-prototype-mode");
+  const mode = modeSelect ? modeSelect.value : "B";
+  if (mode === "A") {
+    const bName = document.getElementById("b-name");
+    const bCompany = document.getElementById("b-company");
+    const bRole = document.getElementById("b-role");
+    const bLevel = document.getElementById("b-level");
+    const bType = document.getElementById("b-type");
+    const bDuration = document.getElementById("b-duration");
+    const bDifficulty = document.getElementById("b-difficulty");
+    const bCv = document.getElementById("b-cv");
+    const bJd = document.getElementById("b-jd");
+
+    const aName = document.getElementById("a-name");
+    const aCompany = document.getElementById("a-company");
+    const aRole = document.getElementById("a-role");
+    const aLevel = document.getElementById("a-level");
+    const aType = document.getElementById("a-type");
+    const aDuration = document.getElementById("a-duration");
+    const aDifficulty = document.getElementById("a-difficulty");
+    const aCv = document.getElementById("a-cv");
+    const aJd = document.getElementById("a-jd");
+
+    if (bName && aName) aName.value = bName.value;
+    if (bCompany && aCompany) aCompany.value = bCompany.value;
+    if (bRole && aRole) aRole.value = bRole.value;
+    if (bLevel && aLevel) aLevel.value = bLevel.value;
+    if (bType && aType) aType.value = bType.value;
+    if (bDuration && aDuration) aDuration.value = bDuration.value;
+    if (bDifficulty && aDifficulty) aDifficulty.value = bDifficulty.value;
+    if (bCv && aCv) aCv.value = bCv.value;
+    if (bJd && aJd) aJd.value = bJd.value;
+
+    startSessionA();
+  } else {
+    startSessionB();
+  }
 }
 
 async function startSessionB() {
@@ -3628,4 +3921,14 @@ window.speakFeedbackA4 = speakFeedbackA4;
 window.speakFeedforwardA6 = speakFeedforwardA6;
 window.speakAdaptiveProbeA7 = speakAdaptiveProbeA7;
 window.speakComparisonA8 = speakComparisonA8;
+window.handleHomeModeSelectChange = handleHomeModeSelectChange;
+window.handleStartFromHome = handleStartFromHome;
+window.handleAutoFillFromHome = handleAutoFillFromHome;
+window.handleB2ModeSwitch = handleB2ModeSwitch;
+window.handleStartSimulationOrPractice = handleStartSimulationOrPractice;
+window.goBackUniversal = goBackUniversal;
+window.updateContextBannerVisibility = updateContextBannerVisibility;
+window.goToHomeUniversal = goToHomeUniversal;
+window.openLongitudinalProgress = openLongitudinalProgress;
+window.resetLongitudinalProgress = resetLongitudinalProgress;
 

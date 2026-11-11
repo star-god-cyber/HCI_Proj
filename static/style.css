@@ -579,8 +579,17 @@ header {
 /* Main Container */
 main {
   max-width: 1200px;
-  margin: 1.5rem auto;
+  margin: 3.25rem auto 1.5rem;
   padding: 0 1.25rem 3rem;
+}
+
+.top-floating-left-controls {
+  position: fixed;
+  top: 1rem;
+  left: 1rem;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
 }
 
 .card {

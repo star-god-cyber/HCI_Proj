@@ -301,6 +301,21 @@ class TestAPIEndpoints(unittest.TestCase):
         self.assertTrue(data_beh.get("ambiguity_detected"))
         self.assertIn("ambiguity_notice", data_beh)
 
+    def test_progress_reset(self):
+        reset_resp = self.client.post("/api/progress/reset")
+        self.assertEqual(reset_resp.status_code, 200)
+        self.assertEqual(reset_resp.json()["status"], "success")
+
+        # Verify empty trajectory
+        prog_resp = self.client.get("/api/progress")
+        self.assertEqual(prog_resp.status_code, 200)
+        self.assertEqual(prog_resp.json()["total_attempts"], 0)
+        self.assertEqual(len(prog_resp.json()["trajectory"]), 0)
+
+        # Re-initialize DB seeds for other test cases
+        from app.database import init_db
+        init_db()
+
 
 if __name__ == "__main__":
     unittest.main()

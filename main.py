@@ -36,6 +36,7 @@ from app.database import (
     save_reflection,
     get_attempts_for_question,
     get_longitudinal_progress,
+    reset_longitudinal_progress,
     save_user_evaluation,
     get_user_evaluations
 )
@@ -268,6 +269,41 @@ async def evaluate_simulation_endpoint(req: SimulationEvaluationRequest):
         sess["overall_score"] = eval_result.get("overall_score", 0.0)
         sess["status"] = "completed"
         save_session(sess)
+
+    # Persist simulation evaluation into attempts for longitudinal tracking
+    try:
+        sim_overall = float(eval_result.get("overall_score", 7.5))
+        c_matrix = {c.get("id"): float(c.get("score", sim_overall)) for c in eval_result.get("competency_matrix", []) if isinstance(c, dict)}
+        
+        rel_score = c_matrix.get("executive_communication", c_matrix.get("politeness_refined_language_inquiry", sim_overall))
+        spec_score = c_matrix.get("role_specific_technical", c_matrix.get("technical_proficiency", sim_overall))
+        evid_score = c_matrix.get("behavioral_ownership", sim_overall)
+        struct_score = c_matrix.get("systemic_problem_solving", sim_overall)
+
+        rel_score = round(max(1.0, min(10.0, rel_score)), 1)
+        spec_score = round(max(1.0, min(10.0, spec_score)), 1)
+        evid_score = round(max(1.0, min(10.0, evid_score)), 1)
+        struct_score = round(max(1.0, min(10.0, struct_score)), 1)
+
+        sim_eval_data = {
+            "overall_score": sim_overall,
+            "relevance": {"score": rel_score},
+            "specificity": {"score": spec_score},
+            "evidence_outcome": {"score": evid_score},
+            "structure_clarity": {"score": struct_score}
+        }
+
+        sim_sess_id = req.session_id or f"sim_sess_{int(time.time())}"
+        save_attempt(
+            session_id=sim_sess_id,
+            question_id=1,
+            attempt_number=1,
+            question_text=f"Interview Simulation: {job_role}",
+            answer_text=f"Completed interview simulation for {cand_name}.",
+            evaluation=sim_eval_data
+        )
+    except Exception as e:
+        logger.warning(f"Notice saving simulation attempt: {e}")
 
     return eval_result
 
@@ -747,6 +783,15 @@ async def transcribe_audio(audio: UploadFile = File(...)):
 async def get_progress(persona_id: str = "aditi"):
     data = get_longitudinal_progress(persona_id)
     return data
+
+
+@app.post("/api/progress/reset")
+async def reset_progress_endpoint():
+    reset_longitudinal_progress()
+    for s_id, s in active_sessions.items():
+        if "attempts" in s:
+            s["attempts"] = []
+    return {"status": "success", "message": "All longitudinal progress data has been reset."}
 
 
 @app.get("/api/export-docx/{session_id}")

@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Self-Directed AI-Assisted Interview Practice Interface</title>
-  <link rel="stylesheet" href="/static/style.css?v=20261111_v21">
+  <title>AI Interview Practice System</title>
+  <link rel="stylesheet" href="/static/style.css?v=20261112_v25">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Comic+Sans+MS&display=swap" rel="stylesheet">
@@ -26,47 +26,27 @@
 </head>
 <body>
 
-  <!-- Navigation Bar -->
-  <header>
-    <div class="nav-container">
-      <div class="logo-group">
-        <div class="logo-title">
-          <h1>AI Interview Practice System</h1>
-          <p>Self-Directed • Transparent Rubric • Adaptive Reflection</p>
-        </div>
-      </div>
+  <!-- Floating Fixed Top-Left Home Button (Accessible from anywhere) -->
+  <div class="top-floating-left-controls" style="position: fixed; top: 1rem; left: 1rem; z-index: 1000; display: flex; align-items: center;">
+    <button class="btn btn-secondary btn-sm" id="btn-global-home" onclick="goToHomeUniversal()" title="Return to Home" style="box-shadow: 0 2px 8px rgba(0,0,0,0.12); border-radius: 20px; padding: 0.45rem 1rem; font-weight: 700; display: inline-flex; align-items: center; gap: 0.4rem; cursor: pointer;">
+      🏠 Home
+    </button>
+  </div>
 
-      <div class="nav-controls">
-        <!-- Main Mode Switcher -->
-        <div class="tab-pills">
-          <button class="tab-pill active" id="nav-proto-a" onclick="switchMainTab('A')">Prototype A (Learning)</button>
-          <button class="tab-pill" id="nav-proto-b" onclick="switchMainTab('B')">Prototype B (Realism)</button>
-        </div>
-
-        <!-- Voice Settings Button -->
-        <button class="btn btn-secondary btn-sm" onclick="openConfigModal()" title="Voice Settings">
-          ⚙️ Voice Settings
-        </button>
-
-        <!-- Candidate Profile Header Badge -->
-        <div class="candidate-header-pill" id="header-cand-pill" title="Active Candidate Profile">
-          <span>👤 <strong id="header-cand-name">Candidate</strong></span>
-          <span class="pill-dot">•</span>
-          <span id="header-cand-role" class="header-role-text">Software Engineer</span>
-        </div>
-      </div>
-    </div>
-  </header>
-
-  <!-- Floating Fixed Top-Right High-Contrast Theme Toggle (Visible On Every Page & Scroll) -->
-  <button class="theme-toggle-btn" id="theme-toggle" onclick="toggleTheme()" title="Toggle Dark / Light Mode" aria-label="Toggle Theme">
-    <span class="theme-toggle-icon" id="theme-icon">🌙</span>
-    <span class="theme-toggle-label" id="theme-label">Dark</span>
-  </button>
+  <!-- Floating Fixed Top-Right Controls (Voice Settings & Theme Toggle) -->
+  <div class="top-floating-controls" style="position: fixed; top: 1rem; right: 1rem; z-index: 1000; display: flex; gap: 0.5rem; align-items: center;">
+    <button class="btn btn-secondary btn-sm" onclick="openConfigModal()" title="Voice Settings" style="box-shadow: 0 2px 8px rgba(0,0,0,0.12); border-radius: 20px; padding: 0.45rem 0.9rem; font-weight: 600;">
+      ⚙️ Voice Settings
+    </button>
+    <button class="theme-toggle-btn" id="theme-toggle" onclick="toggleTheme()" title="Toggle Dark / Light Mode" aria-label="Toggle Theme" style="position: static;">
+      <span class="theme-toggle-icon" id="theme-icon">🌙</span>
+      <span class="theme-toggle-label" id="theme-label">Dark</span>
+    </button>
+  </div>
 
   <main>
-    <!-- Dynamic Real Interview Context Cockpit Bar -->
-    <div class="interview-context-bar" id="interview-context-banner">
+    <!-- Dynamic Real Interview Context Cockpit Bar (Hidden on Home Screen) -->
+    <div class="interview-context-bar" id="interview-context-banner" style="display: none;">
       <div class="context-main">
         <span class="context-pill">👤 Candidate: <strong id="ctx-name">Candidate</strong></span>
         <span class="context-pill">🎯 Role: <strong id="ctx-role">Software Engineer</strong></span>
@@ -81,12 +61,12 @@
     <!-- ========================================== -->
     <!-- SECTION 1: PROTOTYPE A (LEARNING-ORIENTED) -->
     <!-- ========================================== -->
-    <div id="section-proto-a">
+    <div id="section-proto-a" style="display: none;">
       <!-- A1: Home -->
       <div class="card" id="screen-a1">
         <div class="annotation-tag">ANNOTATION (A1 Home): Entry point; self-directed practice and progress history. Flow: Home → Setup → Question → Feedback → Why / Reflect / Retry → Compare → Progress</div>
         <div class="card-header">
-          <h2 class="card-title">Prototype A — Immediate Feedback & Iterative Learning</h2>
+          <h2 class="card-title">Feedback-Based Interview Practice</h2>
           <p class="card-subtitle">Practice interviews independently with personalized, rubric-grounded AI feedback.</p>
         </div>
         <div class="welcome-banner">
@@ -103,10 +83,24 @@
             </div>
           </div>
         </div>
-        <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
-          <button class="btn btn-primary" onclick="goToScreenA('a2')">🚀 Start Interview Setup</button>
+
+        <!-- Practice Mode Dropdown Selector -->
+        <div class="form-group" style="margin-top: 1.25rem; margin-bottom: 1.25rem; max-width: 620px;">
+          <label class="form-label" style="font-weight: 700; font-size: 0.95rem; color: var(--text-main);">
+            🎯 Select Practice Mode:
+          </label>
+          <select class="form-control" id="home-mode-select-a" style="font-weight: 600; padding: 0.65rem 0.85rem; border: 2px solid var(--primary);" onchange="handleHomeModeSelectChange(this.value)">
+            <option value="B">Interview Simulation</option>
+            <option value="A" selected>Feedback-Based Interview Practice</option>
+          </select>
+          <p style="font-size: 0.82rem; color: var(--text-muted); margin-top: 0.35rem;" id="home-mode-desc-a">
+            Deliberate practice loop with instant rubric feedback, transparent criteria score breakdown, and structured Attempt 2 retry.
+          </p>
+        </div>
+
+        <div style="display: flex; gap: 1rem; flex-wrap: wrap; align-items: center;">
+          <button class="btn btn-primary" onclick="goToScreenA('a2')">🚀 Start Practice Setup</button>
           <button class="btn btn-secondary" onclick="cycleDemoPortfolioAndOpen('A')">🎲 Auto-Fill Sample & Setup</button>
-          <button class="btn btn-outline" onclick="goToScreenA('a9')">📊 View Longitudinal Progress</button>
         </div>
       </div>
 
@@ -218,7 +212,7 @@
         <div style="display: flex; gap: 1rem; flex-wrap: wrap; align-items: center;">
           <button class="btn btn-primary" id="btn-start-a" onclick="startSessionA()">🚀 Begin Practice Interview</button>
           <button class="btn btn-secondary" onclick="cycleDemoPortfolio('A')">🎲 Cycle Sample Portfolio</button>
-          <button class="btn btn-outline" onclick="goToScreenA('a1')">Back</button>
+          <button class="btn btn-outline" onclick="goBackUniversal('a1')">← Back</button>
         </div>
       </div>
 
@@ -312,7 +306,8 @@
               <span class="pill-divider" style="margin: 0 0.5rem;">•</span>
               <span style="color: var(--text-muted); font-size: 0.8rem;">Recommended: 80 - 200 words following STAR framework</span>
             </div>
-            <div class="dock-controls-group">
+            <div class="dock-controls-group" style="display: flex; gap: 0.5rem; align-items: center;">
+              <button class="btn btn-outline" onclick="goBackUniversal('a2')">← Back to Setup</button>
               <button class="btn btn-primary" id="btn-submit-a" onclick="submitAnswerA(1)">Submit Answer for Evaluation →</button>
             </div>
           </div>
@@ -604,9 +599,9 @@
             <a class="btn btn-outline btn-sm" id="btn-dl-pptx-a4" href="#" target="_blank">📊 Export Slides (.PPTX)</a>
           </div>
           <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
+            <button class="btn btn-outline" onclick="goBackUniversal('a3')">← Back to Question</button>
             <button class="btn btn-outline" onclick="openWhyFeedbackModal()">🔍 Why This Feedback? (Audit Details)</button>
             <button class="btn btn-primary" onclick="goToScreenA('a6')">📝 Reflect & Try Again (Attempt 2) →</button>
-            <button class="btn btn-secondary" onclick="goToScreenA('a9')">📊 Skip to Progress</button>
           </div>
         </div>
         </div>
@@ -714,7 +709,7 @@
               <span style="color: var(--text-muted); font-size: 0.8rem;">Auto-forwards to Attempt 2 on pause, or click save</span>
             </div>
             <div class="dock-controls-group" style="display: flex; gap: 0.5rem;">
-              <button class="btn btn-outline" onclick="goToScreenA('a4')">Back to Feedback</button>
+              <button class="btn btn-outline" onclick="goBackUniversal('a4')">← Back to Feedback</button>
               <button class="btn btn-primary" id="btn-save-reflection-a" onclick="saveReflectionA()">💾 Save & Proceed to Attempt 2 (Retry) →</button>
             </div>
           </div>
@@ -826,7 +821,8 @@
               <span class="pill-divider" style="margin: 0 0.5rem;">•</span>
               <span style="color: var(--text-muted); font-size: 0.8rem;">Recommended: 80 - 200 words incorporating STAR results</span>
             </div>
-            <div class="dock-controls-group">
+            <div class="dock-controls-group" style="display: flex; gap: 0.5rem; align-items: center;">
+              <button class="btn btn-outline" onclick="goBackUniversal('a6')">← Back to Reflection</button>
               <button class="btn btn-primary" id="btn-submit-a7" onclick="submitAnswerA(2)">Submit Revision for Comparison →</button>
             </div>
           </div>
@@ -909,8 +905,8 @@
             <a class="btn btn-outline btn-sm" id="btn-dl-docx-a8" href="#" target="_blank">📄 Export Dossier (.DOCX)</a>
             <a class="btn btn-outline btn-sm" id="btn-dl-pptx-a8" href="#" target="_blank">📊 Export Slides (.PPTX)</a>
           </div>
-          <div style="display: flex; gap: 1rem;">
-            <button class="btn btn-outline" onclick="goToScreenA('a9')">📊 View Longitudinal Progress</button>
+          <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center;">
+            <button class="btn btn-outline" onclick="goBackUniversal('a7')">← Back to Revision</button>
             <button class="btn btn-primary" id="btn-next-question-a8" onclick="nextQuestionA()">Next Question →</button>
           </div>
         </div>
@@ -919,41 +915,34 @@
 
       <!-- A9: Progress Tracker -->
       <div class="card" id="screen-a9" style="display: none;">
-        <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;">
+        <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
           <div>
-            <h2 class="card-title">A9: Longitudinal Performance History</h2>
-            <p class="card-subtitle">Tracking mastery and recurring weaknesses across sessions.</p>
+            <h2 class="card-title">Longitudinal Performance Progress</h2>
+            <p class="card-subtitle">Time-series tracking of all 5 evaluation parameters across attempts.</p>
           </div>
-          <div style="display: flex; gap: 0.5rem;">
-            <a class="btn btn-secondary btn-sm" id="btn-dl-docx" href="#" target="_blank">📄 Download DOCX Report</a>
-            <a class="btn btn-secondary btn-sm" id="btn-dl-pptx" href="#" target="_blank">📊 Download PPTX Summary</a>
+          <div>
+            <button class="btn btn-outline btn-danger btn-sm" onclick="resetLongitudinalProgress()">🗑️ Reset Progress (Forget All Data)</button>
           </div>
         </div>
 
-        <!-- Trend Chart -->
-        <div style="height: 280px; margin-bottom: 1.75rem;">
+        <!-- Trend Chart Container (Plots all 5 parameters across attempts on x-axis) -->
+        <div id="prog-chart-container" style="height: 400px; margin-bottom: 1.5rem; position: relative;">
           <canvas id="progressChart"></canvas>
         </div>
 
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem;">
-          <div style="border: 1px solid var(--border); padding: 1.25rem; border-radius: 8px;">
-            <h4 style="font-size: 0.95rem; margin-bottom: 0.5rem;">⚠️ Recurring Weaknesses</h4>
-            <ul id="prog-weaknesses" style="padding-left: 1.25rem; font-size: 0.85rem; color: var(--text-muted);">
-              <li>Tendency to omit measurable results (STAR: Result)</li>
-              <li>Understating user testing sample sizes</li>
-            </ul>
-          </div>
-          <div style="border: 1px solid var(--border); padding: 1.25rem; border-radius: 8px; background-color: var(--primary-light);">
-            <h4 style="font-size: 0.95rem; color: var(--primary); margin-bottom: 0.5rem;">🎯 Recommended Practice Focus</h4>
-            <p style="font-size: 0.88rem; color: var(--text-main);" id="prog-focus">
-              Providing concrete outcomes & measurable results. Add exact percentages or project deliverables to your conclusion.
-            </p>
-          </div>
+        <div id="prog-empty-state" style="display: none; text-align: center; padding: 3rem 1.5rem; color: var(--text-muted); font-size: 1rem; border: 2px dashed var(--border); border-radius: 10px; margin-bottom: 1.5rem;">
+          📊 No evaluation attempts recorded yet. Complete an interview simulation to start charting your time-series progression!
         </div>
 
-        <div style="display: flex; gap: 1rem;">
-          <button class="btn btn-primary" onclick="goToScreenA('a2')">🔄 Practise Again</button>
-          <button class="btn btn-secondary" onclick="goToScreenA('a1')">Home</button>
+        <!-- Bottom Controls -->
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; border-top: 1px solid var(--border); padding-top: 1.25rem;">
+          <div style="display: flex; gap: 0.75rem; align-items: center;">
+            <button class="btn btn-outline" onclick="goBackUniversal('b1')">← Back</button>
+            <button class="btn btn-secondary" onclick="goToHomeUniversal()">🏠 Home</button>
+          </div>
+          <div>
+            <button class="btn btn-danger" onclick="resetLongitudinalProgress()">🗑️ Reset Progress (Forget All Data)</button>
+          </div>
         </div>
       </div>
     </div>
@@ -961,12 +950,12 @@
     <!-- ========================================== -->
     <!-- SECTION 2: PROTOTYPE B (REALISM-ORIENTED)  -->
     <!-- ========================================== -->
-    <div id="section-proto-b" style="display: none;">
+    <div id="section-proto-b" style="display: block;">
       <!-- B1: Home -->
       <div class="card" id="screen-b1">
         <div class="annotation-tag">ANNOTATION (B1 Home): Realism-oriented simulation; uninterrupted interview experience with adaptive follow-ups (RQ2, UR1, UR3).</div>
         <div class="card-header">
-          <h2 class="card-title">Prototype B — Full Interview Simulation</h2>
+          <h2 class="card-title">Interview Simulation</h2>
           <p class="card-subtitle">Experience realistic mock interviews with conversational, adaptive follow-up questioning.</p>
         </div>
         <div class="welcome-banner welcome-banner-b">
@@ -984,16 +973,32 @@
             </div>
           </div>
         </div>
-        <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
-          <button class="btn btn-primary" onclick="goToScreenB('b2')">🎙️ Start Simulation Setup</button>
-          <button class="btn btn-secondary" onclick="cycleDemoPortfolioAndOpen('B')">🎲 Auto-Fill Sample & Setup</button>
+
+        <!-- Practice Workflow Dropdown Selector -->
+        <div class="form-group" style="margin-top: 1.25rem; margin-bottom: 1.25rem; max-width: 620px;">
+          <label class="form-label" style="font-weight: 700; font-size: 0.95rem; color: var(--text-main);">
+            🎯 Select Practice Mode:
+          </label>
+          <select class="form-control" id="home-mode-select" style="font-weight: 600; padding: 0.65rem 0.85rem; border: 2px solid var(--primary);" onchange="handleHomeModeSelectChange(this.value)">
+            <option value="B" selected>Interview Simulation</option>
+            <option value="A">Feedback-Based Interview Practice</option>
+          </select>
+          <p style="font-size: 0.82rem; color: var(--text-muted); margin-top: 0.35rem;" id="home-mode-desc">
+            Continuous corporate interview with multi-turn adaptive follow-ups; feedback withheld until conclusion.
+          </p>
+        </div>
+
+        <div style="display: flex; gap: 1rem; flex-wrap: wrap; align-items: center;">
+          <button class="btn btn-primary" id="btn-start-from-home" onclick="handleStartFromHome()">🎙️ Start Interview Simulation</button>
+          <button class="btn btn-secondary" onclick="handleAutoFillFromHome()">🎲 Auto-Fill Sample & Setup</button>
+          <button class="btn btn-outline" onclick="openLongitudinalProgress()">📊 View Longitudinal Progress</button>
         </div>
       </div>
 
       <!-- B2: Setup (User Defined Fields) -->
       <div class="card" id="screen-b2" style="display: none;">
         <div class="card-header">
-          <h2 class="card-title">B2: Simulation Configuration</h2>
+          <h2 class="card-title">Interview Configuration</h2>
           <p class="card-subtitle">Customize candidate credentials and simulation parameters.</p>
         </div>
 
@@ -1013,6 +1018,18 @@
           <button class="btn btn-primary btn-sm btn-demo-b" id="btn-demo-cycle-b" onclick="cycleDemoPortfolio('B')">
             🎲 Insert Sample Portfolio (Click to Cycle)
           </button>
+        </div>
+
+        <!-- Mode Dropdown Selector -->
+        <div class="form-group" style="background: var(--surface); padding: 0.85rem 1rem; border: 1.5px solid var(--border); border-radius: 8px; margin-bottom: 1.25rem;">
+          <label class="form-label" style="font-weight: 700; color: var(--text-main); margin-bottom: 0.35rem;">🎯 Select Practice Mode:</label>
+          <select class="form-control" id="b2-prototype-mode" onchange="handleB2ModeSwitch(this.value)" style="font-weight: 600; font-size: 0.95rem;">
+            <option value="B" selected>Interview Simulation</option>
+            <option value="A">Feedback-Based Interview Practice</option>
+          </select>
+          <span style="font-size: 0.8rem; color: var(--text-muted); display: block; margin-top: 0.3rem;" id="b2-mode-hint">
+            Configuring Interview Simulation. Select Feedback-Based Interview Practice to switch to deliberate practice with instant feedback.
+          </span>
         </div>
 
         <div class="form-group" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
@@ -1094,9 +1111,9 @@
         </div>
 
         <div style="display: flex; gap: 1rem; flex-wrap: wrap; align-items: center;">
-          <button class="btn btn-primary" id="btn-start-b" onclick="startSessionB()">🎙️ Begin Voice Simulation</button>
+          <button class="btn btn-primary" id="btn-start-b" onclick="handleStartSimulationOrPractice()">🎙️ Begin Interview Simulation</button>
           <button class="btn btn-secondary" onclick="cycleDemoPortfolio('B')">🎲 Cycle Sample Portfolio</button>
-          <button class="btn btn-outline" onclick="goToScreenB('b1')">Back</button>
+          <button class="btn btn-outline" onclick="goBackUniversal('b1')">← Back</button>
         </div>
       </div>
 
@@ -1230,8 +1247,10 @@
             <a class="btn btn-outline" id="btn-dl-sim-docx" href="#">📄 Export Official Interview Dossier (.DOCX)</a>
             <a class="btn btn-outline" id="btn-dl-sim-pptx" href="#">📊 Export Evaluation Slide Deck (.PPTX)</a>
           </div>
-          <div style="display: flex; gap: 0.75rem;">
-            <button class="btn btn-secondary" onclick="goToScreenA('a9')">📈 Longitudinal Progress</button>
+          <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center;">
+            <button class="btn btn-outline" onclick="goBackUniversal('b3')">← Back to Interview Room</button>
+            <button class="btn btn-secondary" onclick="openLongitudinalProgress()">📈 Longitudinal Progress</button>
+            <button class="btn btn-outline btn-danger" onclick="resetLongitudinalProgress()">🗑️ Reset Progress (Forget All Data)</button>
             <button class="btn btn-primary" onclick="goToScreenB('b1')">🔄 New Simulation Session</button>
           </div>
         </div>
@@ -1329,6 +1348,6 @@
     </div>
   </div>
 
-  <script src="/static/app.js?v=20261111_v21"></script>
+  <script src="/static/app.js?v=20261112_v25"></script>
 </body>
 </html>
