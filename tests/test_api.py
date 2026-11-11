@@ -257,9 +257,12 @@ class TestAPIEndpoints(unittest.TestCase):
         self.assertIn("overall_score", data_tech)
         self.assertIn("hiring_recommendation", data_tech)
         self.assertIn("competency_matrix", data_tech)
-        self.assertEqual(len(data_tech["competency_matrix"]), 4)
+        self.assertEqual(len(data_tech["competency_matrix"]), 5)
         tech_comp_names = [c["name"] for c in data_tech["competency_matrix"]]
         self.assertTrue(any("Architecture Soundness" in name for name in tech_comp_names))
+        self.assertTrue(any("Politeness" in name for name in tech_comp_names))
+        self.assertTrue(data_tech.get("ambiguity_detected"))
+        self.assertIn("ambiguity_notice", data_tech)
 
         self.assertIn("turn_evaluations", data_tech)
         self.assertEqual(len(data_tech["turn_evaluations"]), 2)
@@ -289,11 +292,14 @@ class TestAPIEndpoints(unittest.TestCase):
         self.assertEqual(res_beh.status_code, 200)
         data_beh = res_beh.json()
 
-        self.assertEqual(len(data_beh["competency_matrix"]), 4)
+        self.assertEqual(len(data_beh["competency_matrix"]), 5)
         beh_comp_names = [c["name"] for c in data_beh["competency_matrix"]]
         # Verify criteria are completely different from technical track
         self.assertTrue(any("STAR Framework Rigor" in name for name in beh_comp_names))
+        self.assertTrue(any("Politeness" in name for name in beh_comp_names))
         self.assertFalse(any("Architecture Soundness" in name for name in beh_comp_names))
+        self.assertTrue(data_beh.get("ambiguity_detected"))
+        self.assertIn("ambiguity_notice", data_beh)
 
 
 if __name__ == "__main__":

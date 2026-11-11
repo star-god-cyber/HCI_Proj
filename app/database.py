@@ -207,6 +207,30 @@ def save_session(session_data: Dict[str, Any]):
         conn.commit()
 
 
+def get_session(session_id: str) -> Optional[Dict[str, Any]]:
+    """Retrieves full session history including attempts and reflections from SQLite."""
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM sessions WHERE id = ?", (session_id,))
+        row = cursor.fetchone()
+        if not row:
+            return None
+        sess = dict(row)
+
+        cursor.execute("SELECT * FROM attempts WHERE session_id = ? ORDER BY attempt_number ASC", (session_id,))
+        att_rows = cursor.fetchall()
+        attempts = []
+        for a in att_rows:
+            ad = dict(a)
+            ad["evaluation"] = json.loads(ad["eval_json"]) if ad.get("eval_json") else {}
+            attempts.append(ad)
+        sess["attempts"] = attempts
+
+        cursor.execute("SELECT * FROM reflections WHERE session_id = ?", (session_id,))
+        sess["reflections"] = [dict(r) for r in cursor.fetchall()]
+        return sess
+
+
 def save_attempt(
     session_id: str,
     question_id: int,
@@ -282,15 +306,24 @@ def get_longitudinal_progress(persona_id: str = "aditi") -> Dict[str, Any]:
     with get_db() as conn:
         cursor = conn.cursor()
 
-        # Get all attempts
+        # Get all attempts for persona or fall back to overall practice trajectory
         cursor.execute("""
             SELECT a.*, s.job_role, s.created_at as session_date 
             FROM attempts a
             JOIN sessions s ON a.session_id = s.id
-            WHERE s.persona_id = ? OR s.persona_id = 'aditi'
+            WHERE s.persona_id = ?
             ORDER BY a.created_at ASC
         """, (persona_id,))
         attempts = [dict(r) for r in cursor.fetchall()]
+
+        if not attempts:
+            cursor.execute("""
+                SELECT a.*, s.job_role, s.created_at as session_date 
+                FROM attempts a
+                JOIN sessions s ON a.session_id = s.id
+                ORDER BY a.created_at ASC
+            """)
+            attempts = [dict(r) for r in cursor.fetchall()]
 
         # Compute trajectory
         trajectory = []

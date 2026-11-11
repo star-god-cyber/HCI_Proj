@@ -31,6 +31,7 @@ from app.data_manager import PERSONAS, QUESTION_BANKS, get_question_bank_for_rol
 from app.database import (
     init_db,
     save_session,
+    get_session,
     save_attempt,
     save_reflection,
     get_attempts_for_question,
@@ -291,7 +292,7 @@ async def compare_user_attempts(session_id: str, question_id: int):
         # Check active session memory
         sess = active_sessions.get(session_id)
         if sess:
-            q_att = [a for a in sess["attempts"] if a["question_id"] == question_id]
+            q_att = [a for a in sess.get("attempts", []) if a.get("question_id") == question_id]
             if len(q_att) >= 2:
                 attempts = q_att
 
@@ -302,12 +303,34 @@ async def compare_user_attempts(session_id: str, question_id: int):
     att2 = attempts[1]
 
     # Re-evaluate or parse stored
-    job_role = "UX Research Intern"
+    job_role = "Software Engineer"
     if session_id in active_sessions:
         job_role = active_sessions[session_id].get("job_role", job_role)
 
-    eval1 = evaluator.evaluate_answer(att1["question_text"], att1["answer_text"], job_role, 1)
-    eval2 = evaluator.evaluate_answer(att2["question_text"], att2["answer_text"], job_role, 2)
+    # Reconstruct stored evaluations if available so comparison mirrors the actual AI feedback
+    eval1 = None
+    eval2 = None
+    for target_att, is_second in [(att1, False), (att2, True)]:
+        eval_dict = target_att.get("eval_json") or target_att.get("evaluation")
+        if isinstance(eval_dict, str):
+            try:
+                eval_dict = json.loads(eval_dict)
+            except Exception:
+                eval_dict = None
+        if isinstance(eval_dict, dict) and "relevance" in eval_dict and isinstance(eval_dict["relevance"], dict):
+            try:
+                parsed_res = EvaluationResult.model_validate(eval_dict)
+                if is_second:
+                    eval2 = parsed_res
+                else:
+                    eval1 = parsed_res
+            except Exception:
+                pass
+
+    if not eval1:
+        eval1 = evaluator.evaluate_answer(att1["question_text"], att1["answer_text"], job_role, 1)
+    if not eval2:
+        eval2 = evaluator.evaluate_answer(att2["question_text"], att2["answer_text"], job_role, 2)
 
     comp = evaluator.compare_attempts(
         question_id=question_id,
@@ -441,6 +464,13 @@ async def get_config():
 async def test_openrouter_api_endpoint():
     """Live diagnostic endpoint testing OpenRouter API key validity, daily quota, and chat response."""
     return await evaluator.test_openrouter_connection()
+
+
+@app.get("/api/gemini/test")
+@app.post("/api/gemini/test")
+async def test_gemini_api_endpoint():
+    """Live diagnostic endpoint testing Google Gemini API key validity and chat response."""
+    return await evaluator.test_gemini_connection()
 
 
 @app.post("/api/config")
@@ -659,33 +689,34 @@ async def transcribe_audio(audio: UploadFile = File(...)):
             print("[Vosk Transcription Notice]:", v_err)
 
     # 2. Secondary: Gemini Free Tier if API key available
-    key = evaluator.gemini_api_key or os.environ.get("GEMINI_API_KEY", "")
+    key = evaluator.get_gemini_api_key()
     if key and len(audio_bytes) > 200:
         b64 = base64.b64encode(audio_bytes).decode("utf-8")
         mime = audio.content_type or "audio/wav"
         prompt = "Transcribe the candidate's spoken interview response verbatim. Return ONLY the transcribed text without extra commentary."
-        try:
-            async with httpx.AsyncClient(timeout=15.0) as client:
-                resp = await client.post(
-                    f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={key}",
-                    json={
-                        "contents": [{
-                            "parts": [
-                                {"inline_data": {"mime_type": mime, "data": b64}},
-                                {"text": prompt}
-                            ]
-                        }]
-                    }
-                )
-                if resp.status_code == 200:
-                    data = resp.json()
-                    candidates = data.get("candidates", [])
-                    if candidates:
-                        text = candidates[0].get("content", {}).get("parts", [{}])[0].get("text", "").strip()
-                        if text:
-                            return {"transcript": text, "source": "gemini_free_audio"}
-        except Exception:
-            pass
+        for m in ["gemini-3.5-flash", "gemini-3.5-flash-lite"]:
+            try:
+                async with httpx.AsyncClient(timeout=15.0) as client:
+                    resp = await client.post(
+                        f"https://generativelanguage.googleapis.com/v1beta/models/{m}:generateContent?key={key}",
+                        json={
+                            "contents": [{
+                                "parts": [
+                                    {"inline_data": {"mime_type": mime, "data": b64}},
+                                    {"text": prompt}
+                                ]
+                            }]
+                        }
+                    )
+                    if resp.status_code == 200:
+                        data = resp.json()
+                        candidates = data.get("candidates", [])
+                        if candidates:
+                            text = candidates[0].get("content", {}).get("parts", [{}])[0].get("text", "").strip()
+                            if text:
+                                return {"transcript": text, "source": f"gemini_{m}_audio"}
+            except Exception:
+                continue
 
     # 3. Tertiary: SpeechRecognition Google fallback (if unblocked)
     try:

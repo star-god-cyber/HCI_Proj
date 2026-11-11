@@ -34,7 +34,7 @@ DOTENV_PATH = PROJECT_ROOT / ".env"
 
 # Default Model Fallbacks
 DEFAULT_OPENROUTER_MODEL = "nvidia/nemotron-3.5-super-vl:free"
-DEFAULT_GEMINI_MODEL = "gemini-1.5-flash"
+DEFAULT_GEMINI_MODEL = "gemini-3.5-flash"
 
 
 def resolve_active_dotenv_path() -> Path:

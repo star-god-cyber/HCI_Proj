@@ -97,11 +97,11 @@
           <div style="display: flex; gap: 0.5rem; margin-top: 0.85rem; flex-wrap: wrap; align-items: center;">
             <span class="preset-label">Quick Role Presets:</span>
             <div class="quick-chips-group" style="margin-top: 0;">
-              <span class="role-chip" onclick="applyRolePresetA('Software Engineer', 'Tech / AI', 'Mid-Level', 'Behavioral (STAR)')">💻 Software Engineer</span>
-              <span class="role-chip" onclick="applyRolePresetA('Product Manager', 'SaaS / Enterprise', 'Mid-Level', 'Product Strategy')">📦 Product Manager</span>
-              <span class="role-chip" onclick="applyRolePresetA('Data Scientist', 'AI / FinTech', 'Mid-Level', 'Technical & Behavioral')">📊 Data Scientist</span>
-              <span class="role-chip" onclick="applyRolePresetA('UX Research Intern', 'Design / Research', 'Student / Intern', 'Behavioral')">🎨 UX Research Intern</span>
-              <span class="role-chip" onclick="applyRolePresetA('General / Leadership', 'Corporate / Consulting', 'Senior', 'Leadership')">💼 Leadership</span>
+              <span class="role-chip" onclick="applyRolePresetA('Software Engineer', 'Tech / AI', 'Mid-Level', 'Full Mixed Mock (Behavioral + Technical Architecture)')">💻 Software Engineer</span>
+              <span class="role-chip" onclick="applyRolePresetA('Product Manager', 'SaaS / Enterprise', 'Mid-Level', 'Situational Problem Solving & Strategy (Execution)')">📦 Product Manager</span>
+              <span class="role-chip" onclick="applyRolePresetA('Data Scientist', 'AI / FinTech', 'Mid-Level', 'Technical & System Architecture (Deep Dive)')">📊 Data Scientist</span>
+              <span class="role-chip" onclick="applyRolePresetA('UX Research Intern', 'Design / Research', 'Student / Intern', 'Behavioral & Culture Fit (STAR Method Focus)')">🎨 UX Research Intern</span>
+              <span class="role-chip" onclick="applyRolePresetA('General / Leadership', 'Corporate / Consulting', 'Senior', 'Leadership & Team Dynamics (Cross-Functional)')">💼 Leadership</span>
             </div>
           </div>
         </div>
@@ -210,8 +210,15 @@
           <label class="form-label">Target Job Description / Requirements (Optional)</label>
           <textarea class="form-control" style="min-height: 70px;" id="a-jd" placeholder="Paste specific responsibilities, required competencies, or target job post bullets..."></textarea>
         </div>
+
+        <!-- Prototype A Setup Loading Notice Box (Exactly matching Prototype B) -->
+        <div id="a2-loading-notice" class="loading-notice-box" style="display: none;">
+          <div class="typing-dots"><span></span><span></span><span></span></div>
+          <span>Connecting to Practice Coach & formulating your tailored interview questions (approx 5-10s)...</span>
+        </div>
+
         <div style="display: flex; gap: 1rem; flex-wrap: wrap; align-items: center;">
-          <button class="btn btn-primary" onclick="startSessionA()">🚀 Begin Practice Interview</button>
+          <button class="btn btn-primary" id="btn-start-a" onclick="startSessionA()">🚀 Begin Practice Interview</button>
           <button class="btn btn-secondary" onclick="cycleDemoPortfolio('A')">🎲 Cycle Sample Portfolio</button>
           <button class="btn btn-outline" onclick="goToScreenA('a1')">Back</button>
         </div>
@@ -219,88 +226,344 @@
 
       <!-- A3: Question -->
       <div class="card" id="screen-a3" style="display: none;">
-        <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
-          <div>
-            <div style="display: flex; gap: 0.4rem; align-items: center; flex-wrap: wrap;">
-              <span class="badge badge-primary" id="a3-q-num">QUESTION 1 / 3</span>
-              <span class="context-pill pill-track" id="a3-track-pill">🎯 Focus: STAR Behavioral</span>
-              <span class="context-pill pill-duration" id="a3-duration-pill">⏱️ 20 mins</span>
+        <!-- High-Fidelity Animated Deliberate Practice Coach Card (Consistent with Prototype B) -->
+        <div class="interviewer-hero" id="a3-interviewer-card">
+          <div class="avatar-wrapper" id="a3-avatar-wrapper">
+            <div class="avatar-halo"></div>
+            <div class="interviewer-avatar">💼</div>
+          </div>
+          <div class="interviewer-info">
+            <h3 id="a3-interviewer-name">Dr. Marcus Vance</h3>
+            <p id="a3-interviewer-role">Deliberate Practice AI Coach • Question Evaluation</p>
+            <div style="display: flex; gap: 0.6rem; align-items: center; margin-top: 0.35rem; flex-wrap: wrap;">
+              <span class="voice-status-pill speaking" id="a3-voice-status">🔊 Coach Speaking</span>
+              <div class="waveform-equalizer active" id="a3-equalizer">
+                <span class="wave-bar"></span>
+                <span class="wave-bar"></span>
+                <span class="wave-bar"></span>
+                <span class="wave-bar"></span>
+                <span class="wave-bar"></span>
+              </div>
             </div>
-            <h2 class="card-title" id="a3-q-text" style="margin-top: 0.5rem;">“Tell me about a time when you worked with a difficult teammate.”</h2>
           </div>
-          <div>
-            <button class="btn btn-secondary btn-sm" id="btn-read-a3" onclick="speakCurrentQuestionA()">🔊 Listen to Question</button>
+          <div class="interviewer-sound-controls">
+            <button class="btn btn-secondary btn-sm" id="btn-read-a3" onclick="speakCurrentQuestionA()">🔊 Replay</button>
+            <button class="btn btn-outline btn-sm" id="btn-mute-a3" onclick="toggleMuteAudio()">🔇 Mute</button>
+            <button class="btn btn-outline btn-sm" onclick="openConfigModal()">⚙️ Settings</button>
           </div>
-        </div>
-        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;">💡 Tip: Follow the <strong>STAR</strong> method (Situation, Task, Action, Result) and include concrete evidence.</p>
-        
-        <!-- Simple Real-Time Voice STT Panel -->
-        <div class="voice-stt-panel" id="a3-stt-panel">
-          <span class="stt-status-badge" id="a3-stt-status">🎙️ Ready for Voice Input (Click button to speak)</span>
-          <span class="stt-live-preview" id="a3-live-preview"></span>
         </div>
 
-        <div class="form-group" style="margin-top: 0.5rem;">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem; flex-wrap: wrap; gap: 0.5rem;">
-            <label class="form-label" style="margin-bottom: 0;">Your Spoken / Written Answer</label>
-            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
-              <button class="btn btn-primary btn-sm" id="btn-speech-a" onclick="toggleVoiceInputUniversal('a-answer', 'btn-speech-a', 'a3-stt-panel', 'a3-stt-status', null, null, 'a3-live-preview')">🎙️ Start Voice Input (Click to Speak)</button>
-              <button class="btn btn-secondary btn-sm" onclick="loadSampleAnswerA(1)">⚡ Load Sample Answer</button>
+        <div class="interview-context-bar" style="margin-bottom: 1.25rem; border-left: 5px solid var(--primary); padding: 1rem 1.25rem; border-radius: 8px; background: var(--surface);">
+          <div style="display: flex; gap: 0.4rem; align-items: center; flex-wrap: wrap; margin-bottom: 0.4rem;">
+            <span class="badge badge-primary" id="a3-q-num">QUESTION 1 / 3</span>
+            <span class="context-pill pill-track" id="a3-track-pill">🎯 Focus: STAR Behavioral</span>
+            <span class="context-pill pill-duration" id="a3-duration-pill">⏱️ 20 mins</span>
+          </div>
+          <h2 class="card-title" id="a3-q-text" style="margin: 0.25rem 0 0.5rem 0; font-size: 1.25rem; line-height: 1.45;">“Tell me about a time when you worked with a difficult teammate.”</h2>
+          <p style="font-size: 0.85rem; color: var(--text-muted); margin: 0;">💡 Deliberate Practice Tip: Structure your answer using the <strong>STAR</strong> method (Situation, Task, Action, Result) with verifiable outcomes.</p>
+        </div>
+
+        <!-- Modern Multimodal Interview Cockpit Dock (Prototype A) -->
+        <div class="cockpit-dock" id="a3-cockpit-dock">
+          <div class="cockpit-dock-header">
+            <div class="cockpit-mode-toggle">
+              <button class="dock-tab-btn active" id="a3-dock-btn-voice" onclick="setCockpitInputModeA('voice', 'a3')">
+                🎙️ Spoken Voice Mode (Live Streaming)
+              </button>
+              <button class="dock-tab-btn" id="a3-dock-btn-text" onclick="setCockpitInputModeA('text', 'a3')">
+                ⌨️ Keyboard / Typed Mode
+              </button>
+            </div>
+            <div class="dock-header-actions">
+              <button class="btn btn-secondary btn-sm" onclick="loadSampleAnswerA(1)">⚡ Sample Answer</button>
               <button class="btn btn-outline btn-sm" onclick="clearAnswerDirect('a-answer', 'a3-stt-status', 'a3-live-preview')">Clear</button>
             </div>
           </div>
-          <textarea class="form-control" id="a-answer" placeholder="Click 'Start Voice Input' and speak into your microphone... Words will appear live or be transcribed on completion. You may also type directly." rows="6"></textarea>
-          <div style="display: flex; justify-content: space-between; font-size: 0.8rem; color: var(--text-muted); margin-top: 0.35rem;">
-            <span id="a-word-count">0 words</span>
-            <span>Recommended: 80 - 200 words</span>
-          </div>
-        </div>
 
-        <div style="display: flex; gap: 1rem; align-items: center;">
-          <button class="btn btn-primary" id="btn-submit-a" onclick="submitAnswerA(1)">Submit Answer</button>
-          <button class="btn btn-secondary" onclick="loadSampleAnswerA(1)">Load Contextual Sample Answer (Attempt 1)</button>
+          <!-- VOICE MODE STAGE -->
+          <div id="a3-dock-voice-stage" class="dock-stage">
+            <div class="hero-mic-container">
+              <button class="hero-mic-btn" id="btn-speech-a" onclick="toggleVoiceInputUniversal('a-answer', 'btn-speech-a', 'a3-stt-panel', 'a3-stt-status', null, null, 'a3-live-preview')">
+                <span class="mic-icon-wrapper">
+                  <span class="mic-glyph" id="hero-mic-glyph-a">🎙️</span>
+                </span>
+                <span class="mic-label-group">
+                  <strong class="mic-primary-label" id="hero-mic-label-a">Click to Speak Your Answer</strong>
+                  <span class="mic-sub-label" id="hero-mic-sub-a">Transcribes in real time • Auto-sends on 3.5s pause or click</span>
+                </span>
+              </button>
+            </div>
+
+            <div class="cockpit-caption-strip" id="a3-stt-panel">
+              <div class="caption-status" id="a3-stt-status">🎙️ Ready for your response. Click the button above to speak.</div>
+              <div class="caption-preview" id="a3-live-preview"></div>
+            </div>
+          </div>
+
+          <!-- TYPED MODE STAGE -->
+          <div id="a3-dock-text-stage" class="dock-stage">
+            <div class="form-group" style="margin-bottom: 0.5rem;">
+              <textarea class="form-control" id="a-answer" rows="5" placeholder="Type or speak your answer here... Transcribes live as you speak, evaluated against the standard rubric."></textarea>
+            </div>
+          </div>
+
+          <!-- Cockpit Bottom Utility Bar -->
+          <div class="cockpit-bottom-bar">
+            <div class="dock-hint-text">
+              <span id="a-word-count">0 words</span>
+              <span class="pill-divider" style="margin: 0 0.5rem;">•</span>
+              <span style="color: var(--text-muted); font-size: 0.8rem;">Recommended: 80 - 200 words following STAR framework</span>
+            </div>
+            <div class="dock-controls-group">
+              <button class="btn btn-primary" id="btn-submit-a" onclick="submitAnswerA(1)">Submit Answer for Evaluation →</button>
+            </div>
+          </div>
+
+          <!-- Prototype A Loading Notice Box (Consistent with Prototype B) -->
+          <div id="a3-loading-notice" class="loading-notice-box" style="display: none; margin-top: 0.75rem; margin-bottom: 0;">
+            <div class="typing-dots"><span></span><span></span><span></span></div>
+            <span>Auditing response evidence against rubric anchors & calculating STAR scores (approx 4-8s)...</span>
+          </div>
         </div>
       </div>
 
       <!-- A4: AI Feedback -->
       <div class="card" id="screen-a4" style="display: none;">
-        <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+        <!-- Loading State Placeholder (Consistent with Prototype B) -->
+        <div id="a4-loading-state" style="display: none; text-align: center; padding: 3rem 1rem;">
+          <div class="typing-dots" style="margin-bottom: 1rem;"><span></span><span></span><span></span></div>
+          <h3 style="color: var(--text-main); font-size: 1.3rem;">Evaluating Response Against Standard Rubric...</h3>
+          <p style="color: var(--text-muted); font-size: 0.9rem; max-width: 540px; margin: 0.5rem auto;">Our AI evaluators are auditing your complete response against fixed BARS rubric anchors (Relevance, Specificity, Evidence & Outcome, Structure & Clarity)...</p>
+        </div>
+
+        <div id="a4-dashboard-content">
+        <!-- High-Fidelity Evaluator Card Header -->
+        <div class="interviewer-hero" id="a4-interviewer-card" style="margin-bottom: 1.25rem;">
+          <div class="avatar-wrapper" id="a4-avatar-wrapper">
+            <div class="avatar-halo"></div>
+            <div class="interviewer-avatar">💼</div>
+          </div>
+          <div class="interviewer-info">
+            <h3 id="a4-interviewer-name">Dr. Marcus Vance</h3>
+            <p id="a4-interviewer-role">Deliberate Practice Evaluator • Automated Rubric Audit</p>
+            <div style="display: flex; gap: 0.6rem; align-items: center; margin-top: 0.35rem; flex-wrap: wrap;">
+              <span class="voice-status-pill speaking" id="a4-voice-status">✓ Rubric Evaluation Complete</span>
+              <div class="waveform-equalizer" id="a4-equalizer">
+                <span class="wave-bar"></span>
+                <span class="wave-bar"></span>
+                <span class="wave-bar"></span>
+                <span class="wave-bar"></span>
+                <span class="wave-bar"></span>
+              </div>
+            </div>
+          </div>
+          <div class="interviewer-sound-controls">
+            <button class="btn btn-secondary btn-sm" id="btn-read-a4" onclick="speakFeedbackA4()">🔊 Listen to Feedback</button>
+            <button class="btn btn-outline btn-sm" id="btn-mute-a4" onclick="toggleMuteAudio()">🔇 Mute</button>
+            <button class="btn btn-outline btn-sm" onclick="openWhyFeedbackModal()">🔍 Audit Breakdown</button>
+          </div>
+        </div>
+
+        <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem;">
           <div>
             <h2 class="card-title">AI Feedback Evaluation</h2>
             <p class="card-subtitle">Transparent assessment based on fixed, inspectable rubric criteria.</p>
           </div>
           <div style="text-align: right;">
-            <div style="font-size: 0.8rem; color: var(--text-muted);">OVERALL RATING</div>
+            <div style="font-size: 0.8rem; color: var(--text-muted); display: flex; align-items: center; justify-content: flex-end; gap: 0.25rem;">
+              <span>OVERALL RATING</span>
+              <span class="metric-info-wrapper" onclick="event.stopPropagation()">
+                <button type="button" class="metric-info-btn" title="Hover to view metric explanation" aria-label="Detailed rubric definition for Overall Rating">
+                  <svg class="metric-info-svg" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+                  </svg>
+                </button>
+                <div class="metric-tooltip-popover">
+                  <div class="metric-tooltip-header">
+                    <span class="metric-tooltip-tag">RUBRIC DEFINITION & CRITERIA</span>
+                    <h4>Overall Rating & Hiring Bar</h4>
+                  </div>
+                  <div class="metric-tooltip-body">
+                    <p class="metric-tooltip-desc"><strong>What This Metric Measures:</strong><br>Holistic evaluation score synthesized across all 4 rubric dimensions (Relevance, Specificity, Evidence & Outcome, Structure & Clarity) on a 1.0 to 10.0 scale.</p>
+                    <div class="metric-tooltip-anchors">
+                      <div class="metric-anchor-row anchor-high">
+                        <span class="anchor-label">★ Strong Hire (8.8–10.0):</span>
+                        <span>Candidate demonstrates senior competency, concrete metrics, and structured STAR narrative.</span>
+                      </div>
+                      <div class="metric-anchor-row anchor-mid">
+                        <span class="anchor-label">✓ Hire / Leaning Hire (7.3–8.7):</span>
+                        <span>Candidate meets baseline expectations with moderate technical clarity and partial metrics.</span>
+                      </div>
+                      <div class="metric-anchor-row anchor-low">
+                        <span class="anchor-label">⚠️ Needs Deliberate Retry (&lt;7.3):</span>
+                        <span>Candidate misses quantifiable evidence, drifts from prompt, or lacks structured flow.</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </span>
+            </div>
             <div style="font-size: 2rem; font-weight: 800; color: var(--primary);" id="a4-overall-score">6.0 / 10</div>
           </div>
         </div>
 
-        <!-- 4 Rubric Criteria Cards -->
+        <!-- 4 Rubric Criteria Cards with Hoverable Definition Tooltips -->
         <div class="rubric-grid">
-          <div class="rubric-card" id="card-rel">
+          <div class="rubric-card" id="card-rel" onclick="openWhyFeedbackModalFor('relevance')" title="Click to view transparent rubric audit">
             <div class="rubric-header">
-              <span class="rubric-name">Relevance</span>
+              <div style="display: flex; align-items: center;">
+                <span class="rubric-name">Relevance</span>
+                <span class="metric-info-wrapper" onclick="event.stopPropagation()">
+                  <button type="button" class="metric-info-btn" title="Hover to view metric explanation" aria-label="Detailed rubric definition for Relevance">
+                    <svg class="metric-info-svg" viewBox="0 0 20 20" fill="currentColor">
+                      <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+                    </svg>
+                  </button>
+                  <div class="metric-tooltip-popover">
+                    <div class="metric-tooltip-header">
+                      <span class="metric-tooltip-tag">RUBRIC DEFINITION & CRITERIA</span>
+                      <h4>Relevance & Directness</h4>
+                    </div>
+                    <div class="metric-tooltip-body">
+                      <p class="metric-tooltip-desc"><strong>What This Metric Measures:</strong><br>Measures whether the candidate addresses the exact question prompt directly without drifting into unprompted filler context.</p>
+                      <div class="metric-tooltip-anchors">
+                        <div class="metric-anchor-row anchor-high">
+                          <span class="anchor-label">★ Exceeds Bar (8.8–10.0):</span>
+                          <span>Directly addresses core situation in opening sentence; tightly aligned with role and question objectives.</span>
+                        </div>
+                        <div class="metric-anchor-row anchor-mid">
+                          <span class="anchor-label">✓ Meets Bar (7.3–8.7):</span>
+                          <span>Partially answers prompt but includes minor tangentials or generic preamble before reaching the core point.</span>
+                        </div>
+                        <div class="metric-anchor-row anchor-low">
+                          <span class="anchor-label">⚠️ Below Bar (&lt;7.3):</span>
+                          <span>Misunderstands or evades prompt; gives generic theoretical lecture without answering the actual scenario.</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </span>
+              </div>
               <span class="rubric-score" id="a4-rel-score">8.0/10</span>
             </div>
             <p style="font-size: 0.82rem; color: var(--text-muted);" id="a4-rel-reason">Situation is clearly framed.</p>
           </div>
-          <div class="rubric-card" id="card-spec">
+
+          <div class="rubric-card" id="card-spec" onclick="openWhyFeedbackModalFor('specificity')" title="Click to view transparent rubric audit">
             <div class="rubric-header">
-              <span class="rubric-name">Specificity</span>
+              <div style="display: flex; align-items: center;">
+                <span class="rubric-name">Specificity</span>
+                <span class="metric-info-wrapper" onclick="event.stopPropagation()">
+                  <button type="button" class="metric-info-btn" title="Hover to view metric explanation" aria-label="Detailed rubric definition for Specificity">
+                    <svg class="metric-info-svg" viewBox="0 0 20 20" fill="currentColor">
+                      <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+                    </svg>
+                  </button>
+                  <div class="metric-tooltip-popover">
+                    <div class="metric-tooltip-header">
+                      <span class="metric-tooltip-tag">RUBRIC DEFINITION & CRITERIA</span>
+                      <h4>Specificity & Technical Depth</h4>
+                    </div>
+                    <div class="metric-tooltip-body">
+                      <p class="metric-tooltip-desc"><strong>What This Metric Measures:</strong><br>Evaluates concrete terminology, named tools, technologies, system architectures, and precise operational steps rather than broad generalities.</p>
+                      <div class="metric-tooltip-anchors">
+                        <div class="metric-anchor-row anchor-high">
+                          <span class="anchor-label">★ Exceeds Bar (8.8–10.0):</span>
+                          <span>Names exact tools, technologies, trade-offs, architectures, and concrete steps with senior-level depth.</span>
+                        </div>
+                        <div class="metric-anchor-row anchor-mid">
+                          <span class="anchor-label">✓ Meets Bar (7.3–8.7):</span>
+                          <span>Mentions broad technical steps and generic tools with moderate clarity.</span>
+                        </div>
+                        <div class="metric-anchor-row anchor-low">
+                          <span class="anchor-label">⚠️ Below Bar (&lt;7.3):</span>
+                          <span>Speaks only in high-level platitudes ('we collaborated', 'we solved it') without technical depth or concrete artifacts.</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </span>
+              </div>
               <span class="rubric-score" id="a4-spec-score">6.0/10</span>
             </div>
             <p style="font-size: 0.82rem; color: var(--text-muted);" id="a4-spec-reason">Mentions basic steps.</p>
           </div>
-          <div class="rubric-card highlight" id="card-evid">
+
+          <div class="rubric-card highlight" id="card-evid" onclick="openWhyFeedbackModalFor('evidence_outcome')" title="Click to view transparent rubric audit">
             <div class="rubric-header">
-              <span class="rubric-name">Evidence & Outcome</span>
+              <div style="display: flex; align-items: center;">
+                <span class="rubric-name">Evidence & Outcome</span>
+                <span class="metric-info-wrapper" onclick="event.stopPropagation()">
+                  <button type="button" class="metric-info-btn" title="Hover to view metric explanation" aria-label="Detailed rubric definition for Evidence & Outcome">
+                    <svg class="metric-info-svg" viewBox="0 0 20 20" fill="currentColor">
+                      <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+                    </svg>
+                  </button>
+                  <div class="metric-tooltip-popover">
+                    <div class="metric-tooltip-header">
+                      <span class="metric-tooltip-tag">RUBRIC DEFINITION & CRITERIA</span>
+                      <h4>Evidence & Outcome (STAR Result)</h4>
+                    </div>
+                    <div class="metric-tooltip-body">
+                      <p class="metric-tooltip-desc"><strong>What This Metric Measures:</strong><br>Verifies the presence of verifiable business impact, quantifiable metrics (latency, GMV, conversion %, test coverage), and clear resolution deliverables.</p>
+                      <div class="metric-tooltip-anchors">
+                        <div class="metric-anchor-row anchor-high">
+                          <span class="anchor-label">★ Exceeds Bar (8.8–10.0):</span>
+                          <span>Explicitly states concrete quantitative metrics, KPIs, project completion timelines, and permanent organizational impact.</span>
+                        </div>
+                        <div class="metric-anchor-row anchor-mid">
+                          <span class="anchor-label">✓ Meets Bar (7.3–8.7):</span>
+                          <span>Describes positive resolution, but metrics are vague or qualitative rather than quantified with numbers/percentages.</span>
+                        </div>
+                        <div class="metric-anchor-row anchor-low">
+                          <span class="anchor-label">⚠️ Below Bar (&lt;7.3):</span>
+                          <span>Stops entirely at the action taken; completely omits what occurred afterwards or whether the problem was resolved.</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </span>
+              </div>
               <span class="rubric-score score-warning" id="a4-evid-score">4.0/10</span>
             </div>
             <p class="rubric-reason-warning" id="a4-evid-reason">Missing tangible outcome/metric.</p>
           </div>
-          <div class="rubric-card" id="card-struct">
+
+          <div class="rubric-card" id="card-struct" onclick="openWhyFeedbackModalFor('structure_clarity')" title="Click to view transparent rubric audit">
             <div class="rubric-header">
-              <span class="rubric-name">Structure</span>
+              <div style="display: flex; align-items: center;">
+                <span class="rubric-name">Structure & Clarity</span>
+                <span class="metric-info-wrapper" onclick="event.stopPropagation()">
+                  <button type="button" class="metric-info-btn" title="Hover to view metric explanation" aria-label="Detailed rubric definition for Structure & Clarity">
+                    <svg class="metric-info-svg" viewBox="0 0 20 20" fill="currentColor">
+                      <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+                    </svg>
+                  </button>
+                  <div class="metric-tooltip-popover">
+                    <div class="metric-tooltip-header">
+                      <span class="metric-tooltip-tag">RUBRIC DEFINITION & CRITERIA</span>
+                      <h4>Structure & Narrative Arc (STAR)</h4>
+                    </div>
+                    <div class="metric-tooltip-body">
+                      <p class="metric-tooltip-desc"><strong>What This Metric Measures:</strong><br>Assesses coherent chronological progression following Situation, Task, Action, and Result with clear transitions and signposting.</p>
+                      <div class="metric-tooltip-anchors">
+                        <div class="metric-anchor-row anchor-high">
+                          <span class="anchor-label">★ Exceeds Bar (8.8–10.0):</span>
+                          <span>Flawless STAR progression with clear chronological signposting and concise transitions between problem and impact.</span>
+                        </div>
+                        <div class="metric-anchor-row anchor-mid">
+                          <span class="anchor-label">✓ Meets Bar (7.3–8.7):</span>
+                          <span>Follows chronological order, but transitions between action and result are slightly blurred or jumpy.</span>
+                        </div>
+                        <div class="metric-anchor-row anchor-low">
+                          <span class="anchor-label">⚠️ Below Bar (&lt;7.3):</span>
+                          <span>Disorganized, rambling, or fragmented narrative without clear beginning, middle, or resolution.</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </span>
+              </div>
               <span class="rubric-score" id="a4-struct-score">6.0/10</span>
             </div>
             <p style="font-size: 0.82rem; color: var(--text-muted);" id="a4-struct-reason">Actions outlined sequentially.</p>
@@ -336,44 +599,176 @@
           <div id="a4-adaptive-reasoning" style="font-size: 0.82rem; color: var(--text-muted); font-style: italic;"></div>
         </div>
 
-        <!-- Transparent Actions -->
-        <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
-          <button class="btn btn-outline" onclick="openWhyFeedbackModal()">🔍 Why This Feedback? (Audit Details)</button>
-          <button class="btn btn-primary" onclick="goToScreenA('a6')">📝 Reflect & Try Again</button>
-          <button class="btn btn-secondary" onclick="goToScreenA('a9')">📊 Skip to Progress</button>
+        <!-- Consistent Action & Dossier Export Bar -->
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem; margin-top: 1.5rem; padding-top: 1.25rem; border-top: 1px solid var(--border);">
+          <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+            <a class="btn btn-outline btn-sm" id="btn-dl-docx-a4" href="#" target="_blank">📄 Export Dossier (.DOCX)</a>
+            <a class="btn btn-outline btn-sm" id="btn-dl-pptx-a4" href="#" target="_blank">📊 Export Slides (.PPTX)</a>
+          </div>
+          <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
+            <button class="btn btn-outline" onclick="openWhyFeedbackModal()">🔍 Why This Feedback? (Audit Details)</button>
+            <button class="btn btn-primary" onclick="goToScreenA('a6')">📝 Reflect & Try Again (Attempt 2) →</button>
+            <button class="btn btn-secondary" onclick="goToScreenA('a9')">📊 Skip to Progress</button>
+          </div>
+        </div>
         </div>
       </div>
 
-      <!-- A6: Reflection -->
+      <!-- A6: Reflection & Feedforward (Dual Voice & Text Mode) -->
       <div class="card" id="screen-a6" style="display: none;">
-        <div class="card-header">
-          <h2 class="card-title">A6: Guided Reflection</h2>
-          <p class="card-subtitle">Synthesize your feedback into a concrete plan before retrying the question.</p>
+        <!-- High-Fidelity Animated Deliberate Practice Coach Card (Screen A6: Feedforward) -->
+        <div class="interviewer-hero" id="a6-interviewer-card">
+          <div class="avatar-wrapper" id="a6-avatar-wrapper">
+            <div class="avatar-halo"></div>
+            <div class="interviewer-avatar">💼</div>
+          </div>
+          <div class="interviewer-info">
+            <h3 id="a6-interviewer-name">Dr. Marcus Vance</h3>
+            <p id="a6-interviewer-role">Deliberate Practice AI Coach • Feedforward Guidance</p>
+            <div style="display: flex; gap: 0.6rem; align-items: center; margin-top: 0.35rem; flex-wrap: wrap;">
+              <span class="voice-status-pill speaking" id="a6-voice-status">🔊 Coach Ready</span>
+              <div class="waveform-equalizer" id="a6-equalizer">
+                <span class="wave-bar"></span>
+                <span class="wave-bar"></span>
+                <span class="wave-bar"></span>
+                <span class="wave-bar"></span>
+                <span class="wave-bar"></span>
+              </div>
+            </div>
+          </div>
+          <div class="interviewer-sound-controls">
+            <button class="btn btn-secondary btn-sm" id="btn-read-a6" onclick="speakFeedforwardA6()">🔊 Listen to Guidance</button>
+            <button class="btn btn-outline btn-sm" id="btn-mute-a6" onclick="toggleMuteAudio()">🔇 Mute</button>
+            <button class="btn btn-outline btn-sm" onclick="openConfigModal()">⚙️ Settings</button>
+          </div>
         </div>
-        <div class="form-group">
-          <label class="form-label">1. What would you change in your response?</label>
-          <textarea class="form-control" id="a-change" placeholder="e.g., I would add the measurable outcome and user feedback metric..."></textarea>
+
+        <div class="card-header" style="margin-top: 1rem;">
+          <div style="display: flex; gap: 0.4rem; align-items: center; margin-bottom: 0.4rem; flex-wrap: wrap;">
+            <span class="badge badge-primary">STAGE A6: GUIDED REFLECTION & FEEDFORWARD</span>
+            <span class="context-pill pill-track">🧠 Metacognitive Synthesis</span>
+            <span class="context-pill pill-duration">🎯 Goal: Formulate Measurable Revision Plan</span>
+          </div>
+          <h2 class="card-title">Synthesize Feedback into a Revision Plan</h2>
+          <p class="card-subtitle">Deliberate practice requires analyzing feedback before attempting your second revision.</p>
         </div>
-        <div class="form-group">
-          <label class="form-label">2. What did you learn from the evaluation?</label>
-          <textarea class="form-control" id="a-learn" placeholder="e.g., I need to give concrete evidence, not just actions..."></textarea>
+
+        <div class="feedback-box feedback-box-info" style="margin-bottom: 1.25rem;">
+          <strong style="color: var(--primary);">💡 Feedforward Coaching Tip:</strong>
+          <span style="font-size: 0.9rem; color: var(--text-main);"> Dictate or type specific technical changes and quantifiable metrics (latency reduction, % conversion lift, team scale) you will incorporate into your revised answer.</span>
         </div>
-        <div style="display: flex; gap: 1rem;">
-          <button class="btn btn-primary" onclick="saveReflectionA()">💾 Save & Try Again (Retry)</button>
-          <button class="btn btn-secondary" onclick="loadSampleReflectionA()">Load Sample Reflection</button>
-          <button class="btn btn-secondary" onclick="goToScreenA('a4')">Back to Feedback</button>
+
+        <!-- Modern Multimodal Cockpit Dock for Guided Reflection (Consistent with Screen A3 & A7) -->
+        <div class="cockpit-dock" id="a6-cockpit-dock">
+          <!-- Dock Mode Switcher Tabs -->
+          <div class="cockpit-dock-header">
+            <div class="cockpit-mode-toggle">
+              <button class="dock-tab-btn active" id="a6-dock-btn-voice" onclick="setCockpitInputModeA('voice', 'a6')">
+                🎙️ Spoken Voice Mode (Live Streaming)
+              </button>
+              <button class="dock-tab-btn" id="a6-dock-btn-text" onclick="setCockpitInputModeA('text', 'a6')">
+                ⌨️ Keyboard / Typed Mode
+              </button>
+            </div>
+            <div class="dock-header-actions">
+              <button class="btn btn-secondary btn-sm" onclick="loadSampleReflectionA()" title="Auto-fill high-quality contextual reflection plan">⚡ Sample Reflection</button>
+              <button class="btn btn-outline btn-sm" onclick="clearAnswerDirect('a-change', 'a6-stt-status', 'a6-live-preview')" title="Clear reflection notes">Clear</button>
+            </div>
+          </div>
+
+          <!-- VOICE MODE STAGE -->
+          <div id="a6-dock-voice-stage" class="dock-stage">
+            <div class="hero-mic-container">
+              <button class="hero-mic-btn" id="btn-speech-a6" onclick="toggleVoiceInputUniversal('a-change', 'btn-speech-a6', 'a6-stt-panel', 'a6-stt-status', null, null, 'a6-live-preview')">
+                <span class="mic-icon-wrapper">
+                  <span class="mic-glyph" id="hero-mic-glyph-a6">🎙️</span>
+                </span>
+                <span class="mic-label-group">
+                  <strong class="mic-primary-label" id="hero-mic-label-a6">Click to Speak Your Reflection</strong>
+                  <span class="mic-sub-label" id="hero-mic-sub-a6">Transcribes in real time • Auto-sends on 3.5s pause or click</span>
+                </span>
+              </button>
+            </div>
+
+            <div class="cockpit-caption-strip" id="a6-stt-panel">
+              <div class="caption-status" id="a6-stt-status">🎙️ Ready for your reflection. Click the button above to speak.</div>
+              <div class="caption-preview" id="a6-live-preview"></div>
+            </div>
+          </div>
+
+          <!-- TYPED MODE STAGE -->
+          <div id="a6-dock-text-stage" class="dock-stage">
+            <div class="form-group" style="margin-bottom: 0.75rem;">
+              <label class="form-label" style="font-weight: 600; font-size: 0.88rem;">1. What specific changes will you incorporate in your revised answer?</label>
+              <textarea class="form-control" id="a-change" rows="3" placeholder="e.g., I would add the measurable outcome and user feedback metric... Transcribes live as you speak."></textarea>
+            </div>
+            <div class="form-group" style="margin-bottom: 0.5rem;">
+              <label class="form-label" style="font-weight: 600; font-size: 0.88rem;">2. What did you learn from the automated rubric evaluation?</label>
+              <textarea class="form-control" id="a-learn" rows="3" placeholder="e.g., I need to give concrete evidence, not just actions..."></textarea>
+            </div>
+          </div>
+
+          <!-- Cockpit Bottom Utility Bar -->
+          <div class="cockpit-bottom-bar">
+            <div class="dock-hint-text">
+              <span id="a6-word-count">0 words</span>
+              <span class="pill-divider" style="margin: 0 0.5rem;">•</span>
+              <span style="color: var(--text-muted); font-size: 0.8rem;">Auto-forwards to Attempt 2 on pause, or click save</span>
+            </div>
+            <div class="dock-controls-group" style="display: flex; gap: 0.5rem;">
+              <button class="btn btn-outline" onclick="goToScreenA('a4')">Back to Feedback</button>
+              <button class="btn btn-primary" id="btn-save-reflection-a" onclick="saveReflectionA()">💾 Save & Proceed to Attempt 2 (Retry) →</button>
+            </div>
+          </div>
+
+          <!-- Loading Notice Box -->
+          <div id="a6-loading-notice" class="loading-notice-box" style="display: none; margin-top: 0.75rem; margin-bottom: 0;">
+            <div class="typing-dots"><span></span><span></span><span></span></div>
+            <span>Saving reflection and configuring Attempt 2 revision scenario...</span>
+          </div>
         </div>
       </div>
 
       <!-- A7: Retry -->
       <div class="card" id="screen-a7" style="display: none;">
-        <div class="card-header">
-          <span class="badge badge-warning" style="margin-bottom: 0.5rem;">ATTEMPT 2 (RETRY)</span>
-          <h2 class="card-title" id="a7-q-text">“Tell me about a time when you worked with a difficult teammate.”</h2>
+        <!-- High-Fidelity Animated Deliberate Practice Coach Card (Attempt 2) -->
+        <div class="interviewer-hero" id="a7-interviewer-card">
+          <div class="avatar-wrapper" id="a7-avatar-wrapper">
+            <div class="avatar-halo"></div>
+            <div class="interviewer-avatar">💼</div>
+          </div>
+          <div class="interviewer-info">
+            <h3 id="a7-interviewer-name">Dr. Marcus Vance</h3>
+            <p id="a7-interviewer-role">Deliberate Practice AI Coach • Revision Round</p>
+            <div style="display: flex; gap: 0.6rem; align-items: center; margin-top: 0.35rem; flex-wrap: wrap;">
+              <span class="voice-status-pill speaking" id="a7-voice-status">🔊 Coach Ready</span>
+              <div class="waveform-equalizer" id="a7-equalizer">
+                <span class="wave-bar"></span>
+                <span class="wave-bar"></span>
+                <span class="wave-bar"></span>
+                <span class="wave-bar"></span>
+                <span class="wave-bar"></span>
+              </div>
+            </div>
+          </div>
+          <div class="interviewer-sound-controls">
+            <button class="btn btn-secondary btn-sm" onclick="speakCurrentQuestionA()">🔊 Replay</button>
+            <button class="btn btn-outline btn-sm" id="btn-mute-a7" onclick="toggleMuteAudio()">🔇 Mute</button>
+            <button class="btn btn-outline btn-sm" onclick="openConfigModal()">⚙️ Settings</button>
+          </div>
         </div>
+
+        <div class="interview-context-bar" style="margin-bottom: 1.25rem; border-left: 5px solid var(--warning); padding: 1rem 1.25rem; border-radius: 8px; background: var(--surface);">
+          <div style="display: flex; gap: 0.4rem; align-items: center; flex-wrap: wrap; margin-bottom: 0.4rem;">
+            <span class="badge badge-warning">ATTEMPT 2 (DELIBERATE RETRY)</span>
+            <span class="context-pill pill-track">🎯 Goal: Incorporate AI Rubric Adjustments</span>
+          </div>
+          <h2 class="card-title" id="a7-q-text" style="margin: 0.25rem 0 0.5rem 0; font-size: 1.25rem; line-height: 1.45;">“Tell me about a time when you worked with a difficult teammate.”</h2>
+        </div>
+
         <div class="feedback-box feedback-box-warning" style="margin-bottom: 1rem;">
-          <strong class="feedback-header-warning">📌 Previous Focus: Evidence / Measurable Outcome</strong>
-          <p class="feedback-sub-warning">Make sure to specify what measurable result, project impact, or team consensus occurred after your action.</p>
+          <strong class="feedback-header-warning">📌 Target Improvement Focus: Evidence & Measurable Outcome</strong>
+          <p class="feedback-sub-warning">Specify the exact metrics, percentages, project impact, or team resolution that occurred after your action.</p>
         </div>
 
         <!-- AI Follow-up Question to Address in Retry -->
@@ -382,33 +777,113 @@
           <p id="a7-adaptive-prompt" style="font-size: 0.95rem; font-weight: 600; margin-top: 0.35rem; color: var(--text);"></p>
         </div>
 
-        <!-- Simple Real-Time Voice STT Panel for Retry -->
-        <div class="voice-stt-panel" id="a7-stt-panel">
-          <span class="stt-status-badge" id="a7-stt-status">🎙️ Ready for Voice Input (Click button to speak)</span>
-          <span class="stt-live-preview" id="a7-live-preview"></span>
-        </div>
-
-        <div class="form-group">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem; flex-wrap: wrap; gap: 0.5rem;">
-            <label class="form-label" style="margin-bottom: 0;">Rewrite Your Answer (Attempt 2)</label>
-            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
-              <button class="btn btn-primary btn-sm" id="btn-speech-a7" onclick="toggleVoiceInputUniversal('a-retry-answer', 'btn-speech-a7', 'a7-stt-panel', 'a7-stt-status', null, null, 'a7-live-preview')">🎙️ Start Voice Input (Click to Speak)</button>
-              <button class="btn btn-secondary btn-sm" onclick="loadSampleAnswerA(2)">⚡ Load Sample Improved</button>
+        <!-- Modern Multimodal Interview Cockpit Dock (Retry) -->
+        <div class="cockpit-dock" id="a7-cockpit-dock">
+          <div class="cockpit-dock-header">
+            <div class="cockpit-mode-toggle">
+              <button class="dock-tab-btn active" id="a7-dock-btn-voice" onclick="setCockpitInputModeA('voice', 'a7')">
+                🎙️ Spoken Voice Mode (Live Streaming)
+              </button>
+              <button class="dock-tab-btn" id="a7-dock-btn-text" onclick="setCockpitInputModeA('text', 'a7')">
+                ⌨️ Keyboard / Typed Mode
+              </button>
+            </div>
+            <div class="dock-header-actions">
+              <button class="btn btn-secondary btn-sm" onclick="loadSampleAnswerA(2)">⚡ Sample Improved</button>
               <button class="btn btn-outline btn-sm" onclick="clearAnswerDirect('a-retry-answer', 'a7-stt-status', 'a7-live-preview')">Clear</button>
             </div>
           </div>
-          <textarea class="form-control" id="a-retry-answer" rows="6" placeholder="Click 'Start Voice Input' to speak into microphone, or rewrite your revised answer incorporating measurable evidence..."></textarea>
-        </div>
-        <div style="display: flex; gap: 1rem;">
-          <button class="btn btn-primary" onclick="submitAnswerA(2)">Submit Retry</button>
-          <button class="btn btn-secondary" onclick="loadSampleAnswerA(2)">Load Contextual Improved Answer (Attempt 2)</button>
+
+          <!-- VOICE MODE STAGE -->
+          <div id="a7-dock-voice-stage" class="dock-stage">
+            <div class="hero-mic-container">
+              <button class="hero-mic-btn" id="btn-speech-a7" onclick="toggleVoiceInputUniversal('a-retry-answer', 'btn-speech-a7', 'a7-stt-panel', 'a7-stt-status', null, null, 'a7-live-preview')">
+                <span class="mic-icon-wrapper">
+                  <span class="mic-glyph" id="hero-mic-glyph-a7">🎙️</span>
+                </span>
+                <span class="mic-label-group">
+                  <strong class="mic-primary-label" id="hero-mic-label-a7">Click to Dictate Attempt 2 Revision</strong>
+                  <span class="mic-sub-label" id="hero-mic-sub-a7">Transcribes in real time • Auto-sends on 3.5s pause or click</span>
+                </span>
+              </button>
+            </div>
+
+            <div class="cockpit-caption-strip" id="a7-stt-panel">
+              <div class="caption-status" id="a7-stt-status">🎙️ Ready for your revision. Click the button above to speak.</div>
+              <div class="caption-preview" id="a7-live-preview"></div>
+            </div>
+          </div>
+
+          <!-- TYPED MODE STAGE -->
+          <div id="a7-dock-text-stage" class="dock-stage">
+            <div class="form-group" style="margin-bottom: 0.5rem;">
+              <textarea class="form-control" id="a-retry-answer" rows="5" placeholder="Rewrite or dictate your revised answer incorporating measurable evidence and structured STAR flow... Transcribes live as you speak."></textarea>
+            </div>
+          </div>
+
+          <!-- Cockpit Bottom Utility Bar -->
+          <div class="cockpit-bottom-bar">
+            <div class="dock-hint-text">
+              <span id="a7-word-count">0 words</span>
+              <span class="pill-divider" style="margin: 0 0.5rem;">•</span>
+              <span style="color: var(--text-muted); font-size: 0.8rem;">Recommended: 80 - 200 words incorporating STAR results</span>
+            </div>
+            <div class="dock-controls-group">
+              <button class="btn btn-primary" id="btn-submit-a7" onclick="submitAnswerA(2)">Submit Revision for Comparison →</button>
+            </div>
+          </div>
+
+          <!-- Prototype A Loading Notice Box (Consistent with Prototype B) -->
+          <div id="a7-loading-notice" class="loading-notice-box" style="display: none; margin-top: 0.75rem; margin-bottom: 0;">
+            <div class="typing-dots"><span></span><span></span><span></span></div>
+            <span>Auditing Attempt 2, comparing against baseline, and calculating measurable delta (approx 4-8s)...</span>
+          </div>
         </div>
       </div>
 
       <!-- A8: Compare Attempts -->
       <div class="card" id="screen-a8" style="display: none;">
+        <!-- Loading State Placeholder (Consistent with Prototype B) -->
+        <div id="a8-loading-state" style="display: none; text-align: center; padding: 3rem 1rem;">
+          <div class="typing-dots" style="margin-bottom: 1rem;"><span></span><span></span><span></span></div>
+          <h3 style="color: var(--text-main); font-size: 1.3rem;">Computing Measurable Delta Between Attempts...</h3>
+          <p style="color: var(--text-muted); font-size: 0.9rem; max-width: 540px; margin: 0.5rem auto;">Auditing Attempt 2 improvements, scoring differentials, and evidence enhancements across all rubric criteria...</p>
+        </div>
+
+        <div id="a8-dashboard-content">
+        <!-- High-Fidelity Animated Deliberate Practice Coach Card (Screen A8) -->
+        <div class="interviewer-hero" id="a8-interviewer-card" style="margin-bottom: 1.25rem;">
+          <div class="avatar-wrapper" id="a8-avatar-wrapper">
+            <div class="avatar-halo"></div>
+            <div class="interviewer-avatar">💼</div>
+          </div>
+          <div class="interviewer-info">
+            <h3 id="a8-interviewer-name">Dr. Marcus Vance</h3>
+            <p id="a8-interviewer-role">Deliberate Practice AI Coach • Measurable Delta Audit</p>
+            <div style="display: flex; gap: 0.6rem; align-items: center; margin-top: 0.35rem; flex-wrap: wrap;">
+              <span class="voice-status-pill speaking" id="a8-voice-status">✓ Attempt Delta Audited</span>
+              <div class="waveform-equalizer" id="a8-equalizer">
+                <span class="wave-bar"></span>
+                <span class="wave-bar"></span>
+                <span class="wave-bar"></span>
+                <span class="wave-bar"></span>
+                <span class="wave-bar"></span>
+              </div>
+            </div>
+          </div>
+          <div class="interviewer-sound-controls">
+            <button class="btn btn-secondary btn-sm" id="btn-read-a8" onclick="speakComparisonA8()">🔊 Listen to Comparison</button>
+            <button class="btn btn-outline btn-sm" id="btn-mute-a8" onclick="toggleMuteAudio()">🔇 Mute</button>
+            <button class="btn btn-outline btn-sm" onclick="openConfigModal()">⚙️ Settings</button>
+          </div>
+        </div>
+
         <div class="card-header">
-          <h2 class="card-title">A8: Compare Attempts</h2>
+          <div style="display: flex; gap: 0.4rem; align-items: center; margin-bottom: 0.4rem;">
+            <span class="badge badge-success">STAGE A8: DIRECT ATTEMPT COMPARISON</span>
+            <span class="context-pill pill-duration">📊 Measurable Progress Delta</span>
+          </div>
+          <h2 class="card-title">Attempt 1 vs Attempt 2 Rubric Delta</h2>
           <p class="card-subtitle">Direct evaluation diff demonstrating measurable learning.</p>
         </div>
 
@@ -431,9 +906,16 @@
           <ul id="compare-improvements" class="feedback-list-success"></ul>
         </div>
 
-        <div style="display: flex; gap: 1rem;">
-          <button class="btn btn-primary" onclick="goToScreenA('a9')">📊 View Longitudinal Progress</button>
-          <button class="btn btn-secondary" onclick="goToScreenA('a3')">Next Question</button>
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem; margin-top: 1.5rem; padding-top: 1.25rem; border-top: 1px solid var(--border);">
+          <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+            <a class="btn btn-outline btn-sm" id="btn-dl-docx-a8" href="#" target="_blank">📄 Export Dossier (.DOCX)</a>
+            <a class="btn btn-outline btn-sm" id="btn-dl-pptx-a8" href="#" target="_blank">📊 Export Slides (.PPTX)</a>
+          </div>
+          <div style="display: flex; gap: 1rem;">
+            <button class="btn btn-outline" onclick="goToScreenA('a9')">📊 View Longitudinal Progress</button>
+            <button class="btn btn-primary" id="btn-next-question-a8" onclick="nextQuestionA()">Next Question →</button>
+          </div>
+        </div>
         </div>
       </div>
 
@@ -971,21 +1453,29 @@
   <!-- MODAL: WHY THIS FEEDBACK? (INSPECTABLE)    -->
   <!-- ========================================== -->
   <div class="modal-overlay" id="modal-why-feedback" style="display: none;">
-    <div class="modal-content">
+    <div class="modal-content" style="max-width: 650px;">
       <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 0.75rem; margin-bottom: 1rem;">
-        <h3 style="font-size: 1.2rem; color: var(--text-main);">🔍 Why This Feedback? (Transparent Audit)</h3>
+        <h3 style="font-size: 1.2rem; color: var(--text-main);">🔍 Why This Feedback? (Transparent Rubric Audit)</h3>
         <button onclick="closeWhyFeedbackModal()" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-muted);">&times;</button>
       </div>
 
+      <!-- 4 Rubric Criteria Navigation Tabs -->
+      <div class="why-crit-tabs" style="display: flex; gap: 0.4rem; margin-bottom: 1rem; border-bottom: 1px solid var(--border); padding-bottom: 0.6rem; flex-wrap: wrap;">
+        <button class="btn btn-sm btn-outline why-tab-btn active" id="why-tab-evid" onclick="switchWhyCriterion('evidence_outcome')">Evidence & Outcome</button>
+        <button class="btn btn-sm btn-outline why-tab-btn" id="why-tab-rel" onclick="switchWhyCriterion('relevance')">Relevance</button>
+        <button class="btn btn-sm btn-outline why-tab-btn" id="why-tab-spec" onclick="switchWhyCriterion('specificity')">Specificity</button>
+        <button class="btn btn-sm btn-outline why-tab-btn" id="why-tab-struct" onclick="switchWhyCriterion('structure_clarity')">Structure & Clarity</button>
+      </div>
+
       <div class="modal-crit-box">
-        <span class="badge badge-primary">EVALUATION CRITERION</span>
-        <h4 style="margin-top: 0.35rem; color: var(--primary);">Provides Concrete Outcome / Evidence (STAR: Result)</h4>
-        <p class="modal-crit-desc">
+        <span class="badge badge-primary" id="modal-why-badge">EVALUATION CRITERION</span>
+        <h4 style="margin-top: 0.35rem; color: var(--primary);" id="modal-why-title">Provides Concrete Outcome / Evidence (STAR: Result)</h4>
+        <p class="modal-crit-desc" id="modal-why-standard">
           Rubric Standard: Answers must provide tangible deliverables, metrics, percentages, or positive resolution impact rather than stopping at the action taken.
         </p>
       </div>
 
-      <div style="margin-bottom: 1rem;">
+      <div style="margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
         <strong style="font-size: 0.9rem;">Assigned Score:</strong>
         <span class="modal-why-score" id="modal-why-score">4.0 / 10</span>
       </div>

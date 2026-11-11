@@ -16,8 +16,9 @@ class TestOpenRouterIntegration(unittest.TestCase):
         self.assertEqual(self.evaluator.openrouter_model, "nvidia/nemotron-3.5-super-vl:free")
 
     def test_fallback_custom_questions_when_key_empty(self):
-        # Empty API key should seamlessly return the curated sample question bank
+        # Empty API keys should seamlessly return the curated sample question bank
         self.evaluator.get_openrouter_api_key = lambda: ""
+        self.evaluator.get_gemini_api_key = lambda: ""
         questions = asyncio.run(self.evaluator.generate_custom_interview_questions(
             candidate_name="Test Candidate",
             job_role="Software Engineer",
@@ -89,6 +90,18 @@ class TestOpenRouterIntegration(unittest.TestCase):
         self.assertIn("model", data)
         self.assertIn("api_key_masked", data)
         self.assertIn("chat_status_code", data)
+
+    def test_gemini_diagnostic_endpoint(self):
+        res = self.client.get("/api/gemini/test")
+        self.assertEqual(res.status_code, 200)
+        data = res.json()
+        self.assertTrue("api_key_masked" in data or "status" in data)
+        self.assertTrue(data.get("key_valid", False) or "status" in data)
+
+    def test_gemini_model_configuration(self):
+        from app.evaluator import GEMINI_MODELS
+        self.assertIn("gemini-3.5-flash", GEMINI_MODELS)
+        self.assertIn("gemini-3.5-flash-lite", GEMINI_MODELS)
 
 
 if __name__ == "__main__":

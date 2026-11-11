@@ -10,7 +10,7 @@ import re
 import json
 import logging
 from datetime import datetime
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Tuple
 import httpx
 from app.models import EvaluationResult, RubricCriterion, AttemptComparison
 from app.data_manager import get_question_bank_for_role
@@ -18,7 +18,9 @@ from app.env_loader import get_env_variable
 
 logger = logging.getLogger(__name__)
 
-GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"
+GEMINI_MODELS = ["gemini-3.5-flash", "gemini-3.5-flash-lite", "gemini-flash-latest"]
+DEFAULT_GEMINI_MODEL = "gemini-3.5-flash"
+GEMINI_API_URL = f"https://generativelanguage.googleapis.com/v1beta/models/{DEFAULT_GEMINI_MODEL}:generateContent"
 OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
 OPENROUTER_MODEL = "nvidia/nemotron-3.5-super-vl:free"
 
@@ -282,7 +284,41 @@ class InterviewEvaluator:
                 "Your response incorporates positive resolution and measurable details."
             ),
             "citations_found": evid_evidence if evid_evidence else ["Action described, but resolution omitted."],
-            "recommended_addition": "A single sentence quantifying impact (e.g., 'As a result, we finished the sprint 2 days early with 100% test coverage')."
+            "recommended_addition": "A single sentence quantifying impact (e.g., 'As a result, we finished the sprint 2 days early with 100% test coverage').",
+            "criteria_breakdown": {
+                "evidence_outcome": {
+                    "name": "Evidence & Outcome (STAR: Result)",
+                    "score": evid_score,
+                    "standard": "Rubric Section 10: The response must state a concrete outcome, business metric, or positive resolution.",
+                    "excerpt": evid_evidence[0] if evid_evidence else "Action described, but concrete outcome omitted.",
+                    "reason": "The response describes the action taken, but does not state a concrete outcome." if evid_score <= 5.5 else "Your response incorporates positive resolution and measurable details.",
+                    "recommendation": "Add a single sentence quantifying impact (e.g., 'As a result, we finished the sprint 2 days early with 100% test coverage')."
+                },
+                "relevance": {
+                    "name": "Relevance & Directness",
+                    "score": rel_score,
+                    "standard": "Rubric Section 7: Addresses the exact question asked without deviating into unprompted background.",
+                    "excerpt": relevance_evidence[0] if relevance_evidence else "General narrative alignment.",
+                    "reason": "Addresses the theme effectively and stays focused on professional context." if rel_score >= 7 else "Partially aligns with prompt, but deviates into generalities.",
+                    "recommendation": "Anchor your opening sentence directly to the scenario asked in the question."
+                },
+                "specificity": {
+                    "name": "Specificity & Technical Depth",
+                    "score": spec_score,
+                    "standard": "Rubric Section 8: Uses concrete details, named tools, frameworks, and specific technical artifacts.",
+                    "excerpt": spec_evidence[0] if spec_evidence else "Broad general terminology.",
+                    "reason": "Includes technical and contextual references." if spec_score >= 7 else "Uses broad, generic descriptions rather than specific tools or steps.",
+                    "recommendation": "Name the specific systems, libraries, methodologies, or data pipelines you used."
+                },
+                "structure_clarity": {
+                    "name": "Structure & STAR Flow",
+                    "score": struct_score,
+                    "standard": "Rubric Section 9: Organized narrative arc following Situation, Task, Action, and Result cleanly.",
+                    "excerpt": struct_evidence[0] if struct_evidence else "Chronological narrative flow.",
+                    "reason": "Clear chronological arc from problem to resolution." if struct_score >= 7.5 else "Narrative flow is slightly jumpy or incomplete.",
+                    "recommendation": "Use explicit signposting like 'My specific role was...' and 'The ultimate outcome was...'."
+                }
+            }
         }
 
         return EvaluationResult(
@@ -450,6 +486,167 @@ class InterviewEvaluator:
                 "reasoning": "Inviting reflective depth and longitudinal professional growth."
             }
 
+    def _normalize_gemini_messages(self, messages: List[Dict[str, str]]) -> Tuple[Optional[Dict[str, Any]], List[Dict[str, Any]]]:
+        """
+        Structures conversation messages into valid Google Gemini Generative Language API payload:
+        1. Extracts 'system' roles into the top-level 'system_instruction' field.
+        2. Normalizes 'assistant' -> 'model' and 'user' -> 'user'.
+        3. Enforces strict alternating turns between 'user' and 'model' by concatenating consecutive same-role turns.
+        4. Ensures the conversation sequence starts with a 'user' turn.
+        """
+        sys_texts = []
+        contents = []
+        for m in messages:
+            role = m.get("role", "user").lower()
+            text = m.get("content", "").strip()
+            if not text:
+                continue
+            if role == "system":
+                sys_texts.append(text)
+            else:
+                gem_role = "model" if role in ("assistant", "model") else "user"
+                if contents and contents[-1]["role"] == gem_role:
+                    contents[-1]["parts"][0]["text"] += f"\n\n{text}"
+                else:
+                    contents.append({"role": gem_role, "parts": [{"text": text}]})
+
+        if contents and contents[0]["role"] == "model":
+            contents.insert(0, {"role": "user", "parts": [{"text": "Hello."}]})
+
+        sys_inst = {"parts": [{"text": "\n\n".join(sys_texts)}]} if sys_texts else None
+        return sys_inst, contents
+
+    async def call_gemini(
+        self,
+        messages: List[Dict[str, str]],
+        temperature: float = 0.6,
+        max_tokens: int = 1500,
+        response_json: bool = False,
+        preferred_model: Optional[str] = None
+    ) -> Optional[str]:
+        """
+        Executes a completion call to Google Gemini Generative Language API.
+        Automatically verifies key, normalizes system instruction, and cascades across active models:
+        (gemini-3.5-flash -> gemini-3.5-flash-lite -> gemini-flash-latest).
+        Logs real-time live request and response telemetry to stdout.
+        """
+        key = self.get_gemini_api_key()
+        if not key or key.startswith("test_mock") or len(key) < 10:
+            return None
+
+        masked_key = f"{key[:7]}...{key[-4:]}" if len(key) > 11 else "***"
+        sys_inst, contents = self._normalize_gemini_messages(messages)
+        if not contents:
+            return None
+
+        candidate_models = []
+        if preferred_model:
+            candidate_models.append(preferred_model)
+        for m in GEMINI_MODELS:
+            if m not in candidate_models:
+                candidate_models.append(m)
+
+        for model_name in candidate_models:
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={key}"
+            gen_config: Dict[str, Any] = {
+                "temperature": temperature,
+                "maxOutputTokens": max_tokens
+            }
+            if response_json:
+                gen_config["responseMimeType"] = "application/json"
+
+            payload: Dict[str, Any] = {
+                "contents": contents,
+                "generationConfig": gen_config
+            }
+            if sys_inst:
+                payload["system_instruction"] = sys_inst
+
+            print(f"\n=======================================================", flush=True)
+            print(f"[Gemini LIVE REQUEST] >>> POST {url.split('?')[0]}", flush=True)
+            print(f"[Gemini LIVE REQUEST] Model: {model_name} | Key: {masked_key}", flush=True)
+            print(f"[Gemini LIVE REQUEST] Messages Count: {len(messages)} | Max Tokens: {max_tokens} | JSON Mode: {response_json}", flush=True)
+
+            try:
+                async with httpx.AsyncClient(timeout=30.0) as client:
+                    resp = await client.post(url, json=payload)
+                    print(f"[Gemini LIVE RESPONSE] <<< HTTP Status: {resp.status_code}", flush=True)
+
+                    if resp.status_code == 200:
+                        data = resp.json()
+                        candidates = data.get("candidates", [])
+                        if candidates:
+                            text = candidates[0].get("content", {}).get("parts", [{}])[0].get("text", "")
+                            if text and text.strip():
+                                print(f"[Gemini LIVE RESPONSE] [SUCCESS] Received completion from {model_name}!", flush=True)
+                                print(f"=======================================================\n", flush=True)
+                                return text.strip()
+                    elif resp.status_code == 404:
+                        print(f"[Gemini LIVE RESPONSE] Model '{model_name}' not available. Cascading to next candidate...", flush=True)
+                        continue
+                    else:
+                        print(f"[Gemini LIVE RESPONSE] HTTP {resp.status_code}: {resp.text[:300]}", flush=True)
+                        print(f"=======================================================\n", flush=True)
+            except Exception as e:
+                print(f"[Gemini LIVE EXCEPTION] {model_name} call failed: {e}", flush=True)
+                print(f"=======================================================\n", flush=True)
+
+        return None
+
+    async def test_gemini_connection(self) -> Dict[str, Any]:
+        """
+        Executes an instant end-to-end diagnostic ping to Google Generative Language API
+        to inspect API key validity, active model connectivity, and live responsiveness.
+        """
+        key = self.get_gemini_api_key()
+        if not key or key.startswith("test_mock") or len(key) < 10:
+            return {
+                "success": False,
+                "status": "missing_key",
+                "message": "No valid Gemini API key found in .env or active settings."
+            }
+
+        masked_key = f"{key[:7]}...{key[-4:]}" if len(key) > 11 else "***"
+        result: Dict[str, Any] = {
+            "api_key_masked": masked_key,
+            "key_valid": False,
+            "status_code": None,
+            "model_tested": None,
+            "test_reply": None
+        }
+
+        for m in GEMINI_MODELS:
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{m}:generateContent?key={key}"
+            try:
+                async with httpx.AsyncClient(timeout=15.0) as client:
+                    resp = await client.post(
+                        url,
+                        json={"contents": [{"parts": [{"text": "Respond with the single word CONNECTED"}]}]}
+                    )
+                    result["status_code"] = resp.status_code
+                    result["model_tested"] = m
+                    if resp.status_code == 200:
+                        data = resp.json()
+                        candidates = data.get("candidates", [])
+                        text = candidates[0].get("content", {}).get("parts", [{}])[0].get("text", "").strip() if candidates else "CONNECTED"
+                        result["key_valid"] = True
+                        result["success"] = True
+                        result["test_reply"] = text
+                        result["message"] = f"✓ Google Gemini API call succeeded with model '{m}'!"
+                        return result
+                    elif resp.status_code == 404:
+                        continue
+                    else:
+                        result["success"] = False
+                        result["message"] = f"Google Gemini returned HTTP {resp.status_code}: {resp.text[:200]}"
+            except Exception as e:
+                result["exception"] = str(e)
+                continue
+
+        result["success"] = False
+        result["message"] = result.get("message") or "Failed to connect to Google Gemini API."
+        return result
+
     async def generate_adaptive_followup_gemini(
         self,
         previous_question: str,
@@ -457,12 +654,6 @@ class InterviewEvaluator:
         job_role: str,
         api_key: Optional[str] = None
     ) -> Dict[str, str]:
-        key = api_key or self.gemini_api_key or os.environ.get("GEMINI_API_KEY", "")
-        if not key:
-            res = self.generate_adaptive_followup(previous_question, user_answer, job_role)
-            res["source"] = "deterministic_engine"
-            return res
-
         prompt = f"""You are an empathetic yet rigorous professional interviewer conducting an interview for the role: "{job_role}".
 The previous interview question asked was:
 "{previous_question}"
@@ -483,29 +674,12 @@ Respond ONLY with a JSON object in this exact format:
 }}
 """
         try:
-            async with httpx.AsyncClient(timeout=10.0) as client:
-                resp = await client.post(
-                    f"{GEMINI_API_URL}?key={key}",
-                    json={
-                        "contents": [
-                            {"parts": [{"text": prompt}]}
-                        ],
-                        "generationConfig": {
-                            "temperature": 0.7,
-                            "maxOutputTokens": 300,
-                            "responseMimeType": "application/json"
-                        }
-                    }
-                )
-                if resp.status_code == 200:
-                    data = resp.json()
-                    candidates = data.get("candidates", [])
-                    if candidates:
-                        text_part = candidates[0].get("content", {}).get("parts", [{}])[0].get("text", "")
-                        parsed = json.loads(text_part)
-                        if "followup_question" in parsed:
-                            parsed["source"] = "gemini_1.5_flash"
-                            return parsed
+            content = await self.call_gemini([{"role": "user", "content": prompt}], temperature=0.7, max_tokens=300, response_json=True)
+            if content:
+                parsed = self._clean_json_output(content)
+                if isinstance(parsed, dict) and "followup_question" in parsed:
+                    parsed["source"] = "gemini_3.5_flash"
+                    return parsed
         except Exception as e:
             logger.warning(f"Gemini API call failed, falling back to local engine: {e}")
 
@@ -519,14 +693,27 @@ Respond ONLY with a JSON object in this exact format:
         answer_text: str,
         job_role: str = "General",
         attempt_number: int = 1,
-        api_key: Optional[str] = None
+        api_key: Optional[str] = None,
+        candidate_name: str = "Candidate",
+        target_company: str = "",
+        experience_level: str = "",
+        cv_text: str = ""
     ) -> EvaluationResult:
         base_eval = self.evaluate_answer(question_text, answer_text, job_role, attempt_number)
-        key = api_key or self.gemini_api_key or os.environ.get("GEMINI_API_KEY", "")
-        if not key or len(answer_text.strip().split()) < 15:
+        if len(answer_text.strip().split()) < 15:
             return base_eval
 
+        cand_context = f"Candidate: {candidate_name}, Role: {job_role}"
+        if target_company:
+            cand_context += f", Target Company: {target_company}"
+        if experience_level:
+            cand_context += f", Seniority: {experience_level}"
+        if cv_text:
+            cand_context += f"\nCV Excerpt: {cv_text[:300]}"
+
         prompt = f"""You are an expert interview coach evaluating a candidate for the role: "{job_role}".
+{cand_context}
+
 Question: "{question_text}"
 Candidate's Spoken Answer: "{answer_text}"
 
@@ -540,7 +727,7 @@ Please provide:
 1. 2 distinct strengths
 2. 2 distinct needs for improvement
 3. 1 concrete actionable recommendation following the STAR method
-4. An improved model response demonstrating how to include measurable outcomes.
+4. An improved model response demonstrating how to include measurable outcomes tailored to this role.
 
 Respond ONLY with a JSON object in this format:
 {{
@@ -551,34 +738,19 @@ Respond ONLY with a JSON object in this format:
 }}
 """
         try:
-            async with httpx.AsyncClient(timeout=10.0) as client:
-                resp = await client.post(
-                    f"{GEMINI_API_URL}?key={key}",
-                    json={
-                        "contents": [
-                            {"parts": [{"text": prompt}]}
-                        ],
-                        "generationConfig": {
-                            "temperature": 0.6,
-                            "maxOutputTokens": 600,
-                            "responseMimeType": "application/json"
-                        }
-                    }
-                )
-                if resp.status_code == 200:
-                    data = resp.json()
-                    candidates = data.get("candidates", [])
-                    if candidates:
-                        text_part = candidates[0].get("content", {}).get("parts", [{}])[0].get("text", "")
-                        parsed = json.loads(text_part)
-                        if "strengths" in parsed and parsed["strengths"]:
-                            base_eval.strengths = parsed["strengths"]
-                        if "needs_improvement" in parsed and parsed["needs_improvement"]:
-                            base_eval.needs_improvement = parsed["needs_improvement"]
-                        if "actionable_suggestions" in parsed and parsed["actionable_suggestions"]:
-                            base_eval.actionable_suggestions = parsed["actionable_suggestions"]
-                        if "example_improved_answer" in parsed and parsed["example_improved_answer"]:
-                            base_eval.example_improved_answer = parsed["example_improved_answer"]
+            content = await self.call_gemini([{"role": "user", "content": prompt}], temperature=0.6, max_tokens=1500, response_json=True)
+            if content:
+                parsed = self._clean_json_output(content)
+                if isinstance(parsed, dict):
+                    if "strengths" in parsed and parsed["strengths"]:
+                        base_eval.strengths = [str(s) for s in parsed["strengths"]]
+                    if "needs_improvement" in parsed and parsed["needs_improvement"]:
+                        base_eval.needs_improvement = [str(n) for n in parsed["needs_improvement"]]
+                    if "actionable_suggestions" in parsed and parsed["actionable_suggestions"]:
+                        base_eval.actionable_suggestions = [str(a) for a in parsed["actionable_suggestions"]]
+                    if "example_improved_answer" in parsed and parsed["example_improved_answer"]:
+                        base_eval.example_improved_answer = str(parsed["example_improved_answer"])
+                    base_eval.why_feedback_summary["evaluator_engine"] = "gemini_3.5_flash"
         except Exception as e:
             logger.warning(f"Gemini API call for evaluation failed, retaining deterministic feedback: {e}")
 
@@ -849,10 +1021,11 @@ Respond ONLY with a JSON object in this format:
         Falls back seamlessly to curated sample questions when offline or key is absent.
         """
         api_key = self.get_openrouter_api_key()
+        gemini_key = self.get_gemini_api_key()
         fallback_questions = get_question_bank_for_role(job_role)
 
-        if not api_key:
-            logger.info("OpenRouter API key not configured; using curated fallback question bank.")
+        if not api_key and not (gemini_key and not gemini_key.startswith("test_mock") and len(gemini_key) > 10):
+            logger.info("No AI API key configured; using curated fallback question bank.")
             return fallback_questions
 
         company_context = f" Target Company: '{target_company}'." if target_company else " Industry Tier 1 Firm."
@@ -942,7 +1115,12 @@ Respond ONLY with a valid JSON array of {count} question objects in this exact f
         gemini_key = self.get_gemini_api_key()
         if gemini_key and not gemini_key.startswith("test_mock") and len(gemini_key) > 10:
             try:
-                content = await self.call_gemini_turn([{"role": "system", "content": system_prompt}, {"role": "user", "content": user_prompt}])
+                content = await self.call_gemini(
+                    [{"role": "system", "content": system_prompt}, {"role": "user", "content": user_prompt}],
+                    temperature=0.4,
+                    max_tokens=1500,
+                    response_json=True
+                )
                 if content:
                     parsed = self._clean_json_output(content)
                     if isinstance(parsed, dict):
@@ -962,7 +1140,7 @@ Respond ONLY with a valid JSON array of {count} question objects in this exact f
                                     "competency": q.get("competency", "Core Competencies"),
                                     "ideal_structure": q.get("ideal_structure", "STAR Method (Situation, Task, Action, Result)"),
                                     "key_lookouts": q.get("key_lookouts", ["Specific actions", "Measurable outcomes"]),
-                                    "source": "gemini_1.5_flash"
+                                    "source": "gemini_3.5_flash"
                                 })
                         if sanitized:
                             logger.info(f"Generated {len(sanitized)} custom questions via Google Gemini.")
@@ -1567,36 +1745,56 @@ Every time you respond:
                 "source": "adaptive_ai_dialogue_engine"
             }
 
-        api_key = self.get_openrouter_api_key()
-        if api_key:
-            system_prompt = self.build_official_interview_system_prompt(
-                candidate_name=candidate_name,
-                job_role=job_role,
-                target_company=target_company,
-                experience_level=experience_level,
-                cv_text=cv_text,
-                job_description=job_description,
-                interview_type=interview_type,
-                interview_duration=interview_duration,
-                interviewer_tone=interviewer_tone,
-                turn_index=turn_index,
-                max_turns=max_turns
-            )
-            messages = [{"role": "system", "content": system_prompt}]
+        # Determine AI provider priority
+        openrouter_key = self.get_openrouter_api_key()
+        gemini_key = self.get_gemini_api_key()
+        is_openrouter_dummy = not openrouter_key or "testkey" in openrouter_key.lower()
+        has_gemini = bool(gemini_key and not gemini_key.startswith("test_mock") and len(gemini_key) > 10)
 
-            # Add existing conversation turns from the history buffer
-            for msg in conversation_history:
-                r = msg.get("role", "user")
-                c = msg.get("content", "").strip()
-                if c:
-                    messages.append({"role": r, "content": c})
+        # Build official interview messages payload
+        system_prompt = self.build_official_interview_system_prompt(
+            candidate_name=candidate_name,
+            job_role=job_role,
+            target_company=target_company,
+            experience_level=experience_level,
+            cv_text=cv_text,
+            job_description=job_description,
+            interview_type=interview_type,
+            interview_duration=interview_duration,
+            interviewer_tone=interviewer_tone,
+            turn_index=turn_index,
+            max_turns=max_turns
+        )
+        messages = [{"role": "system", "content": system_prompt}]
+        for msg in conversation_history:
+            r = msg.get("role", "user")
+            c = msg.get("content", "").strip()
+            if c:
+                messages.append({"role": r, "content": c})
 
-            # Append latest user prompt only if not already at the end of the history buffer
-            clean_user_msg = user_message.strip()
-            if not messages or messages[-1].get("content") != clean_user_msg:
-                messages.append({"role": "user", "content": clean_user_msg})
+        clean_user_msg = user_message.strip()
+        if not messages or messages[-1].get("content") != clean_user_msg:
+            messages.append({"role": "user", "content": clean_user_msg})
 
-            # Tier 1: Try OpenRouter (NVIDIA Nemotron 3.5 Super VL)
+        # Tier 1A: If Gemini is active and OpenRouter is empty/dummy, prioritize Gemini directly
+        if has_gemini and is_openrouter_dummy:
+            try:
+                gemini_content = await self.call_gemini_turn(messages, temperature=0.65)
+                if gemini_content and len(gemini_content.strip()) > 15:
+                    clean_reply = self._clean_llm_reply(gemini_content)
+                    return {
+                        "interviewer_message": clean_reply,
+                        "followup_question": clean_reply,
+                        "reasoning": f"Stage {turn_index + 1} official Google Gemini live probe.",
+                        "turn_index": turn_index + 1,
+                        "is_concluded": (turn_index >= max_turns or "conclude" in clean_reply.lower() or "evaluation" in clean_reply.lower()),
+                        "source": "gemini_3.5_flash"
+                    }
+            except Exception as e:
+                logger.warning(f"Primary Gemini official turn failed, falling back: {e}")
+
+        # Tier 1B: Try OpenRouter (NVIDIA Nemotron 3.5 Super VL)
+        if openrouter_key and not is_openrouter_dummy:
             try:
                 content = await self.call_openrouter(messages, temperature=0.65, max_tokens=1500)
                 if content and len(content.strip()) > 15:
@@ -1612,41 +1810,19 @@ Every time you respond:
             except Exception as e:
                 logger.warning(f"OpenRouter official turn failed, attempting secondary provider: {e}")
 
-        # Tier 2: Try Google Gemini 1.5 Flash
-        gemini_key = self.get_gemini_api_key()
-        if gemini_key and not gemini_key.startswith("test_mock") and len(gemini_key) > 10:
+        # Tier 2: Try Google Gemini (gemini-3.5-flash) if not already run in Tier 1A
+        if has_gemini:
             try:
-                system_prompt = self.build_official_interview_system_prompt(
-                    candidate_name=candidate_name,
-                    job_role=job_role,
-                    target_company=target_company,
-                    experience_level=experience_level,
-                    cv_text=cv_text,
-                    job_description=job_description,
-                    interview_type=interview_type,
-                    interview_duration=interview_duration,
-                    interviewer_tone=interviewer_tone,
-                    turn_index=turn_index,
-                    max_turns=max_turns
-                )
-                messages = [{"role": "system", "content": system_prompt}]
-                for msg in conversation_history:
-                    c = msg.get("content", "").strip()
-                    if c:
-                        messages.append({"role": msg.get("role", "user"), "content": c})
-                if not messages or messages[-1].get("content") != user_message.strip():
-                    messages.append({"role": "user", "content": user_message.strip()})
-
                 gemini_content = await self.call_gemini_turn(messages, temperature=0.65)
                 if gemini_content and len(gemini_content.strip()) > 15:
                     clean_reply = self._clean_llm_reply(gemini_content)
                     return {
                         "interviewer_message": clean_reply,
                         "followup_question": clean_reply,
-                        "reasoning": f"Stage {turn_index + 1} official Gemini 1.5 Flash live probe.",
+                        "reasoning": f"Stage {turn_index + 1} official Google Gemini live probe.",
                         "turn_index": turn_index + 1,
                         "is_concluded": (turn_index >= max_turns or "conclude" in clean_reply.lower() or "evaluation" in clean_reply.lower()),
-                        "source": "gemini_1.5_flash"
+                        "source": "gemini_3.5_flash"
                     }
             except Exception as e:
                 logger.warning(f"Gemini official turn failed, engaging semantic dialogue engine: {e}")
@@ -1681,40 +1857,8 @@ Every time you respond:
         return clean.strip()
 
     async def call_gemini_turn(self, messages: List[Dict[str, str]], temperature: float = 0.65) -> Optional[str]:
-        """Executes a multi-turn conversation turn using Google Gemini 1.5 Flash."""
-        key = self.get_gemini_api_key()
-        if not key or key.startswith("test_mock") or len(key) < 10:
-            return None
-
-        contents = []
-        for msg in messages:
-            role = "user" if msg.get("role") in ("user", "system") else "model"
-            contents.append({"role": role, "parts": [{"text": msg.get("content", "")}]})
-
-        try:
-            async with httpx.AsyncClient(timeout=20.0) as client:
-                resp = await client.post(
-                    f"{GEMINI_API_URL}?key={key}",
-                    json={
-                        "contents": contents,
-                        "generationConfig": {
-                            "temperature": temperature,
-                            "maxOutputTokens": 600
-                        }
-                    }
-                )
-                if resp.status_code == 200:
-                    data = resp.json()
-                    candidates = data.get("candidates", [])
-                    if candidates:
-                        text = candidates[0].get("content", {}).get("parts", [{}])[0].get("text", "")
-                        if text and len(text.strip()) > 15:
-                            return text.strip()
-                else:
-                    logger.warning(f"Gemini turn HTTP {resp.status_code}: {resp.text[:200]}")
-        except Exception as e:
-            logger.warning(f"Gemini turn call failed: {e}")
-        return None
+        """Executes a multi-turn conversation turn using Google Gemini."""
+        return await self.call_gemini(messages, temperature=temperature, max_tokens=600)
 
     def _extract_candidate_semantics(self, text: str, conversation_history: List[Dict[str, str]] = None) -> Dict[str, Any]:
         """
@@ -2211,6 +2355,7 @@ Every time you respond:
                 pass
             return base_eval
 
+        openrouter_success = False
         api_key = self.get_openrouter_api_key()
         if api_key:
             cand_profile_str = f"Candidate: {candidate_name}, Role: {job_role}"
@@ -2280,16 +2425,28 @@ Respond ONLY with a JSON object in this format:
                             base_eval.example_improved_answer = str(improved)
 
                         base_eval.why_feedback_summary["evaluator_engine"] = "openrouter_nemotron"
+                        openrouter_success = True
             except Exception as e:
                 logger.warning(f"OpenRouter answer evaluation failed, falling back: {e}")
 
-        # Fallback to Gemini if configured
-        gemini_key = self.get_gemini_api_key()
-        if gemini_key:
-            try:
-                base_eval = await self.evaluate_answer_gemini(question_text, answer_text, job_role, attempt_number, api_key=gemini_key)
-            except Exception as e:
-                logger.warning(f"Gemini answer evaluation failed, retaining deterministic base: {e}")
+        # Fallback to Gemini if OpenRouter did not evaluate
+        if not openrouter_success:
+            gemini_key = self.get_gemini_api_key()
+            if gemini_key:
+                try:
+                    base_eval = await self.evaluate_answer_gemini(
+                        question_text,
+                        answer_text,
+                        job_role,
+                        attempt_number,
+                        api_key=gemini_key,
+                        candidate_name=candidate_name,
+                        target_company=target_company,
+                        experience_level=experience_level,
+                        cv_text=cv_text
+                    )
+                except Exception as e:
+                    logger.warning(f"Gemini answer evaluation failed, retaining deterministic base: {e}")
 
         # Always attach contextually grounded adaptive AI follow-up probe for next round / revision
         try:
@@ -2310,16 +2467,29 @@ Respond ONLY with a JSON object in this format:
 
     def get_track_competencies(self, interview_type: str = "") -> List[Dict[str, str]]:
         """
-        Returns the 4 industry-standard competencies and behavioral rubrics for the given interview track.
+        Returns the 5 industry-standard competencies and behavioral rubrics for the given interview track,
+        including a dedicated combined metric for politeness, refined language, open-ended inquiry, and follow-through.
         """
+        politeness_metric = {
+            "id": "politeness_refined_language_inquiry",
+            "name": "Politeness, Refined Language & Inquiry Follow-Through",
+            "weight": 0.15,
+            "focus": "Professional courtesy, eloquent vocabulary without fillers, proactive open-ended questions, and conversational follow-through.",
+            "definition": "Measures candidate interpersonal grace: courteous greetings and acknowledgments, polished and precise vocabulary without slang or fillers, engaging in constructive two-way dialogue by asking open-ended questions, and closing loops by following through on previous interviewer inquiries.",
+            "high_anchor": "Consistently courteous and gracious (e.g., 'Thank you Dr. Vance'); uses eloquent, precise industry vocabulary; proactively poses insightful open-ended questions back to the evaluator; maintains seamless conversational follow-through connecting ideas across turns.",
+            "mid_anchor": "Professional and polite baseline, but maintains an entirely passive conversational stance without posing open-ended questions; vocabulary is standard without noticeable polish or follow-through.",
+            "low_anchor": "Abrupt, curt, or defensive tone; frequent conversational filler words or unrefined slang; completely ignores previous interviewer context and asks zero clarifying or follow-through questions."
+        }
+
         t = (interview_type or "").lower()
         if "behavioral" in t or "star" in t or "leadership" in t:
             return [
                 {
                     "id": "star_rigor",
                     "name": "STAR Framework Rigor & Specificity",
-                    "weight": 0.30,
+                    "weight": 0.25,
                     "focus": "Demarcation of Situation, Task, Action, and quantifiable Business Result.",
+                    "definition": "Measures how systematically the candidate structures past experiences using the STAR method (Situation, Task, Action, Result), emphasizing distinct personal agency and verified quantitative outcomes.",
                     "high_anchor": "Structures answer seamlessly with exact context, personal ownership of actions, and measurable metrics.",
                     "mid_anchor": "Provides solid narrative but glosses over metrics or uses collective 'we' instead of personal action.",
                     "low_anchor": "Vague situational sketch without concrete actions or clear end results."
@@ -2327,8 +2497,9 @@ Respond ONLY with a JSON object in this format:
                 {
                     "id": "ownership_agency",
                     "name": "Ownership, Initiative & Bias for Action",
-                    "weight": 0.25,
+                    "weight": 0.20,
                     "focus": "Personal agency, taking responsibility for outcomes, and navigating ambiguity.",
+                    "definition": "Assesses the candidate's proactive ownership, accountability for mistakes, and willingness to step outside their comfort zone to unblock initiatives without waiting for top-down direction.",
                     "high_anchor": "Demonstrates relentless ownership; unblocks teammates, challenges status quo, and embraces accountability.",
                     "mid_anchor": "Executes assigned responsibilities well, but hesitates to take unprompted initiative during ambiguity.",
                     "low_anchor": "Passes blame to external factors, stakeholders, or constraints; passive execution."
@@ -2336,8 +2507,9 @@ Respond ONLY with a JSON object in this format:
                 {
                     "id": "conflict_collaboration",
                     "name": "Stakeholder Alignment & Conflict Resolution",
-                    "weight": 0.25,
+                    "weight": 0.20,
                     "focus": "Active listening, empathy, resolving technical or interpersonal tension constructively.",
+                    "definition": "Evaluates emotional intelligence, active listening, and the ability to navigate high-stakes technical or cross-functional disagreements constructively using objective data and mutual empathy.",
                     "high_anchor": "Employs data-backed de-escalation, seeks common ground, and rallies cross-functional stakeholders.",
                     "mid_anchor": "Manages interpersonal friction politely but tends to avoid difficult confrontations or rely on escalation.",
                     "low_anchor": "Shows defensiveness, rigid mindset, or dismissiveness toward dissenting perspectives."
@@ -2347,18 +2519,21 @@ Respond ONLY with a JSON object in this format:
                     "name": "Learning Agility & Post-Mortem Reflection",
                     "weight": 0.20,
                     "focus": "Dissecting failures objectively, extracting systemic lessons, and coaching others.",
+                    "definition": "Examines learning agility, self-awareness, receptiveness to constructive feedback, and the ability to conduct blameless post-mortems on past failures to implement systemic guardrails.",
                     "high_anchor": "Openly shares impactful missteps, highlights root causes, and implements lasting systemic guardrails.",
                     "mid_anchor": "Acknowledges errors with guidance, but focuses on tactical rather than systemic preventative measures.",
                     "low_anchor": "Reluctant to admit shortcomings or claims zero regrets/mistakes in past roles."
-                }
+                },
+                politeness_metric
             ]
         elif "technical" in t or "architecture" in t or "system design" in t:
             return [
                 {
                     "id": "arch_soundness",
                     "name": "Architecture Soundness & Trade-off Analysis",
-                    "weight": 0.30,
+                    "weight": 0.25,
                     "focus": "Component decoupling, data store selection, and justifying CAP theorem trade-offs.",
+                    "definition": "Evaluates architectural design choices, component modularity, distributed consensus protocols, and the ability to defend throughput, latency, and CAP theorem trade-offs under high-scale constraints.",
                     "high_anchor": "Articulates crisp architectural diagrams, explicitly evaluating throughput vs latency and consistency trade-offs.",
                     "mid_anchor": "Proposes viable standard architecture but struggles to justify specific database or protocol choices under scrutiny.",
                     "low_anchor": "Monolithic or brittle architecture; misses major bottlenecks or suggests anti-patterns."
@@ -2366,8 +2541,9 @@ Respond ONLY with a JSON object in this format:
                 {
                     "id": "scalability_concurrency",
                     "name": "Scalability, Concurrency & Bottleneck Handling",
-                    "weight": 0.25,
+                    "weight": 0.20,
                     "focus": "Horizontal scaling, sharding, caching tiers, and back-pressure mitigation.",
+                    "definition": "Assesses understanding of horizontal partitioning, distributed caching, concurrency models, hot partition mitigation, and backpressure handling under peak traffic.",
                     "high_anchor": "Proactively addresses hot spots, cache invalidation, asynchronous queuing, and partition keys.",
                     "mid_anchor": "Applies standard caching (Redis) and load balancers, but overlooks database replication lag or write limits.",
                     "low_anchor": "Fails to scale past single-node limits; unable to identify single points of failure."
@@ -2375,8 +2551,9 @@ Respond ONLY with a JSON object in this format:
                 {
                     "id": "fault_tolerance",
                     "name": "Failure Modes, Edge Cases & Fault Tolerance",
-                    "weight": 0.25,
+                    "weight": 0.20,
                     "focus": "Graceful degradation, idempotency, circuit breakers, and retry storm resilience.",
+                    "definition": "Measures resilience design, including graceful degradation, circuit breakers, dead-letter queues, idempotent writes, and disaster recovery strategies during downstream service outages.",
                     "high_anchor": "Anticipates network partitions, dead-letter queues, exactly-once vs at-least-once delivery, and recovery.",
                     "mid_anchor": "Acknowledges failure possibilities, but relies on naive retries without jitter or exponential backoff.",
                     "low_anchor": "Assumes 'happy path'; systems crash completely during downstream dependencies downtime."
@@ -2386,18 +2563,21 @@ Respond ONLY with a JSON object in this format:
                     "name": "Production Readiness & Operational Observability",
                     "weight": 0.20,
                     "focus": "Distributed tracing, SLO/SLA budgeting, zero-downtime deployments, and security.",
+                    "definition": "Evaluates operational maturity, including distributed tracing (OpenTelemetry), SLO/SLA error budgets, canary deployment pipelines, rollback criteria, and zero-downtime database migrations.",
                     "high_anchor": "Integrates comprehensive OpenTelemetry metrics, canary releases, rollback criteria, and data encryption.",
                     "mid_anchor": "Mentions logs and basic CI/CD, but lacks depth on alerting thresholds, runbooks, or zero-downtime migrations.",
                     "low_anchor": "Treats deployment and monitoring as an afterthought; neglects security and operational health."
-                }
+                },
+                politeness_metric
             ]
         elif "product" in t or "analytical" in t or "strategy" in t:
             return [
                 {
                     "id": "problem_framing",
                     "name": "Problem Framing & User Empathy",
-                    "weight": 0.30,
+                    "weight": 0.25,
                     "focus": "Deconstructing ambiguous market problems and pinpointing true user pain points.",
+                    "definition": "Assesses user empathy, market opportunity sizing, and the ability to deconstruct ambiguous customer problems into clear, prioritized problem statements before jumping to solutions.",
                     "high_anchor": "Structures ambiguity with a disciplined user-first lens; identifies unarticulated user friction and opportunity size.",
                     "mid_anchor": "Understands the core user, but jumps too quickly to feature solutions without validating problem root causes.",
                     "low_anchor": "Builds features looking for a problem; lacks customer empathy and segment definition."
@@ -2405,8 +2585,9 @@ Respond ONLY with a JSON object in this format:
                 {
                     "id": "metrics_rigor",
                     "name": "Metric Definition & Analytical Rigor",
-                    "weight": 0.25,
+                    "weight": 0.20,
                     "focus": "North Star metric, input/guardrail metrics, and hypothesis-driven experimentation.",
+                    "definition": "Measures the ability to define North Star metrics, input metrics, paired guardrail metrics (e.g. engagement vs cannibalization), and hypothesis-driven A/B testing methodologies.",
                     "high_anchor": "Designs nuanced metric trees with pairing guardrails (e.g., engagement vs churn) and statistical experiment rigor.",
                     "mid_anchor": "Proposes valid primary metrics (e.g., CTR or DAU), but misses cannibalization risks or counter-metrics.",
                     "low_anchor": "Relies on vanity metrics without clear causal links to business or user value."
@@ -2414,8 +2595,9 @@ Respond ONLY with a JSON object in this format:
                 {
                     "id": "strategic_tradeoffs",
                     "name": "Strategic Prioritization & Trade-off Calculus",
-                    "weight": 0.25,
+                    "weight": 0.20,
                     "focus": "RICE/MoSCoW frameworks, effort vs impact, defensibility, and competitive moat.",
+                    "definition": "Evaluates ruthless prioritization frameworks (RICE, MoSCoW), competitive moat defensibility, and the conviction to articulate what NOT to build under severe resource constraints.",
                     "high_anchor": "Ruthlessly prioritizes high-leverage bets; articulates what NOT to build and defends rationale with conviction.",
                     "mid_anchor": "Prioritizes logically, but struggles when forced to cut favored features under severe engineering constraints.",
                     "low_anchor": "Attempts to do everything simultaneously; lacks strategic focus and clear priority criteria."
@@ -2425,10 +2607,12 @@ Respond ONLY with a JSON object in this format:
                     "name": "Go-to-Market & Execution Roadmapping",
                     "weight": 0.20,
                     "focus": "Phased rollouts, cross-functional choreography, feedback loops, and scaling velocity.",
+                    "definition": "Assesses roadmapping execution, alpha/beta cohort rollout staging, stakeholder alignment, feedback loops, and rapid product-market iteration velocity.",
                     "high_anchor": "Outlines detailed alpha/beta cohorts, sales/marketing enablement, and rapid feedback iteration cycles.",
                     "mid_anchor": "Creates a functional launch schedule, but overlooks edge-case user support or internal enablement bottlenecks.",
                     "low_anchor": "Treats shipping code as launch completion; neglects user adoption and iterative loops."
-                }
+                },
+                politeness_metric
             ]
         else:
             # Comprehensive Mixed Mock
@@ -2436,8 +2620,9 @@ Respond ONLY with a JSON object in this format:
                 {
                     "id": "role_depth",
                     "name": "Role-Specific Technical Proficiency",
-                    "weight": 0.30,
+                    "weight": 0.25,
                     "focus": "Depth of specialized domain knowledge, practical craftsmanship, and technical fluency.",
+                    "definition": "Assesses depth of specialized technical domain knowledge, practical craftsmanship, industry-standard toolchain fluency, and authoritative technical command.",
                     "high_anchor": "Speaks with seasoned authority; articulates complex concepts with clarity and precision.",
                     "mid_anchor": "Solid grasp of foundational concepts, but requires probing to reach deep architectural or domain nuances.",
                     "low_anchor": "Superficial knowledge; relies on buzzwords without understanding underlying mechanics."
@@ -2445,8 +2630,9 @@ Respond ONLY with a JSON object in this format:
                 {
                     "id": "behavioral_ownership",
                     "name": "STAR Behavioral Execution & Ownership",
-                    "weight": 0.25,
+                    "weight": 0.20,
                     "focus": "Structured storytelling, personal accountability for results, and measurable business outcomes.",
+                    "definition": "Measures structured storytelling using the STAR framework, personal accountability for results, and clear demarcation of individual contribution versus team achievements.",
                     "high_anchor": "Delivers crisp STAR responses with distinct personal actions and verified quantitative impact.",
                     "mid_anchor": "Good stories with clear lessons, but uses generalized language rather than concrete personal actions.",
                     "low_anchor": "Meandering answers that fail to explain the actual challenge or candidate's personal contribution."
@@ -2454,8 +2640,9 @@ Respond ONLY with a JSON object in this format:
                 {
                     "id": "systemic_problem_solving",
                     "name": "Systemic Problem Solving & Trade-offs",
-                    "weight": 0.25,
+                    "weight": 0.20,
                     "focus": "Decomposing complex ambiguity, evaluating multiple options, and managing trade-offs.",
+                    "definition": "Evaluates how logically the candidate decomposes complex ambiguity, surfaces hidden assumptions, weighs competing alternatives, and manages multi-variable trade-offs.",
                     "high_anchor": "Systematically breaks down problems, lists assumptions, and weighs pros/cons before choosing a path.",
                     "mid_anchor": "Finds a reasonable solution, but anchors on the first idea without exploring alternative designs.",
                     "low_anchor": "Impulsive decision making; unable to explain why one approach was chosen over another."
@@ -2465,10 +2652,12 @@ Respond ONLY with a JSON object in this format:
                     "name": "Executive Communication & Strategic Alignment",
                     "weight": 0.20,
                     "focus": "Concise delivery, active listening, and alignment with target company mission and level bar.",
+                    "definition": "Measures concise delivery, high signal-to-noise ratio, active listening, executive presence, and alignment with target company mission and level expectations.",
                     "high_anchor": "High signal-to-noise ratio; commands executive presence, listens actively, and adapts to interviewer cues.",
                     "mid_anchor": "Communicates effectively, but occasionally over-explains minor points or requires minor refocusing.",
                     "low_anchor": "Rambling, evasive, or unfocused; ignores interviewer prompts and questions."
-                }
+                },
+                politeness_metric
             ]
 
     def _extract_turn_pairs(self, conversation_history: List[Dict[str, str]]) -> List[Dict[str, Any]]:
@@ -2618,16 +2807,98 @@ Respond ONLY with a JSON object in this format:
                 "coached_exemplar": f"At {target_company or 'top-tier tech'}, elevate this response by structuring with exact context: 'When faced with [X bottleneck], I personally took ownership of [Y action], leading to [Z quantified metric delta] while managing [trade-off W].'"
             })
 
+        # Ambiguity & Early Termination Analysis
+        num_turns = len(turns)
+        total_words = len(all_user_text.split())
+        avg_words_per_turn = total_words / num_turns if num_turns > 0 else 0
+        
+        # An interview is ended early or lacks sufficient data if:
+        # - Fewer than 3 turns were completed, OR
+        # - Total words spoken by the candidate is under 110 words, OR
+        # - 3 turns were completed but candidate answers were exceptionally sparse (avg < 30 words)
+        is_ambiguous = (num_turns <= 2) or (total_words < 110) or (num_turns <= 3 and avg_words_per_turn < 30)
+
+        ambiguity_notice = None
+        if is_ambiguous:
+            missing_dimensions = []
+            if num_turns <= 1:
+                missing_dimensions = [
+                    "Technical Architecture & System Mechanics Deep Dive",
+                    "Behavioral Conflict, Trade-Offs & Teammate Alignment",
+                    "Edge-Case Resilience, Failure Modes & Fault Recovery",
+                    "Quantified Business Impact & Measurable Outcome Substantiation"
+                ]
+            elif num_turns == 2:
+                missing_dimensions = [
+                    "Behavioral Conflict Resolution & High-Stakes Disagreement",
+                    "System Resilience Under Partition & Error Recovery",
+                    "Long-Term Quantitative Outcomes & Metric Accountability"
+                ]
+            else:
+                missing_dimensions = [
+                    "Deep-Dive Technical Trade-Off Defensibility Under Scrutiny",
+                    "Comprehensive Edge-Case Fault Tolerance Verification"
+                ]
+
+            ambiguity_notice = {
+                "is_ambiguous": True,
+                "severity": "HIGH" if num_turns <= 2 else "MODERATE",
+                "turn_count": num_turns,
+                "word_count": total_words,
+                "headline": "⚠️ Evaluation Ambiguity Notice: Premature Interview Conclusion",
+                "explanation": (
+                    f"This interview session concluded early after only {num_turns} conversational turn{'s' if num_turns != 1 else ''} "
+                    f"({total_words} total words spoken). Because the dialogue terminated before the full questioning battery could be administered, "
+                    f"critical competency dimensions could not be reliably probed or evidenced under realistic corporate hiring conditions."
+                ),
+                "unassessed_dimensions": missing_dimensions,
+                "hiring_committee_advisory": (
+                    "Ratings and scores displayed below represent provisional baseline estimates with elevated statistical ambiguity. "
+                    "The hiring committee strongly recommends scheduling a 20–30 minute targeted technical follow-up session to resolve "
+                    "these unassessed competencies before making an official hiring decision."
+                )
+            }
+
+        confidence_rating = (
+            f"Low Confidence / High Ambiguity (Only {num_turns} Turn{'s' if num_turns != 1 else ''} Completed • Sparse Evidence)"
+            if is_ambiguous else
+            f"High Confidence ({num_turns} Verified Dialogue Turns • {total_words} Spoken Words)"
+        )
+
         # Calculate competency matrix scores
         avg_turn_score = sum(turn_scores) / len(turn_scores) if turn_scores else 7.5
         comp_matrix = []
         overall_weighted = 0.0
         
         for idx, comp in enumerate(competencies):
-            # Modulate each competency score slightly around average turn score
-            var = (idx * 0.3) - 0.3
-            c_score = max(4.5, min(9.7, round(avg_turn_score + var, 1)))
-            
+            if comp["id"] == "politeness_refined_language_inquiry":
+                # Targeted semantic scoring for politeness, refined language, and open-ended inquiry follow-through
+                polite_hits = re.findall(r'\b(thank you|thanks|appreciate|pleasure|good morning|dr\.? vance|glad to|honored|grateful|certainly|absolutely)\b', all_user_text, re.IGNORECASE)
+                refined_hits = re.findall(r'\b(specifically|furthermore|consequently|fundamentally|systemically|architecturally|trade-off|tradeoff|substantiate|mitigate|leverage|holistic|scalable|paradigm|empirically|granular)\b', all_user_text, re.IGNORECASE)
+                inquiry_hits = re.findall(r'(\?|\b(?:could|can|would)\s+you\s+(?:share|elaborate|clarify|tell me)|\b(?:curious|wondering|interested)\s+(?:about|how|what)|\bwhat is your\b|\bfrom your perspective\b)', all_user_text, re.IGNORECASE)
+                ft_hits = re.findall(r'\b(as mentioned earlier|building on that|as i noted|previously mentioned|going back to|connecting to)\b', all_user_text, re.IGNORECASE)
+
+                p_score = 7.0
+                if len(polite_hits) >= 1: p_score += 0.6
+                if len(polite_hits) >= 2: p_score += 0.4
+                if len(refined_hits) >= 2: p_score += 0.6
+                if len(refined_hits) >= 4: p_score += 0.4
+                if len(inquiry_hits) >= 1: p_score += 0.6
+                if len(inquiry_hits) >= 2: p_score += 0.4
+                if len(ft_hits) >= 1: p_score += 0.4
+                if is_ambiguous: p_score = min(p_score, 8.0)
+                c_score = max(4.5, min(9.8, round(p_score, 1)))
+
+                evidence_text = (
+                    f"Candidate demonstrated courteous conversational conduct ({len(polite_hits)} courtesy markers), "
+                    f"refined professional vocabulary ({len(refined_hits)} key terms), {len(inquiry_hits)} open-ended inquiries/questions to evaluator, "
+                    f"and consistent follow-through across dialogue."
+                )
+            else:
+                var = (idx * 0.3) - 0.3
+                c_score = max(4.5, min(9.7, round(avg_turn_score + var, 1)))
+                evidence_text = None
+
             if c_score >= 8.8:
                 label = "Strong Mastery (Exceeds Bar)"
                 anchor = comp["high_anchor"]
@@ -2641,6 +2912,17 @@ Respond ONLY with a JSON object in this format:
                 label = "Below Bar (Significant Gaps)"
                 anchor = comp["low_anchor"]
 
+            if evidence_text is None:
+                evidence_text = f"Candidate demonstrated {label.lower()} across interview exchanges with {len(metric_signals)} metric references observed."
+
+            # If interview is ambiguous and this competency corresponds to unreached turns
+            is_comp_ambiguous = is_ambiguous and (idx >= num_turns)
+            if is_comp_ambiguous:
+                if comp["id"] == "politeness_refined_language_inquiry":
+                    evidence_text += " (⚠️ Provisional assessment due to early interview termination)."
+                else:
+                    evidence_text = "⚠️ Ambiguous Signal: Interview terminated early before this specific competency could be fully probed by the evaluator. Rating is provisional."
+
             overall_weighted += c_score * comp["weight"]
             
             comp_matrix.append({
@@ -2650,8 +2932,13 @@ Respond ONLY with a JSON object in this format:
                 "weight": comp["weight"],
                 "rating_label": label,
                 "focus": comp["focus"],
+                "definition": comp.get("definition", comp["focus"]),
                 "behavioral_anchor": anchor,
-                "evidence": f"Candidate demonstrated {label.lower()} across interview exchanges with {len(metric_signals)} metric references observed."
+                "high_anchor": comp["high_anchor"],
+                "mid_anchor": comp["mid_anchor"],
+                "low_anchor": comp["low_anchor"],
+                "evidence": evidence_text,
+                "is_ambiguous": is_comp_ambiguous
             })
 
         overall_score = round(overall_weighted, 1)
@@ -2660,7 +2947,14 @@ Respond ONLY with a JSON object in this format:
         hire_bar = 7.5 if not is_probing else 8.0
         strong_bar = 8.8 if not is_probing else 9.0
         
-        if overall_score >= strong_bar:
+        if is_ambiguous and num_turns <= 2:
+            recommendation = "Incomplete / Ambiguous Signal (Follow-Up Required)"
+            rec_summary = (
+                f"[AMBIGUITY NOTICE] {candidate_name} concluded the interview session prematurely after only {num_turns} question-and-answer exchange{'s' if num_turns != 1 else ''} "
+                f"({total_words} words). While initial composure was demonstrated, insufficient dialogue exists to verify core competencies for {job_role} at {target_company or 'the target company'}. "
+                f"A follow-up probe session is required to resolve critical ambiguities."
+            )
+        elif overall_score >= strong_bar:
             recommendation = "Strong Hire"
             rec_summary = f"{candidate_name} decisively clears the hiring bar for {job_role} at {target_company or 'target company'}. Demonstrates exceptional domain command, rigorous trade-off articulation, and strong ownership."
         elif overall_score >= hire_bar:
@@ -2735,7 +3029,7 @@ Respond ONLY with a JSON object in this format:
             "hiring_recommendation": recommendation,
             "recommendation_summary": rec_summary,
             "assessed_level": f"{experience_level} • Evaluated for {target_company or 'Enterprise / FAANG'}",
-            "confidence_rating": f"High Confidence ({len(turns)} Verified Dialogue Turns • {total_words} Spoken Words)",
+            "confidence_rating": confidence_rating,
             "interviewer_rigor_notes": f"Evaluated under '{interviewer_tone or 'Professional & Rigorous'}' rubric bar with {interview_duration or 'Standard'} pacing.",
             "competency_matrix": comp_matrix,
             "turn_evaluations": turn_evaluations,
@@ -2743,7 +3037,9 @@ Respond ONLY with a JSON object in this format:
             "key_strengths": key_strengths,
             "priority_growth_areas": growth_areas,
             "actionable_recommendations": actionable_plan,
-            "evaluator_engine": "deterministic_bars_rubric"
+            "evaluator_engine": "deterministic_bars_rubric",
+            "ambiguity_detected": is_ambiguous,
+            "ambiguity_notice": ambiguity_notice
         }
 
     async def evaluate_official_simulation(
@@ -2784,11 +3080,15 @@ Respond ONLY with a JSON object in this format:
             job_description=job_description
         )
 
-        api_key = self.get_openrouter_api_key()
-        if not api_key:
+        openrouter_key = self.get_openrouter_api_key()
+        gemini_key = self.get_gemini_api_key()
+        is_openrouter_dummy = not openrouter_key or "testkey" in openrouter_key.lower()
+        has_gemini = bool(gemini_key and not gemini_key.startswith("test_mock") and len(gemini_key) > 10)
+
+        if not openrouter_key and not has_gemini:
             return base_eval
 
-        # Build prompt for Nemotron 3.5 Super VL
+        # Build prompt for AI Committee Evaluation
         competencies = self.get_track_competencies(interview_type)
         comp_descriptions = "\n".join([f"- {c['name']} (Weight: {int(c['weight']*100)}%): {c['focus']} High Bar: {c['high_anchor']}" for c in competencies])
 
@@ -2879,22 +3179,111 @@ Return a valid JSON object with EXACTLY this structure:
             {"role": "user", "content": user_prompt}
         ]
 
-        try:
-            content = await self.call_openrouter(messages, temperature=0.3, max_tokens=3200)
-            if content:
-                parsed = self._clean_json_output(content)
-                if isinstance(parsed, dict) and "overall_score" in parsed and "competency_matrix" in parsed:
-                    parsed["evaluator_engine"] = "openrouter_nemotron"
-                    # Validate turn_evaluations format
-                    if "turn_evaluations" not in parsed or not parsed["turn_evaluations"]:
-                        parsed["turn_evaluations"] = base_eval["turn_evaluations"]
-                    if "competency_matrix" not in parsed or not parsed["competency_matrix"]:
-                        parsed["competency_matrix"] = base_eval["competency_matrix"]
-                    if "job_description_alignment" not in parsed or not parsed["job_description_alignment"]:
-                        parsed["job_description_alignment"] = base_eval["job_description_alignment"]
-                    return parsed
-        except Exception as e:
-            logger.warning(f"Nemotron simulation evaluation failed, using deterministic fallback: {e}")
+        # Tier 1 AI: Try OpenRouter (NVIDIA Nemotron 3.5 Super VL)
+        if openrouter_key and not is_openrouter_dummy:
+            try:
+                content = await self.call_openrouter(messages, temperature=0.3, max_tokens=3200)
+                if content:
+                    parsed = self._clean_json_output(content)
+                    if isinstance(parsed, dict) and "overall_score" in parsed and "competency_matrix" in parsed:
+                        parsed["evaluator_engine"] = "openrouter_nemotron"
+                        parsed["ambiguity_detected"] = base_eval.get("ambiguity_detected", False)
+                        parsed["ambiguity_notice"] = base_eval.get("ambiguity_notice")
+                        if base_eval.get("ambiguity_detected"):
+                            parsed["confidence_rating"] = base_eval["confidence_rating"]
+                            if len(turns) <= 2:
+                                parsed["hiring_recommendation"] = base_eval["hiring_recommendation"]
+                                parsed["recommendation_summary"] = base_eval["recommendation_summary"]
+
+                        # Validate and enrich turn_evaluations
+                        if "turn_evaluations" not in parsed or not parsed["turn_evaluations"]:
+                            parsed["turn_evaluations"] = base_eval["turn_evaluations"]
+                        if "job_description_alignment" not in parsed or not parsed["job_description_alignment"]:
+                            parsed["job_description_alignment"] = base_eval["job_description_alignment"]
+
+                        # Enrich competency_matrix with definitions and rubric anchors
+                        comp_by_id = {c["id"]: c for c in competencies}
+                        comp_by_name = {c["name"].lower(): c for c in competencies}
+                        
+                        enriched_matrix = []
+                        existing_ids = set()
+                        for item in parsed.get("competency_matrix", []):
+                            c_id = item.get("id") or ""
+                            c_name = item.get("name") or ""
+                            match = comp_by_id.get(c_id) or comp_by_name.get(c_name.lower())
+                            if match:
+                                existing_ids.add(match["id"])
+                                item["id"] = match["id"]
+                                item["definition"] = match.get("definition", match["focus"])
+                                item["high_anchor"] = match.get("high_anchor", "")
+                                item["mid_anchor"] = match.get("mid_anchor", "")
+                                item["low_anchor"] = match.get("low_anchor", "")
+                                item["focus"] = match.get("focus", "")
+                                if "weight" not in item or not item["weight"]:
+                                    item["weight"] = match.get("weight", 0.2)
+                            enriched_matrix.append(item)
+                        
+                        for base_c in base_eval.get("competency_matrix", []):
+                            if base_c.get("id") not in existing_ids and not any(base_c.get("name", "").lower() in item.get("name", "").lower() for item in enriched_matrix):
+                                enriched_matrix.append(base_c)
+                        
+                        parsed["competency_matrix"] = enriched_matrix
+                        return parsed
+            except Exception as e:
+                logger.warning(f"Nemotron simulation evaluation failed, attempting secondary provider: {e}")
+
+        # Tier 2 AI: Try Google Gemini (gemini-3.5-flash)
+        if has_gemini:
+            try:
+                print(f"[Gemini Simulation Evaluation] Engaging Google Gemini for official hiring committee evaluation...", flush=True)
+                gem_content = await self.call_gemini(messages, temperature=0.25, max_tokens=3200, response_json=True)
+                if gem_content:
+                    parsed = self._clean_json_output(gem_content)
+                    if isinstance(parsed, dict) and "overall_score" in parsed and "competency_matrix" in parsed:
+                        parsed["evaluator_engine"] = "gemini_3.5_flash"
+                        parsed["ambiguity_detected"] = base_eval.get("ambiguity_detected", False)
+                        parsed["ambiguity_notice"] = base_eval.get("ambiguity_notice")
+                        if base_eval.get("ambiguity_detected"):
+                            parsed["confidence_rating"] = base_eval["confidence_rating"]
+                            if len(turns) <= 2:
+                                parsed["hiring_recommendation"] = base_eval["hiring_recommendation"]
+                                parsed["recommendation_summary"] = base_eval["recommendation_summary"]
+
+                        if "turn_evaluations" not in parsed or not parsed["turn_evaluations"]:
+                            parsed["turn_evaluations"] = base_eval["turn_evaluations"]
+                        if "job_description_alignment" not in parsed or not parsed["job_description_alignment"]:
+                            parsed["job_description_alignment"] = base_eval["job_description_alignment"]
+
+                        comp_by_id = {c["id"]: c for c in competencies}
+                        comp_by_name = {c["name"].lower(): c for c in competencies}
+                        
+                        enriched_matrix = []
+                        existing_ids = set()
+                        for item in parsed.get("competency_matrix", []):
+                            c_id = item.get("id") or ""
+                            c_name = item.get("name") or ""
+                            match = comp_by_id.get(c_id) or comp_by_name.get(c_name.lower())
+                            if match:
+                                existing_ids.add(match["id"])
+                                item["id"] = match["id"]
+                                item["definition"] = match.get("definition", match["focus"])
+                                item["high_anchor"] = match.get("high_anchor", "")
+                                item["mid_anchor"] = match.get("mid_anchor", "")
+                                item["low_anchor"] = match.get("low_anchor", "")
+                                item["focus"] = match.get("focus", "")
+                                if "weight" not in item or not item["weight"]:
+                                    item["weight"] = match.get("weight", 0.2)
+                            enriched_matrix.append(item)
+                        
+                        for base_c in base_eval.get("competency_matrix", []):
+                            if base_c.get("id") not in existing_ids and not any(base_c.get("name", "").lower() in item.get("name", "").lower() for item in enriched_matrix):
+                                enriched_matrix.append(base_c)
+                        
+                        parsed["competency_matrix"] = enriched_matrix
+                        print(f"[Gemini Simulation Evaluation] [SUCCESS] Completed committee scorecard via Gemini!", flush=True)
+                        return parsed
+            except Exception as e:
+                logger.warning(f"Gemini simulation evaluation failed, retaining deterministic base: {e}")
 
         return base_eval
 

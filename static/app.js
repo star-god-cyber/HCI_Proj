@@ -4,6 +4,9 @@
 let currentSessionId = null;
 let currentQuestionId = 1;
 let currentQuestionText = "Tell me about a time when you worked with a difficult teammate. What was the situation and how did you resolve it?";
+let protoAQuestions = [];
+let protoACurrentIndex = 0;
+let activeWhyCriterion = "evidence_outcome";
 let activePersona = "aditi";
 let recognition = null;
 let activeRecordingButton = null;
@@ -139,14 +142,31 @@ function setAvatarSpeaking(isSpeaking) {
     }
   }
 
-  // Update Prototype A visualizer
-  const a3Equalizer = document.getElementById("a3-equalizer");
-  const a3Status = document.getElementById("a3-voice-status");
-  if (a3Equalizer && isSpeaking) a3Equalizer.classList.add("active");
-  if (a3Status && isSpeaking) {
-    a3Status.className = "voice-status-pill speaking";
-    a3Status.innerText = "🔊 Reading Aloud...";
-  }
+  // Update Prototype A visualizers (Screen A3, A4, A6, A7, A8)
+  const screensA = [
+    { p: "a3", labelSpk: "🔊 Coach Speaking", labelList: "🎙️ Candidate's Turn (Listening...)" },
+    { p: "a4", labelSpk: "🔊 Coach Delivering Rubric Feedback", labelList: "✓ Rubric Evaluation Complete" },
+    { p: "a6", labelSpk: "🔊 Coach Guiding Feedforward Plan", labelList: "🎙️ Dictate or Type Reflection" },
+    { p: "a7", labelSpk: "🔊 Coach Presenting Adaptive Retry", labelList: "🎙️ Candidate's Turn (Retry Revision)" },
+    { p: "a8", labelSpk: "🔊 Coach Explaining Measurable Delta", labelList: "✓ Attempt Delta Audited" }
+  ];
+
+  screensA.forEach(s => {
+    const avatar = document.getElementById(`${s.p}-avatar-wrapper`);
+    const eq = document.getElementById(`${s.p}-equalizer`);
+    const status = document.getElementById(`${s.p}-voice-status`);
+    if (avatar) avatar.classList.toggle("speaking", isSpeaking);
+    if (eq) eq.classList.toggle("active", isSpeaking);
+    if (status) {
+      if (isSpeaking) {
+        status.className = "voice-status-pill speaking";
+        status.innerText = s.labelSpk;
+      } else {
+        status.className = (s.p === "a4" || s.p === "a8") ? "voice-status-pill speaking" : "voice-status-pill listening";
+        status.innerText = s.labelList;
+      }
+    }
+  });
 }
 
 function stopAllAudio() {
@@ -159,11 +179,13 @@ function stopAllAudio() {
 
 function toggleMuteAudio() {
   isMuted = !isMuted;
-  const btnB3 = document.getElementById("btn-mute-b3");
-  if (btnB3) {
-    btnB3.innerText = isMuted ? "🔊 Unmute" : "🔇 Mute";
-    btnB3.classList.toggle("btn-warning", isMuted);
-  }
+  ["btn-mute-b3", "btn-mute-a3", "btn-mute-a4", "btn-mute-a6", "btn-mute-a7", "btn-mute-a8"].forEach(id => {
+    const btn = document.getElementById(id);
+    if (btn) {
+      btn.innerText = isMuted ? "🔊 Unmute" : "🔇 Mute";
+      btn.classList.toggle("btn-warning", isMuted);
+    }
+  });
   if (isMuted) {
     window.speechSynthesis.cancel();
     setAvatarSpeaking(false);
@@ -208,6 +230,27 @@ function setCockpitInputMode(mode) {
     if (vBtn) vBtn.classList.remove("active");
     if (tBtn) tBtn.classList.add("active");
     const ta = document.getElementById("b-answer");
+    if (ta) ta.focus();
+  }
+}
+
+function setCockpitInputModeA(mode, prefix = 'a3') {
+  const vStage = document.getElementById(`${prefix}-dock-voice-stage`);
+  const tStage = document.getElementById(`${prefix}-dock-text-stage`);
+  const vBtn = document.getElementById(`${prefix}-dock-btn-voice`);
+  const tBtn = document.getElementById(`${prefix}-dock-btn-text`);
+
+  if (mode === "voice") {
+    if (vStage) vStage.style.display = "block";
+    if (tStage) tStage.style.display = "block";
+    if (vBtn) vBtn.classList.add("active");
+    if (tBtn) tBtn.classList.remove("active");
+  } else {
+    if (vStage) vStage.style.display = "none";
+    if (tStage) tStage.style.display = "block";
+    if (vBtn) vBtn.classList.remove("active");
+    if (tBtn) tBtn.classList.add("active");
+    const ta = document.getElementById(prefix === "a3" ? "a-answer" : (prefix === "a6" ? "a-change" : "a-retry-answer"));
     if (ta) ta.focus();
   }
 }
@@ -326,9 +369,10 @@ function downsampleChunkTo16k(buffer, inputSampleRate) {
 }
 
 function checkSimSilenceAutoForward(totalSpoken, targetId, statusEl) {
-  if (targetId !== "b-answer") return;
+  const allowed = ["b-answer", "a-answer", "a-retry-answer", "a-change"];
+  if (!allowed.includes(targetId)) return;
   const words = (totalSpoken || "").trim().split(/\s+/).filter(Boolean);
-  if (words.length < 5) return;
+  if (words.length < 3) return; // Trigger after at least 3 words
 
   if (simSilenceTimer) clearTimeout(simSilenceTimer);
   if (simSilenceCountdownTimer) {
@@ -339,9 +383,13 @@ function checkSimSilenceAutoForward(totalSpoken, targetId, statusEl) {
   let remainingSec = 3.5;
   simSilenceCountdownTimer = setInterval(() => {
     remainingSec -= 0.5;
-    if (remainingSec <= 2.0 && isUniversalRecording && universalTextareaId === "b-answer") {
+    if (remainingSec <= 2.5 && isUniversalRecording && allowed.includes(universalTextareaId)) {
       if (statusEl) {
-        statusEl.innerHTML = `⏸️ <strong>Pause detected:</strong> Auto-sending to Dr. Vance in <strong>${remainingSec.toFixed(1)}s</strong> (keep speaking to cancel)...`;
+        let dest = "Dr. Marcus Vance";
+        if (universalTextareaId === "a-answer") dest = "Evaluator (Attempt 1)";
+        else if (universalTextareaId === "a-retry-answer") dest = "Evaluator (Attempt 2)";
+        else if (universalTextareaId === "a-change") dest = "Revision Plan";
+        statusEl.innerHTML = `⏸️ <strong>Pause detected:</strong> Auto-submitting to ${dest} in <strong>${remainingSec.toFixed(1)}s</strong> (keep speaking to cancel)...`;
       }
     }
     if (remainingSec <= 0) {
@@ -357,8 +405,8 @@ function checkSimSilenceAutoForward(totalSpoken, targetId, statusEl) {
       clearInterval(simSilenceCountdownTimer);
       simSilenceCountdownTimer = null;
     }
-    if (isUniversalRecording && universalTextareaId === "b-answer") {
-      console.log("Natural conversational pause detected in real interview mode -> auto-forwarding response to AI");
+    if (isUniversalRecording && allowed.includes(universalTextareaId)) {
+      console.log(`Natural conversational pause detected for ${universalTextareaId} -> auto-forwarding response to AI`);
       stopUniversalRecordingAndTranscribe();
     }
   }, 3500);
@@ -455,19 +503,33 @@ async function toggleVoiceInputUniversal(textareaId, btnId, panelId, statusId, m
 
   // 1. Update UI IMMEDIATELY so button is visibly functional
   if (btn) {
-    if (btnId === "hero-mic-b") {
-      const glyph = document.getElementById("hero-mic-glyph");
-      const label = document.getElementById("hero-mic-label");
-      const sub = document.getElementById("hero-mic-sub");
+    if (btn.classList.contains("hero-mic-btn") || btnId === "hero-mic-b" || btnId === "btn-speech-a" || btnId === "btn-speech-a7" || btnId === "btn-speech-a6") {
+      const glyph = btn.querySelector(".mic-glyph") || document.getElementById("hero-mic-glyph");
+      const label = btn.querySelector(".mic-primary-label") || document.getElementById("hero-mic-label");
+      const sub = btn.querySelector(".mic-sub-label") || document.getElementById("hero-mic-sub");
       if (glyph) glyph.innerText = "⏹️";
-      if (label) label.innerText = "Done Speaking — Send Response ↵";
-      if (sub) sub.innerText = "Listening live... Auto-sends on 3.5s pause or click now";
+      if (btnId === "hero-mic-b") {
+        if (label) label.innerText = "Done Speaking — Send Response ↵";
+        if (sub) sub.innerText = "Listening live... Auto-sends on 3.5s pause or click now";
+      } else if (btnId === "btn-speech-a") {
+        if (label) label.innerText = "Done Speaking — Submit for Evaluation ↵";
+        if (sub) sub.innerText = "Listening live... Auto-sends on 3.5s pause or click now";
+      } else if (btnId === "btn-speech-a7") {
+        if (label) label.innerText = "Done Speaking — Submit Revision ↵";
+        if (sub) sub.innerText = "Listening live... Auto-sends on 3.5s pause or click now";
+      } else if (btnId === "btn-speech-a6") {
+        if (label) label.innerText = "Done Speaking — Save Reflection ↵";
+        if (sub) sub.innerText = "Listening live... Auto-sends on 3.5s pause or click now";
+      } else {
+        if (label) label.innerText = "Done Speaking (Auto-Sends on Pause)";
+        if (sub) sub.innerText = "Listening live... Auto-sends on 3.5s pause or click now";
+      }
       btn.classList.add("recording");
     } else if (btnId === "btn-speech-b") {
       btn.innerText = "⏹️ Finish Speaking (Auto-Sends to AI)";
       btn.className = "btn btn-danger btn-sm";
     } else {
-      btn.innerText = "⏹️ Done Speaking (Click to Finish)";
+      btn.innerText = "⏹️ Done Speaking (Auto-Sends on Pause)";
       btn.className = "btn btn-danger btn-sm";
     }
   }
@@ -527,19 +589,22 @@ async function toggleVoiceInputUniversal(textareaId, btnId, panelId, statusId, m
           universalSpeechAccumulated += finalBatch;
         }
 
-        const totalSpoken = (universalSpeechAccumulated + interimBatch).trim();
+        const totalSpoken = (universalSpeechAccumulated + (interimBatch ? " " + interimBatch : "")).trim();
         if (totalSpoken) {
           universalWebSpeechGotText = true;
+          const fullRunningText = (universalBaseText ? universalBaseText + " " : "") + totalSpoken;
           if (textarea) {
-            textarea.value = (universalBaseText ? universalBaseText + " " : "") + totalSpoken;
+            textarea.value = fullRunningText;
             textarea.dispatchEvent(new Event("input"));
           }
           if (preview) {
-            preview.innerText = `“${interimBatch || totalSpoken}”`;
+            preview.innerText = `“${fullRunningText}”`;
             preview.classList.add("active");
+            preview.scrollTop = preview.scrollHeight;
           }
           if (status) {
-            status.innerHTML = `🗣️ <strong>Speaking:</strong> ${(interimBatch || totalSpoken).slice(-45)}`;
+            const wordCount = fullRunningText.split(/\s+/).filter(Boolean).length;
+            status.innerHTML = `🗣️ <strong>Transcribing Live (${wordCount} words):</strong> ${escapeHtml((interimBatch || totalSpoken).slice(-50))}`;
           }
           checkSimSilenceAutoForward(totalSpoken, universalTextareaId, status);
         }
@@ -572,16 +637,19 @@ async function toggleVoiceInputUniversal(textareaId, btnId, panelId, statusId, m
             universalLiveStreamAccumulated = text;
             // If Web Speech API is not providing text or Vosk has more text, update UI directly
             if (!universalWebSpeechGotText || text.length >= (universalSpeechAccumulated || "").length) {
+              const fullRunningText = (universalBaseText ? universalBaseText + " " : "") + text;
               if (textarea) {
-                textarea.value = (universalBaseText ? universalBaseText + " " : "") + text;
+                textarea.value = fullRunningText;
                 textarea.dispatchEvent(new Event("input"));
               }
               if (preview) {
-                preview.innerText = `“${text}”`;
+                preview.innerText = `“${fullRunningText}”`;
                 preview.classList.add("active");
+                preview.scrollTop = preview.scrollHeight;
               }
               if (status) {
-                status.innerHTML = `🗣️ <strong>Transcribing Live:</strong> ${escapeHtml(text.slice(-45))}`;
+                const wordCount = fullRunningText.split(/\s+/).filter(Boolean).length;
+                status.innerHTML = `🗣️ <strong>Transcribing Live (${wordCount} words):</strong> ${escapeHtml(text.slice(-50))}`;
               }
               checkSimSilenceAutoForward(text, universalTextareaId, status);
             }
@@ -755,13 +823,8 @@ async function stopUniversalRecordingAndTranscribe() {
       status.innerHTML = "✓ <strong>Voice Converted in Real-Time:</strong> Answer captured live with zero wait time!";
     }
     resetUniversalUI();
-    // Real Interview Mode auto-forwarding directly to AI
-    if (targetTextareaId === "b-answer") {
-      if (status) status.innerHTML = "🚀 <strong>Auto-forwarding spoken response directly to Dr. Marcus Vance...</strong>";
-      setTimeout(() => {
-        submitSimulationAnswer();
-      }, 350);
-    }
+    // Auto-forwarding directly to AI
+    triggerAutoForwardDestination(targetTextareaId, status);
     return;
   }
 
@@ -813,13 +876,8 @@ async function stopUniversalRecordingAndTranscribe() {
         status.innerHTML = `✓ <strong>Spoken Answer Transcribed:</strong> “${escapeHtml(text.slice(0, 70))}${text.length > 70 ? '...' : ''}”`;
       }
       resetUniversalUI();
-      // Real Interview Mode auto-forwarding directly to AI
-      if (targetTextareaId === "b-answer") {
-        if (status) status.innerHTML = "🚀 <strong>Auto-forwarding spoken response directly to Dr. Marcus Vance...</strong>";
-        setTimeout(() => {
-          submitSimulationAnswer();
-        }, 350);
-      }
+      // Auto-forwarding directly to AI
+      triggerAutoForwardDestination(targetTextareaId, status);
       return;
     } else {
       if (status) {
@@ -836,17 +894,44 @@ async function stopUniversalRecordingAndTranscribe() {
   resetUniversalUI();
 }
 
+function triggerAutoForwardDestination(targetId, statusEl) {
+  if (targetId === "b-answer") {
+    if (statusEl) statusEl.innerHTML = "🚀 <strong>Auto-forwarding spoken response directly to Dr. Marcus Vance...</strong>";
+    setTimeout(() => { submitSimulationAnswer(); }, 350);
+  } else if (targetId === "a-answer") {
+    if (statusEl) statusEl.innerHTML = "🚀 <strong>Auto-forwarding spoken answer directly for rubric evaluation...</strong>";
+    setTimeout(() => { submitAnswerA(1); }, 350);
+  } else if (targetId === "a-retry-answer") {
+    if (statusEl) statusEl.innerHTML = "🚀 <strong>Auto-forwarding Attempt 2 revision for delta comparison...</strong>";
+    setTimeout(() => { submitAnswerA(2); }, 350);
+  } else if (targetId === "a-change") {
+    if (statusEl) statusEl.innerHTML = "🚀 <strong>Auto-saving reflection and proceeding to Attempt 2 Revision...</strong>";
+    setTimeout(() => { saveReflectionA(); }, 350);
+  }
+}
+
 function resetUniversalUI() {
   if (universalBtnId) {
     const btn = document.getElementById(universalBtnId);
     if (btn) {
-      if (universalBtnId === "hero-mic-b") {
-        const glyph = document.getElementById("hero-mic-glyph");
-        const label = document.getElementById("hero-mic-label");
-        const sub = document.getElementById("hero-mic-sub");
+      if (btn.classList.contains("hero-mic-btn") || universalBtnId === "hero-mic-b" || universalBtnId === "btn-speech-a" || universalBtnId === "btn-speech-a7" || universalBtnId === "btn-speech-a6") {
+        const glyph = btn.querySelector(".mic-glyph") || document.getElementById("hero-mic-glyph");
+        const label = btn.querySelector(".mic-primary-label") || document.getElementById("hero-mic-label");
+        const sub = btn.querySelector(".mic-sub-label") || document.getElementById("hero-mic-sub");
         if (glyph) glyph.innerText = "🎙️";
-        if (label) label.innerText = "Click to Speak to Dr. Vance";
-        if (sub) sub.innerText = "Transcribes in real time • Auto-sends on 3.5s pause or click";
+        if (universalBtnId === "hero-mic-b") {
+          if (label) label.innerText = "Click to Speak to Dr. Vance";
+          if (sub) sub.innerText = "Transcribes in real time • Auto-sends on 3.5s pause or click";
+        } else if (universalBtnId === "btn-speech-a7") {
+          if (label) label.innerText = "Click to Dictate Attempt 2 Revision";
+          if (sub) sub.innerText = "Transcribes in real time • Auto-sends on 3.5s pause or click";
+        } else if (universalBtnId === "btn-speech-a6") {
+          if (label) label.innerText = "Click to Speak Your Reflection";
+          if (sub) sub.innerText = "Transcribes in real time • Auto-sends on 3.5s pause or click";
+        } else {
+          if (label) label.innerText = "Click to Speak Your Answer";
+          if (sub) sub.innerText = "Transcribes in real time • Auto-sends on 3.5s pause or click";
+        }
         btn.classList.remove("recording");
       } else if (universalBtnId === "btn-speech-b") {
         btn.innerText = "🎙️ Speak to Interviewer (Auto-Forwards)";
@@ -929,12 +1014,18 @@ window.searchWebKnowledge = searchWebKnowledge;
 
 // Word counters
 function setupWordCounters() {
-  ["a-answer", "a-retry-answer", "b-answer"].forEach(id => {
-    const el = document.getElementById(id);
+  const map = {
+    "a-answer": "a-word-count",
+    "a-retry-answer": "a7-word-count",
+    "a-change": "a6-word-count",
+    "b-answer": "b-word-count"
+  };
+  Object.entries(map).forEach(([inputId, counterId]) => {
+    const el = document.getElementById(inputId);
     if (el) {
       el.addEventListener("input", (e) => {
         const words = e.target.value.trim().split(/\s+/).filter(Boolean);
-        const counterEl = document.getElementById(id === "a-answer" ? "a-word-count" : "");
+        const counterEl = document.getElementById(counterId);
         if (counterEl) counterEl.innerText = `${words.length} words`;
       });
     }
@@ -1086,11 +1177,26 @@ function applyRolePresetA(role, company, level, type) {
   if (rInput) rInput.value = role;
   if (cInput) cInput.value = company;
   if (lSelect) lSelect.value = level;
-  if (tSelect) tSelect.value = type;
+  if (tSelect) {
+    let matched = false;
+    for (let opt of tSelect.options) {
+      if (opt.value === type || opt.value.toLowerCase().includes((type || "").toLowerCase())) {
+        tSelect.value = opt.value;
+        matched = true;
+        break;
+      }
+    }
+    if (!matched && type) tSelect.value = type;
+  }
 
   syncCandidateRole(role);
   syncCandidateCompany(company);
   syncCandidateLevel(level);
+
+  [rInput, cInput, lSelect, tSelect].filter(Boolean).forEach(el => {
+    el.dispatchEvent(new Event("input", { bubbles: true }));
+    el.dispatchEvent(new Event("change", { bubbles: true }));
+  });
 
   goToScreenA("a2");
 }
@@ -1291,6 +1397,7 @@ function cycleDemoPortfolio(targetProto = 'both') {
   syncCandidateRole(p.role);
   syncCandidateCompany(p.company);
   syncCandidateLevel(p.level);
+  activePersona = p.id;
 
   // 5. Update UI Badges & Buttons
   const aBadge = document.getElementById("a-demo-badge");
@@ -1350,8 +1457,19 @@ function goToScreenA(screenId) {
   stopAllAudio();
   window.scrollTo({ top: 0, behavior: "smooth" });
 
-  if (screenId === "a3" && autoSpeakEnabled) {
-    setTimeout(speakCurrentQuestionA, 400);
+  if (screenId === "a3") {
+    setCockpitInputModeA('voice', 'a3');
+    if (autoSpeakEnabled) setTimeout(speakCurrentQuestionA, 400);
+  } else if (screenId === "a4") {
+    if (autoSpeakEnabled) setTimeout(speakFeedbackA4, 400);
+  } else if (screenId === "a6") {
+    setCockpitInputModeA('voice', 'a6');
+    if (autoSpeakEnabled) setTimeout(speakFeedforwardA6, 400);
+  } else if (screenId === "a7") {
+    setCockpitInputModeA('voice', 'a7');
+    if (autoSpeakEnabled) setTimeout(speakAdaptiveProbeA7, 400);
+  } else if (screenId === "a8") {
+    if (autoSpeakEnabled) setTimeout(speakComparisonA8, 400);
   }
 }
 
@@ -1384,14 +1502,18 @@ async function startSessionA() {
   }
   const a3DurationPill = document.getElementById("a3-duration-pill");
   if (a3DurationPill) {
-    const shortDuration = durationVal.includes("Quick") ? "15m" : (durationVal.includes("Full") ? "45m" : "20m");
+    const shortDuration = durationVal.includes("25") ? "25m" : (durationVal.includes("60") ? "60m" : "45m");
     a3DurationPill.innerText = `⏱️ ${shortDuration}`;
   }
 
-  const startBtn = document.querySelector("#screen-a2 button.btn-primary");
+  const startBtn = document.getElementById("btn-start-a") || document.querySelector("#screen-a2 button.btn-primary");
+  const a2Notice = document.getElementById("a2-loading-notice");
   if (startBtn) {
     startBtn.disabled = true;
-    startBtn.innerText = "⏳ Generating AI Questions with Nemotron 3.5...";
+    startBtn.innerText = "⏳ Initializing Practice Session...";
+  }
+  if (a2Notice) {
+    a2Notice.style.display = "flex";
   }
 
   try {
@@ -1416,14 +1538,8 @@ async function startSessionA() {
     const data = await res.json();
     currentSessionId = data.session_id;
 
-    if (data.first_question) {
-      currentQuestionId = data.first_question.id;
-      currentQuestionText = data.first_question.text;
-      const qTextEl = document.getElementById("a3-q-text");
-      if (qTextEl) qTextEl.innerText = `“${currentQuestionText}”`;
-      const qTextA7 = document.getElementById("a7-q-text");
-      if (qTextA7) qTextA7.innerText = `“${currentQuestionText}”`;
-    }
+    protoAQuestions = (data.questions && data.questions.length > 0) ? data.questions : (data.first_question ? [data.first_question] : []);
+    loadQuestionA(0);
 
     const dlDocx = document.getElementById("btn-dl-docx");
     const dlPptx = document.getElementById("btn-dl-pptx");
@@ -1436,10 +1552,87 @@ async function startSessionA() {
     currentSessionId = "sess_practice";
     goToScreenA("a3");
   } finally {
+    if (a2Notice) {
+      a2Notice.style.display = "none";
+    }
     if (startBtn) {
       startBtn.disabled = false;
       startBtn.innerText = "🚀 Begin Practice Interview";
     }
+  }
+}
+
+function loadQuestionA(index) {
+  if (!protoAQuestions || protoAQuestions.length === 0) return;
+  if (index < 0 || index >= protoAQuestions.length) return;
+  protoACurrentIndex = index;
+  const q = protoAQuestions[index];
+  currentQuestionId = q.id || (index + 1);
+  currentQuestionText = q.text || q;
+
+  const qNumEl = document.getElementById("a3-q-num");
+  if (qNumEl) qNumEl.innerText = `QUESTION ${index + 1} / ${protoAQuestions.length}`;
+
+  const qTextEl = document.getElementById("a3-q-text");
+  if (qTextEl) qTextEl.innerText = `“${currentQuestionText}”`;
+
+  const qTextA7 = document.getElementById("a7-q-text");
+  if (qTextA7) qTextA7.innerText = `“${currentQuestionText}”`;
+
+  // Clear previous answers & reset counters
+  const ansA = document.getElementById("a-answer");
+  if (ansA) ansA.value = "";
+  const wcA = document.getElementById("a-word-count");
+  if (wcA) wcA.innerText = "0 words";
+
+  const ansA7 = document.getElementById("a-retry-answer");
+  if (ansA7) ansA7.value = "";
+  const wcA7 = document.getElementById("a7-word-count");
+  if (wcA7) wcA7.innerText = "0 words";
+
+  const refChange = document.getElementById("a-change");
+  if (refChange) refChange.value = "";
+  const refLearn = document.getElementById("a-learn");
+  if (refLearn) refLearn.value = "";
+
+  const a7AdaptiveBox = document.getElementById("a7-adaptive-prompt-box");
+  if (a7AdaptiveBox) a7AdaptiveBox.style.display = "none";
+  const a7AdaptivePrompt = document.getElementById("a7-adaptive-prompt");
+  if (a7AdaptivePrompt) a7AdaptivePrompt.innerText = "";
+
+  const a3Status = document.getElementById("a3-voice-status");
+  if (a3Status) {
+    a3Status.className = "voice-status-pill speaking";
+    a3Status.innerText = "🔊 Coach Speaking";
+  }
+  const a7Status = document.getElementById("a7-voice-status");
+  if (a7Status) {
+    a7Status.className = "voice-status-pill speaking";
+    a7Status.innerText = "🔊 Coach Speaking";
+  }
+  const prevA3 = document.getElementById("a3-live-preview");
+  if (prevA3) {
+    prevA3.innerText = "";
+    prevA3.classList.remove("active");
+  }
+  const prevA7 = document.getElementById("a7-live-preview");
+  if (prevA7) {
+    prevA7.innerText = "";
+    prevA7.classList.remove("active");
+  }
+
+  setCockpitInputModeA('voice', 'a3');
+  setCockpitInputModeA('voice', 'a7');
+
+  goToScreenA("a3");
+}
+
+function nextQuestionA() {
+  if (protoACurrentIndex + 1 < protoAQuestions.length) {
+    loadQuestionA(protoACurrentIndex + 1);
+  } else {
+    loadLongitudinalProgress();
+    goToScreenA("a9");
   }
 }
 
@@ -1456,6 +1649,27 @@ function speakCurrentQuestionA() {
 function speakFeedbackA4() {
   if (!lastEvaluation) return;
   const text = `Overall Score: ${lastEvaluation.overall_score} out of 10. Strengths: ${lastEvaluation.strengths.join(". ")}. Key recommendation: ${lastEvaluation.actionable_suggestions.join(". ")}`;
+  speakText(text);
+}
+
+function speakFeedforwardA6() {
+  const text = "Stage A6: Guided Reflection and Feedforward. Deliberate practice requires analyzing feedback before your second attempt. What specific changes and measurable evidence will you incorporate into your revised answer?";
+  speakText(text);
+}
+
+function speakAdaptiveProbeA7() {
+  let probe = "";
+  if (lastEvaluation && lastEvaluation.adaptive_followup && lastEvaluation.adaptive_followup.followup_question) {
+    probe = lastEvaluation.adaptive_followup.followup_question;
+  }
+  const text = probe ? `Attempt 2 Deliberate Retry. Focus on this follow-up challenge: ${probe}` : `Attempt 2 Deliberate Retry. Please deliver your revised response incorporating your reflection and measurable outcomes.`;
+  speakText(text);
+}
+
+function speakComparisonA8() {
+  const compImprovement = document.getElementById("compare-improvements");
+  const improvText = compImprovement ? compImprovement.innerText : "";
+  const text = `Direct Attempt Comparison. Here is your measurable delta between Attempt 1 and Attempt 2. ${improvText ? 'Key improvements: ' + improvText : 'Review your score improvement across all rubric criteria.'}`;
   speakText(text);
 }
 
@@ -1516,6 +1730,17 @@ function loadSampleAnswerA(attemptNumber) {
       textarea.value = "Forty-eight hours before our quarterly enterprise release, monitoring alerted us to a 35% memory spike under simulated 10k RPS load. Rather than blindly reverting commits, I ran profiling using pprof, identified an unbounded map cache in our auth middleware, and proposed an LRU cache with strict eviction limits. I paired with our reliability lead to benchmark the fix under 15k RPS, proving 0% packet drops and stable heap memory. As a measurable outcome, we deployed on schedule, reduced P99 latency from 180ms to 42ms, and prevented an estimated $85,000 SLA penalty.";
     }
   }
+
+  const preview = attemptNumber === 1 ? document.getElementById("a3-live-preview") : document.getElementById("a7-live-preview");
+  const status = attemptNumber === 1 ? document.getElementById("a3-stt-status") : document.getElementById("a7-stt-status");
+  if (preview && textarea.value) {
+    preview.innerText = `“${textarea.value}”`;
+    preview.classList.add("active");
+  }
+  if (status) {
+    status.innerHTML = `✓ <strong>Sample Answer Loaded:</strong> Ready for evaluation or revision`;
+  }
+
   textarea.dispatchEvent(new Event("input"));
 }
 
@@ -1529,8 +1754,39 @@ async function submitAnswerA(attemptNumber) {
   }
 
   stopActiveRecognition();
-  const submitBtn = attemptNumber === 1 ? document.getElementById("btn-submit-a") : null;
-  if (submitBtn) submitBtn.innerText = "Evaluating against rubric...";
+  const submitBtn = attemptNumber === 1 ? document.getElementById("btn-submit-a") : document.getElementById("btn-submit-a7");
+  const origBtnText = submitBtn ? submitBtn.innerText : (attemptNumber === 1 ? "Submit Answer for Evaluation →" : "Submit Revision for Comparison →");
+  const noticeEl = attemptNumber === 1 ? document.getElementById("a3-loading-notice") : document.getElementById("a7-loading-notice");
+
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.innerText = attemptNumber === 1 ? "⏳ Evaluating against rubric..." : "⏳ Auditing Attempt 2 & Delta...";
+  }
+  if (noticeEl) {
+    noticeEl.style.display = "flex";
+  }
+
+  // Update interviewer hero card status
+  const heroPill = attemptNumber === 1 ? document.getElementById("a3-voice-status") : document.getElementById("a7-voice-status");
+  if (heroPill) {
+    heroPill.className = "voice-status-pill thinking";
+    heroPill.innerText = "🧠 Evaluator Auditing Response...";
+  }
+
+  // Navigate immediately to feedback / comparison screen and show loading state placeholder exactly like Prototype B
+  if (attemptNumber === 1) {
+    goToScreenA("a4");
+    const a4Loading = document.getElementById("a4-loading-state");
+    const a4Content = document.getElementById("a4-dashboard-content");
+    if (a4Loading) a4Loading.style.display = "block";
+    if (a4Content) a4Content.style.display = "none";
+  } else {
+    goToScreenA("a8");
+    const a8Loading = document.getElementById("a8-loading-state");
+    const a8Content = document.getElementById("a8-dashboard-content");
+    if (a8Loading) a8Loading.style.display = "block";
+    if (a8Content) a8Content.style.display = "none";
+  }
 
   try {
     const res = await fetch("/api/evaluate", {
@@ -1549,20 +1805,38 @@ async function submitAnswerA(attemptNumber) {
 
     if (attemptNumber === 1) {
       renderFeedbackScreenA4(evalData);
-      goToScreenA("a4");
     } else {
       await loadAttemptComparison();
-      goToScreenA("a8");
     }
   } catch (err) {
     console.error(err);
     alert("Evaluation error. Please try again.");
+    const a4Loading = document.getElementById("a4-loading-state");
+    const a4Content = document.getElementById("a4-dashboard-content");
+    if (a4Loading) a4Loading.style.display = "none";
+    if (a4Content) a4Content.style.display = "block";
+    const a8Loading = document.getElementById("a8-loading-state");
+    const a8Content = document.getElementById("a8-dashboard-content");
+    if (a8Loading) a8Loading.style.display = "none";
+    if (a8Content) a8Content.style.display = "block";
   } finally {
-    if (submitBtn) submitBtn.innerText = "Submit Answer";
+    if (noticeEl) {
+      noticeEl.style.display = "none";
+    }
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.innerText = origBtnText;
+    }
   }
 }
 
 function renderFeedbackScreenA4(evalData) {
+  const a4Loading = document.getElementById("a4-loading-state");
+  const a4Content = document.getElementById("a4-dashboard-content");
+  if (a4Loading) a4Loading.style.display = "none";
+  if (a4Content) a4Content.style.display = "block";
+
+  lastEvaluation = evalData;
   document.getElementById("a4-overall-score").innerText = `${evalData.overall_score} / 10`;
 
   const qTextA7 = document.getElementById("a7-q-text");
@@ -1606,7 +1880,7 @@ function renderFeedbackScreenA4(evalData) {
     if (adaptiveReasoning) adaptiveReasoning.innerText = `💡 Why this probe: ${evalData.adaptive_followup.reasoning || "Contextual probe on unevidenced competencies."}`;
     if (adaptiveSource) {
       const src = evalData.adaptive_followup.source || "adaptive_ai_dialogue_engine";
-      adaptiveSource.innerText = src.includes("nemotron") ? "NVIDIA Nemotron 3.5" : (src.includes("gemini") ? "Google Gemini 1.5" : "Adaptive AI Dialogue Engine");
+      adaptiveSource.innerText = src.includes("nemotron") ? "NVIDIA Nemotron 3.5" : (src.includes("gemini") ? "Google Gemini 3.5" : "Adaptive AI Dialogue Engine");
     }
     if (adaptiveContainer) adaptiveContainer.style.display = "block";
 
@@ -1621,15 +1895,72 @@ function renderFeedbackScreenA4(evalData) {
     if (a7AdaptiveBox) a7AdaptiveBox.style.display = "none";
   }
 
-  // Populate Why Modal
-  document.getElementById("modal-why-score").innerText = `${evalData.evidence_outcome.score} / 10`;
-  document.getElementById("modal-why-reason").innerText = evalData.evidence_outcome.reason;
-  if (evalData.evidence_outcome.evidence_found) {
-    document.getElementById("modal-why-excerpt").innerText = `Analyzed: “${evalData.evidence_outcome.evidence_found}”`;
+  // Update export download links on Screen A4
+  const docxBtnA4 = document.getElementById("btn-dl-docx-a4");
+  const pptxBtnA4 = document.getElementById("btn-dl-pptx-a4");
+  const sessId = currentSessionId || "demo_sess";
+  if (docxBtnA4) docxBtnA4.href = `/api/export-docx/${sessId}`;
+  if (pptxBtnA4) pptxBtnA4.href = `/api/export-pptx/${sessId}`;
+
+  // Populate active criterion in Why Modal
+  switchWhyCriterion("evidence_outcome");
+  if (autoSpeakEnabled) setTimeout(speakFeedbackA4, 500);
+}
+
+function switchWhyCriterion(critKey) {
+  activeWhyCriterion = critKey;
+
+  // Update tabs visual state
+  const tabMap = {
+    "evidence_outcome": "why-tab-evid",
+    "relevance": "why-tab-rel",
+    "specificity": "why-tab-spec",
+    "structure_clarity": "why-tab-struct"
+  };
+
+  Object.values(tabMap).forEach(btnId => {
+    const el = document.getElementById(btnId);
+    if (el) el.classList.remove("active");
+  });
+
+  const activeBtn = document.getElementById(tabMap[critKey] || "why-tab-evid");
+  if (activeBtn) activeBtn.classList.add("active");
+
+  if (!lastEvaluation) return;
+
+  const breakdown = (lastEvaluation.why_feedback_summary && lastEvaluation.why_feedback_summary.criteria_breakdown)
+    ? lastEvaluation.why_feedback_summary.criteria_breakdown[critKey]
+    : null;
+
+  const critData = lastEvaluation[critKey] || {};
+
+  const nameEl = document.getElementById("modal-why-title");
+  const stdEl = document.getElementById("modal-why-standard");
+  const scoreEl = document.getElementById("modal-why-score");
+  const reasonEl = document.getElementById("modal-why-reason");
+  const excerptEl = document.getElementById("modal-why-excerpt");
+  const addEl = document.getElementById("modal-why-addition");
+
+  if (breakdown) {
+    if (nameEl) nameEl.innerText = breakdown.name || critData.name || "Rubric Criterion";
+    if (stdEl) stdEl.innerText = breakdown.standard || critData.rubric_definition || "";
+    if (scoreEl) scoreEl.innerText = `${breakdown.score !== undefined ? breakdown.score : critData.score} / 10`;
+    if (reasonEl) reasonEl.innerText = breakdown.reason || critData.reason || "";
+    if (excerptEl) excerptEl.innerText = `Analyzed: “${breakdown.excerpt || critData.evidence_found || "Excerpt from candidate answer"}”`;
+    if (addEl) addEl.innerText = breakdown.recommendation || lastEvaluation.example_improved_answer || "Quantify outcomes with concrete metrics.";
+  } else {
+    if (nameEl) nameEl.innerText = critData.name || "Rubric Criterion";
+    if (stdEl) stdEl.innerText = critData.rubric_definition || "Standard rubric assessment.";
+    if (scoreEl) scoreEl.innerText = `${critData.score || 0} / 10`;
+    if (reasonEl) reasonEl.innerText = critData.reason || "";
+    if (excerptEl) excerptEl.innerText = `Analyzed: “${critData.evidence_found || "Narrative elements"}”`;
+    if (addEl) addEl.innerText = critData.missing_aspect || lastEvaluation.example_improved_answer || "Incorporate measurable evidence and concrete artifacts.";
   }
-  if (evalData.example_improved_answer) {
-    document.getElementById("modal-why-addition").innerText = evalData.example_improved_answer;
-  }
+}
+
+function openWhyFeedbackModalFor(critKey) {
+  switchWhyCriterion(critKey);
+  openWhyFeedbackModal();
 }
 
 function openWhyFeedbackModal() {
@@ -1641,13 +1972,56 @@ function closeWhyFeedbackModal() {
 }
 
 function loadSampleReflectionA() {
-  document.getElementById("a-change").value = "I would add the measurable user retention impact and exact A/B test metric to show a concrete resolution.";
-  document.getElementById("a-learn").value = "In behavioral interviews, explaining actions isn't enough; I must explicitly state the quantifiable result (STAR Result).";
+  const role = (candidateProfile.role || "").toLowerCase();
+  const changeEl = document.getElementById("a-change");
+  const learnEl = document.getElementById("a-learn");
+
+  if (role.includes("distributed") || role.includes("systems") || role.includes("infrastructure")) {
+    if (changeEl) changeEl.value = "I will explicitly quantify the Raft lease timeout, P99 latency reduction from 450ms to 42ms, and 0% double-credit outcomes during simulated 35% packet loss partitions.";
+    if (learnEl) learnEl.value = "In distributed systems interviews, technical trade-offs require empirical benchmarks and partition failure modes, not just verbal consensus.";
+  } else if (role.includes("ux") || role.includes("design") || role.includes("research")) {
+    if (changeEl) changeEl.value = "I will include the 44% medical history abandonment rate, the 90-second participant recording evidence, and the 28% task completion lift from our progressive disclosure redesign.";
+    if (learnEl) learnEl.value = "Explaining research methodology is incomplete without demonstrating how qualitative insights directly altered the product roadmap and produced measurable UX improvements.";
+  } else if (role.includes("product") || role.includes("apm") || role.includes("pm")) {
+    if (changeEl) changeEl.value = "I will articulate the $280k/month cost of delay, the decoupled dual-read engineering compromise, and the $3.4M annualized GMV expansion.";
+    if (learnEl) learnEl.value = "In PM interviews, cross-functional conflicts must be resolved through customer and business unit economics, not personal persuasion.";
+  } else if (role.includes("machine") || role.includes("learning") || role.includes("vision") || role.includes("ai")) {
+    if (changeEl) changeEl.value = "I will quantify the 3D UNet volumetric inference speedup (820ms → 64ms on T4 GPUs) and confirm that Dice similarity was maintained at 94.2% across 500 clinical scans.";
+    if (learnEl) learnEl.value = "In applied ML interviews, model accuracy metrics must always be balanced against edge production latency and hardware constraints.";
+  } else if (role.includes("data") || role.includes("lakehouse") || role.includes("flink") || role.includes("kafka")) {
+    if (changeEl) changeEl.value = "I will highlight the 4-hour to 35-second pipeline latency drop, the Protobuf schema registry automated CI checks, and the $620k annual cloud storage savings.";
+    if (learnEl) learnEl.value = "Architectural decisions must be backed by concrete SLA metrics and governance frameworks rather than technical preference.";
+  } else if (role.includes("frontend") || role.includes("web") || role.includes("react")) {
+    if (changeEl) changeEl.value = "I will cite the 38% bundle reduction, LCP drop from 3.8s to 1.1s, and 14% conversion lift from module federation.";
+    if (learnEl) learnEl.value = "Refactoring proposals gain traction when framed around Core Web Vitals and direct commercial conversion uplift.";
+  } else {
+    if (changeEl) changeEl.value = "I will add the measurable impact (e.g. 100% test coverage and sprint delivered 2 days ahead of schedule) to provide a complete STAR Result.";
+    if (learnEl) learnEl.value = "In behavioral interviews, explaining actions isn't enough; I must explicitly state the quantifiable result (STAR Result).";
+  }
+
+  const preview = document.getElementById("a6-live-preview");
+  const status = document.getElementById("a6-stt-status");
+  if (preview && changeEl && changeEl.value) {
+    preview.innerText = `“${changeEl.value}”`;
+    preview.classList.add("active");
+  }
+  if (status) {
+    status.innerHTML = `✓ <strong>Sample Reflection Loaded:</strong> Ready to proceed or dictate revisions`;
+  }
+  if (changeEl) changeEl.dispatchEvent(new Event("input"));
 }
 
 async function saveReflectionA() {
-  const change = document.getElementById("a-change").value;
-  const learn = document.getElementById("a-learn").value;
+  const change = document.getElementById("a-change") ? document.getElementById("a-change").value : "";
+  const learn = document.getElementById("a-learn") ? document.getElementById("a-learn").value : "";
+  const notice = document.getElementById("a6-loading-notice");
+  const saveBtn = document.getElementById("btn-save-reflection-a");
+
+  if (notice) notice.style.display = "flex";
+  if (saveBtn) {
+    saveBtn.disabled = true;
+    saveBtn.innerText = "⏳ Saving Reflection...";
+  }
 
   try {
     await fetch("/api/reflect", {
@@ -1662,6 +2036,12 @@ async function saveReflectionA() {
     });
   } catch (e) {
     console.error(e);
+  } finally {
+    if (notice) notice.style.display = "none";
+    if (saveBtn) {
+      saveBtn.disabled = false;
+      saveBtn.innerText = "💾 Save & Proceed to Attempt 2 (Retry) →";
+    }
   }
   goToScreenA("a7");
 }
@@ -1673,6 +2053,7 @@ async function loadAttemptComparison() {
     });
     const data = await res.json();
     renderComparisonTable(data);
+    if (autoSpeakEnabled) setTimeout(speakComparisonA8, 500);
   } catch (err) {
     console.error(err);
     // Local fallback diff
@@ -1682,47 +2063,210 @@ async function loadAttemptComparison() {
       attempt2_scores: { relevance: 9.0, specificity: 8.0, evidence: 8.0, structure: 8.0, overall: 8.2 },
       improvements: ["✓ Added measurable outcome & concrete evidence (4.0 → 8.0)", "✓ Overall score increased from 6.0/10 to 8.2/10 (+2.2)"]
     });
+    if (autoSpeakEnabled) setTimeout(speakComparisonA8, 500);
   }
 }
 
+function getMetricInfoTooltipHtml(metricKey) {
+  const tooltips = {
+    "relevance": {
+      name: "Relevance & Directness",
+      desc: "Measures whether the candidate addresses the exact question prompt directly without drifting into unprompted filler context.",
+      high: "Directly addresses core situation in opening sentence; tightly aligned with role and question objectives.",
+      mid: "Partially answers prompt but includes minor tangentials or generic preamble before reaching the core point.",
+      low: "Misunderstands or evades prompt; gives generic theoretical lecture without answering the actual scenario."
+    },
+    "specificity": {
+      name: "Specificity & Technical Depth",
+      desc: "Evaluates concrete terminology, named tools, technologies, system architectures, and precise operational steps rather than broad generalities.",
+      high: "Names exact tools, technologies, trade-offs, architectures, and concrete steps with senior-level depth.",
+      mid: "Mentions broad technical steps and generic tools with moderate clarity.",
+      low: "Speaks only in high-level platitudes ('we collaborated', 'we solved it') without technical depth or concrete artifacts."
+    },
+    "evidence_outcome": {
+      name: "Evidence & Outcome (STAR Result)",
+      desc: "Verifies the presence of verifiable business impact, quantifiable metrics (latency, GMV, conversion %, test coverage), and clear resolution deliverables.",
+      high: "Explicitly states concrete quantitative metrics, KPIs, project completion timelines, and permanent organizational impact.",
+      mid: "Describes positive resolution, but metrics are vague or qualitative rather than quantified with numbers/percentages.",
+      low: "Stops entirely at the action taken; completely omits what occurred afterwards or whether the problem was resolved."
+    },
+    "structure_clarity": {
+      name: "Structure & Narrative Arc (STAR)",
+      desc: "Assesses coherent chronological progression following Situation, Task, Action, and Result with clear transitions and signposting.",
+      high: "Flawless STAR progression with clear chronological signposting and concise transitions between problem and impact.",
+      mid: "Follows chronological order, but transitions between action and result are slightly blurred or jumpy.",
+      low: "Disorganized, rambling, or fragmented narrative without clear beginning, middle, or resolution."
+    },
+    "overall": {
+      name: "Overall Rating & Hiring Bar",
+      desc: "Holistic evaluation score synthesized across all 4 rubric dimensions (Relevance, Specificity, Evidence & Outcome, Structure & Clarity) on a 1.0 to 10.0 scale.",
+      high: "★ Strong Hire (8.8–10.0): Candidate demonstrates senior competency, concrete metrics, and structured STAR narrative.",
+      mid: "✓ Hire / Leaning Hire (7.3–8.7): Candidate meets baseline expectations with moderate technical clarity and partial metrics.",
+      low: "⚠️ Needs Deliberate Retry (<7.3): Candidate misses quantifiable evidence, drifts from prompt, or lacks structured flow."
+    }
+  };
+
+  const info = tooltips[metricKey] || {
+    name: metricKey,
+    desc: "Core deliberate practice rubric standard.",
+    high: "Exceeds standard hiring bar with clear evidence.",
+    mid: "Meets standard hiring bar.",
+    low: "Below standard hiring bar."
+  };
+
+  return `
+    <span class="metric-info-wrapper" onclick="event.stopPropagation()">
+      <button type="button" class="metric-info-btn" title="Hover to view metric explanation" aria-label="Detailed rubric definition for ${escapeHtml(info.name)}">
+        <svg class="metric-info-svg" viewBox="0 0 20 20" fill="currentColor">
+          <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+        </svg>
+      </button>
+      <div class="metric-tooltip-popover">
+        <div class="metric-tooltip-header">
+          <span class="metric-tooltip-tag">RUBRIC DEFINITION & CRITERIA</span>
+          <h4>${escapeHtml(info.name)}</h4>
+        </div>
+        <div class="metric-tooltip-body">
+          <p class="metric-tooltip-desc"><strong>What This Metric Measures:</strong><br>${escapeHtml(info.desc)}</p>
+          <div class="metric-tooltip-anchors">
+            <div class="metric-anchor-row anchor-high">
+              <span class="anchor-label">★ Exceeds Bar (8.8–10.0):</span>
+              <span>${escapeHtml(info.high)}</span>
+            </div>
+            <div class="metric-anchor-row anchor-mid">
+              <span class="anchor-label">✓ Meets Bar (7.3–8.7):</span>
+              <span>${escapeHtml(info.mid)}</span>
+            </div>
+            <div class="metric-anchor-row anchor-low">
+              <span class="anchor-label">⚠️ Below Bar (&lt;7.3):</span>
+              <span>${escapeHtml(info.low)}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </span>
+  `;
+}
+
+function formatScoreDelta(val) {
+  const num = parseFloat(val) || 0;
+  if (num > 0) {
+    return `<span class="score-delta score-delta-pos">+${num.toFixed(1)}</span>`;
+  } else if (num < 0) {
+    return `<span class="score-delta score-delta-neg">${num.toFixed(1)}</span>`;
+  } else {
+    return `<span class="score-delta score-delta-zero">0.0</span>`;
+  }
+}
+
+function formatStarDelta(val) {
+  const num = parseFloat(val) || 0;
+  if (num > 0) {
+    return `<span class="score-delta score-delta-star score-delta-pos">+${num.toFixed(1)} ★</span>`;
+  } else if (num < 0) {
+    return `<span class="score-delta score-delta-star score-delta-neg">${num.toFixed(1)}</span>`;
+  } else {
+    return `<span class="score-delta score-delta-star score-delta-zero">0.0</span>`;
+  }
+}
+
+function formatOverallDelta(val) {
+  const num = parseFloat(val) || 0;
+  const color = num > 0 ? "var(--success, #16a34a)" : (num < 0 ? "var(--danger, #dc2626)" : "var(--text-muted)");
+  const sign = num > 0 ? "+" : "";
+  return `<strong style="color: ${color}; font-size: 1.1rem;">${sign}${num.toFixed(1)}</strong>`;
+}
+
 function renderComparisonTable(comp) {
+  const a8Loading = document.getElementById("a8-loading-state");
+  const a8Content = document.getElementById("a8-dashboard-content");
+  if (a8Loading) a8Loading.style.display = "none";
+  if (a8Content) a8Content.style.display = "block";
+
   const tbody = document.getElementById("compare-tbody");
   tbody.innerHTML = `
     <tr>
-      <td><strong>Relevance</strong></td>
+      <td>
+        <div style="display: flex; align-items: center;">
+          <strong>Relevance</strong>
+          ${getMetricInfoTooltipHtml('relevance')}
+        </div>
+      </td>
       <td>${comp.attempt1_scores.relevance}/10</td>
       <td>${comp.attempt2_scores.relevance}/10</td>
-      <td><span class="score-delta">+${comp.deltas.relevance}</span></td>
+      <td>${formatScoreDelta(comp.deltas.relevance)}</td>
     </tr>
     <tr>
-      <td><strong>Specificity</strong></td>
+      <td>
+        <div style="display: flex; align-items: center;">
+          <strong>Specificity</strong>
+          ${getMetricInfoTooltipHtml('specificity')}
+        </div>
+      </td>
       <td>${comp.attempt1_scores.specificity}/10</td>
       <td>${comp.attempt2_scores.specificity}/10</td>
-      <td><span class="score-delta">+${comp.deltas.specificity}</span></td>
+      <td>${formatScoreDelta(comp.deltas.specificity)}</td>
     </tr>
     <tr>
-      <td><strong>Evidence & Outcome (STAR)</strong></td>
+      <td>
+        <div style="display: flex; align-items: center;">
+          <strong>Evidence & Outcome (STAR)</strong>
+          ${getMetricInfoTooltipHtml('evidence_outcome')}
+        </div>
+      </td>
       <td>${comp.attempt1_scores.evidence}/10</td>
       <td>${comp.attempt2_scores.evidence}/10</td>
-      <td><span class="score-delta score-delta-star">+${comp.deltas.evidence_outcome || comp.deltas.evidence} ★</span></td>
+      <td>${formatStarDelta(comp.deltas.evidence_outcome !== undefined ? comp.deltas.evidence_outcome : comp.deltas.evidence)}</td>
     </tr>
     <tr>
-      <td><strong>Structure & Clarity</strong></td>
+      <td>
+        <div style="display: flex; align-items: center;">
+          <strong>Structure & Clarity</strong>
+          ${getMetricInfoTooltipHtml('structure_clarity')}
+        </div>
+      </td>
       <td>${comp.attempt1_scores.structure}/10</td>
       <td>${comp.attempt2_scores.structure}/10</td>
-      <td><span class="score-delta">+${comp.deltas.structure_clarity || comp.deltas.structure}</span></td>
+      <td>${formatScoreDelta(comp.deltas.structure_clarity !== undefined ? comp.deltas.structure_clarity : comp.deltas.structure)}</td>
     </tr>
     <tr style="background-color: var(--primary-light);">
-      <td><strong>Overall Rating</strong></td>
+      <td>
+        <div style="display: flex; align-items: center;">
+          <strong>Overall Rating</strong>
+          ${getMetricInfoTooltipHtml('overall')}
+        </div>
+      </td>
       <td><strong>${comp.attempt1_scores.overall}/10</strong></td>
       <td><strong>${comp.attempt2_scores.overall}/10</strong></td>
-      <td><strong style="color: var(--primary); font-size: 1.1rem;">+${comp.deltas.overall}</strong></td>
+      <td>${formatOverallDelta(comp.deltas.overall)}</td>
     </tr>
   `;
 
   const impList = document.getElementById("compare-improvements");
   if (impList && comp.improvements) {
     impList.innerHTML = comp.improvements.map(i => `<li>${i}</li>`).join("");
+  }
+
+  // Update download links on Screen A8
+  ["btn-dl-docx-a8", "btn-dl-docx-a4"].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.href = `/api/export-docx/${currentSessionId || 'demo_sess'}`;
+  });
+  ["btn-dl-pptx-a8", "btn-dl-pptx-a4"].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.href = `/api/export-pptx/${currentSessionId || 'demo_sess'}`;
+  });
+
+  // Update Next Question button on Screen A8
+  const nextBtn = document.getElementById("btn-next-question-a8");
+  if (nextBtn) {
+    if (protoACurrentIndex + 1 < protoAQuestions.length) {
+      nextBtn.innerText = `Next Question (${protoACurrentIndex + 2}/${protoAQuestions.length}) →`;
+      nextBtn.className = "btn btn-primary";
+    } else {
+      nextBtn.innerText = "🏁 Complete Session & View Progress 📊";
+      nextBtn.className = "btn btn-success";
+    }
   }
 }
 
@@ -2369,8 +2913,74 @@ function renderDetailedSimulationFeedback(evalData = null) {
     recIcon = "✕";
   }
 
-  // 1. Build Competency Matrix Cards
+  // 1. Audit Ambiguity & Early Termination
+  const turns = d.turn_evaluations || [];
   const comps = d.competency_matrix || [];
+  const jdList = d.job_description_alignment || [];
+
+  const totalWordsCount = turns.reduce((acc, t) => acc + (t.candidate_response || "").split(/\s+/).filter(Boolean).length, 0);
+
+  const ambNotice = d.ambiguity_notice || ((d.ambiguity_detected || turns.length <= 2 || totalWordsCount < 110) ? {
+    is_ambiguous: true,
+    severity: "HIGH",
+    headline: "⚠️ Evaluation Ambiguity Notice: Premature Interview Conclusion",
+    explanation: `This interview concluded early after only ${turns.length} conversational turn${turns.length !== 1 ? 's' : ''} (${totalWordsCount} words spoken). Crucial competency dimensions could not be reliably probed or evidenced under realistic corporate hiring conditions.`,
+    unassessed_dimensions: (d.ambiguity_notice && d.ambiguity_notice.unassessed_dimensions) || [
+      "Technical Architecture & System Mechanics Deep Dive",
+      "Behavioral Conflict, Trade-Offs & Teammate Alignment",
+      "Edge-Case Resilience, Failure Modes & Fault Recovery",
+      "Quantified Business Impact & Measurable Outcome Substantiation"
+    ],
+    hiring_committee_advisory: "Ratings and scores displayed below represent provisional baseline estimates with elevated statistical ambiguity. The hiring committee strongly recommends scheduling a 20–30 minute targeted technical follow-up session to resolve these unassessed competencies before issuing a final hiring decision."
+  } : null);
+
+  const isAmbiguous = Boolean(ambNotice && ambNotice.is_ambiguous);
+
+  let ambiguityBannerHtml = "";
+  if (isAmbiguous && ambNotice) {
+    const missingItems = (ambNotice.unassessed_dimensions || [
+      "Technical Architecture & System Mechanics Deep Dive",
+      "Behavioral Conflict, Trade-Offs & Teammate Alignment",
+      "Edge-Case Resilience, Failure Modes & Fault Recovery",
+      "Quantified Business Impact & Measurable Outcome Substantiation"
+    ]).map(m => `<li>${escapeHtml(m)}</li>`).join("");
+
+    ambiguityBannerHtml = `
+      <div class="eval-ambiguity-banner">
+        <div class="ambiguity-banner-header">
+          <div class="ambiguity-title-group">
+            <span class="ambiguity-badge-icon">⚠️</span>
+            <div>
+              <h4 class="ambiguity-headline">${escapeHtml(ambNotice.headline || 'Evaluation Ambiguity Notice: Premature Interview Conclusion')}</h4>
+              <p class="ambiguity-subline">${escapeHtml(ambNotice.explanation || 'The interview concluded early before sufficient conversational evidence could be extracted across all hiring competencies.')}</p>
+            </div>
+          </div>
+          <span class="ambiguity-severity-pill">HIGH AMBIGUITY • PROVISIONAL RATINGS</span>
+        </div>
+        <div class="ambiguity-details-grid">
+          <div class="ambiguity-missing-box">
+            <div class="ambiguity-box-title">⚠️ Unassessed / Ambiguous Competencies:</div>
+            <ul class="ambiguity-missing-list">
+              ${missingItems}
+            </ul>
+          </div>
+          <div class="ambiguity-advisory-box">
+            <div class="ambiguity-box-title">📋 Hiring Committee Evaluation Advisory:</div>
+            <p class="ambiguity-advisory-text">${escapeHtml(ambNotice.hiring_committee_advisory || 'Scores below represent provisional estimates due to sparse conversational signal. A targeted technical follow-up session is strongly recommended to resolve these ambiguities.')}</p>
+            <div class="ambiguity-stats-pill">
+              <span>Signal Density: <strong>${turns.length} Turn${turns.length !== 1 ? 's' : ''}</strong></span>
+              <span class="pill-divider">•</span>
+              <span>Total Spoken: <strong>${totalWordsCount} Words</strong></span>
+              <span class="pill-divider">•</span>
+              <span>Session Depth: <strong>${Math.min(100, Math.round((turns.length / 6) * 100))}% of Standard Round</strong></span>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  // 2. Build Competency Matrix Cards
   const compCardsHtml = comps.map(c => {
     const s = typeof c.score === "number" ? c.score : 7.5;
     const pct = Math.min(100, Math.max(10, Math.round((s / 10) * 100)));
@@ -2378,13 +2988,55 @@ function renderDetailedSimulationFeedback(evalData = null) {
     if (s < 6.0) barColor = "#ef4444";
     else if (s < 7.5) barColor = "#f59e0b";
     else if (s >= 8.8) barColor = "#059669";
-    const w = c.weight ? Math.round(c.weight * 100) : 25;
+    const w = c.weight ? Math.round(c.weight * 100) : 20;
+    const isCompAmbiguous = Boolean(c.is_ambiguous || (isAmbiguous && s <= 6.8));
+
+    const defText = c.definition || c.focus || "Core competency evaluated against standard hiring rubrics.";
+    const highAnchor = c.high_anchor || "Deep domain mastery with quantified metrics and architectural agency.";
+    const midAnchor = c.mid_anchor || "Solid baseline proficiency with standard problem-solving.";
+    const lowAnchor = c.low_anchor || "Noticeable gaps in depth, missing trade-offs, or absent metrics.";
+
     return `
-      <div class="comp-eval-card">
+      <div class="comp-eval-card ${isCompAmbiguous ? 'comp-card-ambiguous' : ''}">
         <div>
           <div class="comp-eval-header">
-            <span class="comp-name">${escapeHtml(c.name)}</span>
-            <span class="comp-score-tag" style="color: ${barColor}">${s.toFixed(1)} / 10</span>
+            <div class="comp-title-with-info">
+              <span class="comp-name">${escapeHtml(c.name)}</span>
+              <span class="metric-info-wrapper">
+                <button type="button" class="metric-info-btn" title="Hover to view metric explanation" aria-label="Detailed rubric definition for ${escapeHtml(c.name)}">
+                  <svg class="metric-info-svg" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+                  </svg>
+                </button>
+                <div class="metric-tooltip-popover">
+                  <div class="metric-tooltip-header">
+                    <span class="metric-tooltip-tag">METRIC RUBRIC & DEFINITION</span>
+                    <h4>${escapeHtml(c.name)}</h4>
+                  </div>
+                  <div class="metric-tooltip-body">
+                    <p class="metric-tooltip-desc"><strong>What This Metric Measures:</strong><br>${escapeHtml(defText)}</p>
+                    <div class="metric-tooltip-anchors">
+                      <div class="metric-anchor-row anchor-high">
+                        <span class="anchor-label">★ Exceeds Bar (8.8–10.0):</span>
+                        <span>${escapeHtml(highAnchor)}</span>
+                      </div>
+                      <div class="metric-anchor-row anchor-mid">
+                        <span class="anchor-label">✓ Meets Bar (7.3–8.7):</span>
+                        <span>${escapeHtml(midAnchor)}</span>
+                      </div>
+                      <div class="metric-anchor-row anchor-low">
+                        <span class="anchor-label">⚠️ Below Bar (&lt;7.3):</span>
+                        <span>${escapeHtml(lowAnchor)}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+              ${isCompAmbiguous ? `<span class="ambiguity-micro-badge">⚠️ Ambiguous Signal</span>` : ''}
+              <span class="comp-score-tag" style="color: ${barColor}">${s.toFixed(1)} / 10</span>
+            </div>
           </div>
           <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.25rem;">
             <span>Evaluation Weight: <strong>${w}%</strong></span>
@@ -2395,15 +3047,14 @@ function renderDetailedSimulationFeedback(evalData = null) {
           </div>
           <p class="comp-anchor-desc"><strong>Behavioral Anchor:</strong> ${escapeHtml(c.behavioral_anchor || c.focus || '')}</p>
         </div>
-        <div class="comp-evidence-quote">
+        <div class="comp-evidence-quote ${isCompAmbiguous ? 'evidence-ambiguous' : ''}">
           <strong>Observed Signal:</strong> ${escapeHtml(c.evidence || 'Consistent domain alignment verified across dialogue.')}
         </div>
       </div>
     `;
   }).join("") || `<p style="color: var(--text-muted); padding: 1rem;">Competencies evaluated against role standard.</p>`;
 
-  // 2. Build Turn-by-Turn Question & Response Audit
-  const turns = d.turn_evaluations || [];
+  // 3. Build Turn-by-Turn Question & Response Audit
   const turnsHtml = turns.map(t => {
     const sList = (t.strengths_observed || []).map(s => `<li>${escapeHtml(s)}</li>`).join("");
     const gList = (t.gaps_identified || []).map(g => `<li>${escapeHtml(g)}</li>`).join("");
@@ -2451,8 +3102,7 @@ function renderDetailedSimulationFeedback(evalData = null) {
     `;
   }).join("") || `<p style="color: var(--text-muted); padding: 1rem;">Turn breakdown recorded.</p>`;
 
-  // 3. Build Job Description & Resume Requirements Alignment Matrix
-  const jdList = d.job_description_alignment || [];
+  // 4. Build Job Description & Resume Requirements Alignment Matrix
   const jdRowsHtml = jdList.map(j => {
     let bClass = "badge-success";
     if (j.status === "Partially Demonstrated") bClass = "badge-warning";
@@ -2467,7 +3117,7 @@ function renderDetailedSimulationFeedback(evalData = null) {
     `;
   }).join("") || `<tr><td colspan="4" style="text-align: center; color: var(--text-muted); padding: 1rem;">Candidate demonstrated core role alignment.</td></tr>`;
 
-  // 4. Build Debrief & 30-Day Coaching Plan
+  // 5. Build Debrief & 30-Day Coaching Plan
   const topStrengths = (d.key_strengths || []).map(s => `<li style="margin-bottom: 0.4rem;">${escapeHtml(s)}</li>`).join("");
   const topGrowth = (d.priority_growth_areas || []).map(g => `<li style="margin-bottom: 0.4rem;">${escapeHtml(g)}</li>`).join("");
   const topActions = (d.actionable_recommendations || []).map(a => `<li style="margin-bottom: 0.4rem;">${escapeHtml(a)}</li>`).join("");
@@ -2475,6 +3125,9 @@ function renderDetailedSimulationFeedback(evalData = null) {
   // Synthesize Complete Dashboard HTML
   contentEl.innerHTML = `
     <div class="eval-dashboard-container">
+      <!-- 0. Prominent Ambiguity Alert Banner (Rendered when interview is ended early or signal is sparse) -->
+      ${ambiguityBannerHtml}
+
       <!-- 1. Executive Scorecard Hero Banner -->
       <div class="eval-hero-banner">
         <div class="eval-hero-top">
@@ -2494,11 +3147,51 @@ function renderDetailedSimulationFeedback(evalData = null) {
               <span>${escapeHtml(rec)}</span>
             </span>
             <div style="display: flex; align-items: baseline; gap: 0.4rem; margin-top: 0.35rem;">
-              <span style="font-size: 0.85rem; color: #94a3b8;">AGGREGATE SCORE:</span>
+              <span style="font-size: 0.85rem; color: #94a3b8; display: inline-flex; align-items: center;">
+                AGGREGATE SCORE:
+                <span class="metric-info-wrapper">
+                  <button type="button" class="metric-info-btn metric-info-btn-light" title="Aggregate score computation" aria-label="Information on aggregate score">
+                    <svg class="metric-info-svg" viewBox="0 0 20 20" fill="currentColor">
+                      <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+                    </svg>
+                  </button>
+                  <div class="metric-tooltip-popover">
+                    <div class="metric-tooltip-header">
+                      <span class="metric-tooltip-tag">SCORE FORMULATION</span>
+                      <h4>Aggregate Composite Score</h4>
+                    </div>
+                    <div class="metric-tooltip-body">
+                      <p class="metric-tooltip-desc">
+                        Weighted composite 10-point score calculated across all 5 track rubrics (Core Technical/STAR 25%, Secondary Architecture/Depth 20%, Problem Solving/Fault Tolerance 20%, Strategy/Communication 20%, and Politeness, Refined Language & Inquiry Follow-Through 15%). Calibrated against Senior FAANG / Corporate bar.
+                      </p>
+                    </div>
+                  </div>
+                </span>
+              </span>
               <span class="eval-score-ring">${overall.toFixed(1)}</span>
               <span style="font-size: 1rem; color: #94a3b8; font-weight: 700;">/ 10</span>
             </div>
-            <span style="font-size: 0.78rem; color: #94a3b8;">${escapeHtml(confidence)}</span>
+            <div style="display: inline-flex; align-items: center; gap: 0.3rem;">
+              ${isAmbiguous ? `<span class="confidence-chip-ambiguous">⚠️ ${escapeHtml(confidence)}</span>` : `<span style="font-size: 0.78rem; color: #94a3b8;">${escapeHtml(confidence)}</span>`}
+              <span class="metric-info-wrapper">
+                <button type="button" class="metric-info-btn metric-info-btn-light" title="Confidence and ambiguity information" aria-label="Information on confidence and ambiguity">
+                  <svg class="metric-info-svg" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+                  </svg>
+                </button>
+                <div class="metric-tooltip-popover">
+                  <div class="metric-tooltip-header">
+                    <span class="metric-tooltip-tag">SIGNAL CONFIDENCE & AMBIGUITY</span>
+                    <h4>Confidence Rating & Data Completeness</h4>
+                  </div>
+                  <div class="metric-tooltip-body">
+                    <p class="metric-tooltip-desc">
+                      Measures evidentiary dialogue richness. Full multi-turn interviews (4–7 questions with technical metrics, failure cases, and behavioral trade-offs) receive High Confidence. Sessions ended early (&lt;3 turns or sparse words) carry elevated ambiguity and produce provisional scores.
+                    </p>
+                  </div>
+                </div>
+              </span>
+            </div>
           </div>
         </div>
 
@@ -2513,6 +3206,8 @@ function renderDetailedSimulationFeedback(evalData = null) {
         <button class="eval-tab-btn active" id="btn-tab-competencies" onclick="switchEvalDashboardTab('tab-competencies')">🎯 Track Competency Rubrics (${comps.length})</button>
         <button class="eval-tab-btn" id="btn-tab-turns" onclick="switchEvalDashboardTab('tab-turns')">💬 Turn-by-Turn Question Audit (${turns.length} Turns)</button>
         <button class="eval-tab-btn" id="btn-tab-jd" onclick="switchEvalDashboardTab('tab-jd')">📋 Job Description & Resume Audit (${jdList.length})</button>
+        <button class="eval-tab-btn" id="btn-tab-plan" onclick="switchEvalDashboardTab('tab-plan')">🚀 30-Day Executive Coaching Plan</button>
+      </div>
         <button class="eval-tab-btn" id="btn-tab-plan" onclick="switchEvalDashboardTab('tab-plan')">🚀 30-Day Executive Coaching Plan</button>
       </div>
 
@@ -3012,4 +3707,9 @@ window.replayInterviewerTurn = replayInterviewerTurn;
 window.setCockpitInputMode = setCockpitInputMode;
 window.clearCockpitAnswer = clearCockpitAnswer;
 window.confirmExitSimulation = confirmExitSimulation;
+window.setCockpitInputModeA = setCockpitInputModeA;
+window.speakFeedbackA4 = speakFeedbackA4;
+window.speakFeedforwardA6 = speakFeedforwardA6;
+window.speakAdaptiveProbeA7 = speakAdaptiveProbeA7;
+window.speakComparisonA8 = speakComparisonA8;
 
