@@ -415,25 +415,11 @@ async def generate_followup(req: FollowUpRequest):
     return res
 
 
+from config.settings import save_secret
+
 def update_dotenv_key(key: str, val: str):
-    """Syncs updated configuration keys to the project .env file."""
-    if not DOTENV_PATH.exists():
-        return
-    try:
-        lines = DOTENV_PATH.read_text(encoding="utf-8").splitlines(keepends=True)
-        found = False
-        new_lines = []
-        for line in lines:
-            if line.strip().startswith(f"{key}="):
-                new_lines.append(f"{key}={val}\n")
-                found = True
-            else:
-                new_lines.append(line)
-        if not found:
-            new_lines.append(f"{key}={val}\n")
-        DOTENV_PATH.write_text("".join(new_lines), encoding="utf-8")
-    except Exception:
-        pass
+    """Syncs updated configuration keys to the local gitignored .env file."""
+    save_secret(key, val)
 
 
 @app.get("/api/config")

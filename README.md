@@ -73,14 +73,18 @@ Designed for uninterrupted, realistic interview practice (`Home → Setup → Mu
 
 ```
 my_project/
+├── config/
+│   ├── __init__.py
+│   ├── settings.py           # Centralized typed configuration & secret loader
+│   └── .env.example          # Committed safe template with placeholder keys
 ├── app/
 │   ├── __init__.py
+│   ├── env_loader.py       # Backward-compatible bridge to config.settings
 │   ├── models.py           # Pydantic schemas (rubrics, sessions, attempts, comparisons)
 │   ├── evaluator.py        # Inspectable rubric scoring & adaptive follow-up engine
 │   ├── database.py         # SQLite persistence for longitudinal tracking
 │   ├── data_manager.py     # Personas (Aditi, Rahul), question banks, survey data (N=30)
-│   ├── report_generator.py # Python-docx & python-pptx report builders
-│   └── interview_practice.db # Local SQLite database
+│   └── report_generator.py # Python-docx & python-pptx report builders
 ├── static/
 │   ├── index.html          # Unified single-page web interface (Prototype A, B & Research Hub)
 │   ├── style.css           # Modern styles + Low-Fi wireframe mode overrides
@@ -88,6 +92,8 @@ my_project/
 ├── tests/
 │   ├── test_app.py         # Unit tests (evaluator, DB, comparisons, reports)
 │   └── test_api.py         # Integration tests (FastAPI endpoints)
+├── .env.example            # Safe root configuration template for onboarding
+├── .gitignore              # Strictly ignores .env, secrets, and private credentials
 ├── main.py                 # FastAPI application entry point
 ├── pyproject.toml          # Project metadata & dependencies
 └── README.md
@@ -110,7 +116,22 @@ uv sync
 pip install -r requirements.txt
 ```
 
-### Step 2: Run the Application
+### Step 2: Configure Environment & API Keys (Safe & Isolated)
+1. Copy the safe template `.env.example` to create your local private `.env`:
+```powershell
+copy .env.example .env
+```
+*(On Linux/macOS: `cp .env.example .env`)*
+
+2. Open `.env` and add your private API keys:
+```bash
+OPENROUTER_API_KEY=sk-or-v1-your_key_here
+OPENROUTER_MODEL=nvidia/nemotron-3.5-super-vl:free
+GEMINI_API_KEY=your_gemini_key_here
+```
+> **Security Guarantee:** The `.env` file is strictly ignored by `.gitignore` and is **never committed or pushed to GitHub**. Sensitive credentials remain purely local to your machine.
+
+### Step 3: Run the Application
 ```powershell
 uv run python main.py
 ```
