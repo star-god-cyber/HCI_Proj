@@ -694,6 +694,13 @@ async function toggleVoiceInputUniversal(textareaId, btnId, panelId, statusId, m
     universalMicStream = stream;
     const AudioContextClass = window.AudioContext || window.webkitAudioContext;
     universalAudioCtx = new AudioContextClass();
+    if (universalAudioCtx.state === "suspended") {
+      try {
+        await universalAudioCtx.resume();
+      } catch (resumeErr) {
+        console.warn("AudioContext resume note:", resumeErr);
+      }
+    }
 
     const source = universalAudioCtx.createMediaStreamSource(stream);
     universalAnalyser = universalAudioCtx.createAnalyser();
@@ -848,9 +855,23 @@ async function stopUniversalRecordingAndTranscribe() {
 
   const mergedFloat32 = new Float32Array(totalLength);
   let offset = 0;
+  let maxAmp = 0;
   for (let i = 0; i < universalPCMChunks.length; i++) {
-    mergedFloat32.set(universalPCMChunks[i], offset);
-    offset += universalPCMChunks[i].length;
+    const chunk = universalPCMChunks[i];
+    mergedFloat32.set(chunk, offset);
+    offset += chunk.length;
+    for (let j = 0; j < chunk.length; j++) {
+      const v = Math.abs(chunk[j]);
+      if (v > maxAmp) maxAmp = v;
+    }
+  }
+
+  if (maxAmp < 0.005) {
+    if (status) {
+      status.innerHTML = "⚠️ <strong>Microphone input is silent (0 amplitude):</strong> Check if your physical mic mute key (e.g. F4) is on, or check OS Microphone Privacy settings.";
+    }
+    resetUniversalUI();
+    return;
   }
 
   const pcm16k = downsampleBuffer(mergedFloat32, sampleRate, 16000);
