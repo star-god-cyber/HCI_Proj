@@ -28,6 +28,7 @@ let evalTimerSeconds = 0;
 
 // Initialization
 document.addEventListener("DOMContentLoaded", () => {
+  initTheme();
   setupWordCounters();
   setupSpeechRecognition();
   setupSpeechSynthesis();
@@ -909,7 +910,7 @@ async function searchWebKnowledge(queryText = null) {
       if (data.results && data.results.length > 0) {
         let html = `<h4 style='font-size: 0.95rem; margin-bottom: 0.5rem; color: var(--primary);'>Web Knowledge Results for "${escapeHtml(data.query)}":</h4><ul style='padding-left: 1.25rem; font-size: 0.85rem; display: flex; flex-direction: column; gap: 0.5rem;'>`;
         data.results.forEach(r => {
-          html += `<li><strong>${escapeHtml(r.title)}</strong><br><span style='color: #475569;'>${escapeHtml(r.snippet)}</span>${r.url ? ` <a href='${r.url}' target='_blank' style='color: #2563eb; font-size: 0.8rem; text-decoration: underline;'>[Source]</a>` : ''}</li>`;
+          html += `<li><strong>${escapeHtml(r.title)}</strong><br><span style='color: var(--text-muted);'>${escapeHtml(r.snippet)}</span>${r.url ? ` <a href='${r.url}' target='_blank' style='color: var(--primary); font-size: 0.8rem; text-decoration: underline;'>[Source]</a>` : ''}</li>`;
         });
         html += "</ul>";
         resultsContainer.innerHTML = html;
@@ -947,30 +948,80 @@ function switchMainTab(tab) {
   const pA = document.getElementById("nav-proto-a");
   const pB = document.getElementById("nav-proto-b");
   const pE = document.getElementById("nav-eval");
-  const pR = document.getElementById("nav-research");
   if (pA) pA.classList.toggle("active", tab === "A");
   if (pB) pB.classList.toggle("active", tab === "B");
   if (pE) pE.classList.toggle("active", tab === "E");
-  if (pR) pR.classList.toggle("active", tab === "R");
 
   const secA = document.getElementById("section-proto-a");
   const secB = document.getElementById("section-proto-b");
   const secE = document.getElementById("section-eval");
-  const secR = document.getElementById("section-research");
 
   if (secA) secA.style.display = tab === "A" ? "block" : "none";
   if (secB) secB.style.display = tab === "B" ? "block" : "none";
   if (secE) secE.style.display = tab === "E" ? "block" : "none";
-  if (secR) secR.style.display = tab === "R" ? "block" : "none";
 
   stopAllAudio();
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
-// Wireframe Mode Toggle
-function toggleWireframeMode() {
-  const isWireframe = document.body.classList.toggle("wireframe-mode");
-  document.getElementById("wf-status").innerText = isWireframe ? "ON" : "OFF";
+// ==========================================
+// THEME SWITCHER (HIGH CONTRAST LIGHT / DARK)
+// ==========================================
+function initTheme() {
+  const savedTheme = localStorage.getItem("theme");
+  const prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+  const isDark = savedTheme === "dark" || (!savedTheme && prefersDark);
+  applyTheme(isDark ? "dark" : "light");
+
+  // Listen to OS theme changes if user hasn't explicitly chosen
+  if (window.matchMedia) {
+    window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", e => {
+      if (!localStorage.getItem("theme")) {
+        applyTheme(e.matches ? "dark" : "light");
+      }
+    });
+  }
+}
+
+function applyTheme(theme) {
+  const isDark = theme === "dark";
+  document.documentElement.setAttribute("data-theme", theme);
+  if (isDark) {
+    document.body.classList.add("dark-mode");
+    document.documentElement.classList.add("dark-mode");
+  } else {
+    document.body.classList.remove("dark-mode");
+    document.documentElement.classList.remove("dark-mode");
+  }
+
+  const iconEl = document.getElementById("theme-icon");
+  const labelEl = document.getElementById("theme-label");
+  const btnEl = document.getElementById("theme-toggle");
+
+  if (iconEl) iconEl.innerText = isDark ? "☀️" : "🌙";
+  if (labelEl) labelEl.innerText = isDark ? "Light" : "Dark";
+  if (btnEl) {
+    btnEl.title = isDark ? "Switch to Light Mode" : "Switch to Dark Mode";
+    btnEl.setAttribute("aria-label", isDark ? "Switch to Light Mode" : "Switch to Dark Mode");
+  }
+
+  // Sync Chart.js default colors if loaded
+  if (typeof Chart !== "undefined" && Chart.defaults) {
+    Chart.defaults.color = isDark ? "#94a3b8" : "#475569";
+    Chart.defaults.borderColor = isDark ? "#334155" : "#e2e8f0";
+    if (window.progressChartInstance) {
+      try {
+        window.progressChartInstance.update();
+      } catch (err) {}
+    }
+  }
+}
+
+function toggleTheme() {
+  const currentTheme = document.documentElement.getAttribute("data-theme") || (document.body.classList.contains("dark-mode") ? "dark" : "light");
+  const nextTheme = currentTheme === "dark" ? "light" : "dark";
+  localStorage.setItem("theme", nextTheme);
+  applyTheme(nextTheme);
 }
 
 // ==========================================
@@ -1094,7 +1145,7 @@ function setRoleFieldB(role) {
 const DEMO_PORTFOLIOS = [
   {
     id: "distributed-systems",
-    name: "Elena Rostova",
+    name: "Aarav Mehta",
     role: "Staff Distributed Systems Engineer",
     company: "Stripe",
     level: "Senior",
@@ -1102,8 +1153,8 @@ const DEMO_PORTFOLIOS = [
     interviewDuration: "Comprehensive Onsite Loop (8-10 Questions • ~60 mins)",
     difficulty: "Challenging & Probing (Technical Bar Raiser / Stress Test)",
     tagline: "High-Throughput Consensus & Ledgers",
-    cv: "Led distributed consensus protocol redesign using Raft quorum leases for cross-region payment ledgers. Cut 99th-percentile commit latency from 450ms to 42ms with 99.999% availability. Reduced cross-AZ egress costs by $410k/year across 14 clusters.",
-    jd: "Architect high-throughput, fault-tolerant financial ledger infrastructure. Deep expertise with Raft/Paxos consensus, partition tolerance, distributed transactions (2PC/Saga), and low-latency gRPC services."
+    cv: "Education: B.Tech in Computer Science from IIT Bombay (2016); M.S. in Computer Science from Stanford University (2018).\n\nSummary & Core Skills: Staff Infrastructure & Distributed Systems Engineer with 8+ years designing fault-tolerant, high-throughput financial ledgers, consensus protocols, and low-latency storage engines. Core expertise in Go, C++, Rust, Distributed Consensus (Raft, Multi-Paxos), Distributed Transactions (2PC, Saga), gRPC, Protobuf, Kafka, RocksDB, CockroachDB, Kubernetes, Linux eBPF, and Chaos Engineering.\n\nProfessional Experience:\n• Staff Systems Engineer at Stripe (2021–Present): Led the complete architectural redesign of the core transaction ledger processing 140,000 writes/sec across 4 multi-region AWS clusters. Replaced legacy 2-Phase Commit with an optimized Raft quorum lease protocol, slashing 99th-percentile commit latency from 450ms to 42ms with 99.999% availability. Designed idempotent deduplication state machine handling 2.5B events/day without double-credit anomalies. Reduced cross-AZ egress costs by $410k/year through protocol compaction and zstd compression over gRPC channels.\n• Senior Systems Engineer at Uber (2018–2021): Architected geospatial ring-buffer routing service in Go, maintaining sub-15ms P99 dispatch latency under 85,000 peak concurrent ride requests. Authored automated split-brain network partition recovery daemon, cutting manual incident remediation time from 40 minutes to under 12 seconds.",
+    jd: "Staff Distributed Systems Engineer - Financial Infrastructure. Responsibilities: Architect high-throughput, fault-tolerant financial ledger infrastructure. Deep expertise with Raft/Paxos consensus, partition tolerance, distributed transactions (2PC/Saga), zero-data-loss replication, and low-latency gRPC services. Collaborate with reliability engineering on chaos experiments and multi-region active-active disaster recovery."
   },
   {
     id: "ux-research",
@@ -1115,60 +1166,60 @@ const DEMO_PORTFOLIOS = [
     interviewDuration: "Standard Round (6-7 Questions • ~45 mins)",
     difficulty: "Supportive & Conversational (Mentorship / Low Stress)",
     tagline: "HCI Mixed-Methods & Usability",
-    cv: "Master's student in HCI at IIT Gandhinagar. Conducted 30+ mixed-methods usability tests and semi-structured interviews on onboarding flows, driving a 28% increase in task completion and reducing drop-off by 15%. Expert in cognitive walkthroughs and STAR method.",
-    jd: "Conduct qualitative user interviews, usability benchmarking, cognitive walkthroughs, and synthesize actionable UX design guidelines for cross-functional product and engineering teams."
+    cv: "Education: B.Des in Interaction Design from NID Ahmedabad (2023); M.S. Candidate in Human-Computer Interaction (HCI) at IIT Gandhinagar (2024–Present).\n\nSummary & Core Skills: Human-Computer Interaction researcher specializing in mixed-methods evaluative research, qualitative coding, cognitive walkthroughs, and accessibility benchmarking. Proficient in Semi-Structured Interviews, Usability Testing, Heuristic Evaluation, SUS & NASA-TLX Scoring, Thematic Qualitative Coding, Figma, Dovetail, UserTesting.com, SPSS, and WCAG 2.1 AA Auditing.\n\nProfessional & Research Experience:\n• Graduate UX Research Fellow at IIT Gandhinagar HCI Lab (2023–Present): Spearheaded 35+ mixed-methods usability tests and contextual inquiries on digital health onboarding flows across diverse age cohorts. Discovered cognitive friction in patient medical history input that caused 44% abandonment; synthesized insights into a redesigned progressive-disclosure pattern that increased task completion rate from 62% to 90% in follow-up usability evaluations.\n• Product Design & Research Intern at Swiggy (Summer 2023): Conducted 20 remote usability testing sessions and diary studies investigating grocery delivery checkout friction. Uncovered that ambiguous tipping and surge pricing banners induced user drop-off; partnered with product squads to pilot a transparent price breakdown, yielding an 18% lift in checkout completion.",
+    jd: "UX Research Intern - Core User Experience. Responsibilities: Plan, recruit, and execute qualitative user interviews, usability benchmarking, cognitive walkthroughs, and diary studies. Synthesize raw user feedback and behavioral metrics into actionable design guidelines. Partner closely with product designers, product managers, and frontend engineers to validate new interaction flows and uphold accessible design standards."
   },
   {
     id: "product-management",
-    name: "Marcus Chen",
+    name: "Rohan Kulkarni",
     role: "Associate Product Manager",
-    company: "Airbnb",
+    company: "Flipkart",
     level: "Mid-Level",
     interviewType: "Situational Problem Solving & Strategy (Execution)",
     interviewDuration: "Standard Round (6-7 Questions • ~45 mins)",
     difficulty: "Neutral Corporate (Standard Hiring Bar / Objective)",
-    tagline: "Marketplace GMV & Experimentation",
-    cv: "Managed cross-functional squad of 8 engineers and 2 product designers. Launched dynamic pricing pilot across 12 metropolitan markets, yielding $3.4M annualized GMV lift. Resolved priority conflicts between checkout redesign and technical debt reduction.",
-    jd: "Lead product discovery and execution for two-sided marketplace dynamics. Define North Star metrics, run rigorous A/B experiments, and partner with data science and engineering leaders."
+    tagline: "Marketplace GMV & Dynamic Pricing",
+    cv: "Education: B.Tech in Computer Science & Engineering from BITS Pilani (2022).\n\nSummary & Core Skills: Data-driven Associate Product Manager with 3 years leading cross-functional squads to drive growth funnels, marketplace liquidity, dynamic pricing algorithms, and mobile conversion optimization. Skills: Product Discovery, PRD Authoring, North Star Metric Definition, A/B Testing, Funnel Analytics (Mixpanel, Amplitude), SQL, Roadmapping, Agile Sprint Leadership, Stakeholder Management, User Retention Modeling.\n\nProfessional Experience:\n• Associate Product Manager at Flipkart Marketplace (2022–Present): Product owner for marketplace dynamic pricing and seller inventory incentives, directing an agile squad of 8 software engineers, 2 data scientists, and 1 product designer. Designed and rolled out machine learning-driven dynamic commission tier pilot across 14 high-volume merchant categories, yielding $3.4M annualized GMV expansion. Resolved complex engineering-product trade-off when backend team wanted to delay dynamic pricing rollout by 4 months for architectural refactoring; negotiated a decoupled dual-read milestone strategy that preserved the Q3 launch date while eliminating 70% of legacy technical debt.\n• Product Analytics Intern at CRED (2021): Built behavioral cohort funnels analyzing credit card reward redemption drops. Identified a 3-step navigation hurdle in the checkout drawer, leading to a 1-click redemption redesign that increased daily active reward claims by 24%.",
+    jd: "Associate Product Manager (APM) - Marketplace Growth. Responsibilities: Lead product discovery, feature scoping, and execution for two-sided marketplace dynamics. Define North Star metrics, build user journeys, write rigorous PRDs, run multivariate A/B experiments, and partner with engineering and data science leaders to make decisive trade-offs under high ambiguity."
   },
   {
     id: "machine-learning",
     name: "Dr. Priya Nair",
     role: "Senior Machine Learning Engineer",
-    company: "HealthAI Labs",
+    company: "HealthAI Diagnostics",
     level: "Senior",
     interviewType: "Technical & System Architecture (Deep Dive)",
     interviewDuration: "Comprehensive Onsite Loop (8-10 Questions • ~60 mins)",
     difficulty: "Challenging & Probing (Technical Bar Raiser / Stress Test)",
     tagline: "Medical Imaging & Edge TensorRT",
-    cv: "Ph.D. in Computer Vision. Deployed PyTorch 3D UNet for automated MRI lesion segmentation with 94.2% Dice coefficient. Optimized inference using TensorRT and INT8 quantization, reducing scan latency from 800ms to 65ms on edge GPUs.",
-    jd: "Develop and deploy deep learning models for clinical medical imaging. Experience with PyTorch, CUDA kernel optimization, model quantization, HIPAA compliance, and edge inference."
+    cv: "Education: B.Tech in Electrical Engineering from IIT Madras (2017); Ph.D. in Computer Science & Biomedical Imaging from Stanford University (2022).\n\nSummary & Core Skills: Senior Machine Learning & Computer Vision Research Engineer with 6+ years building and deploying clinical AI models, real-time edge segmentation pipelines, and GPU kernel optimizations. Expertise in PyTorch, CUDA, C++, TensorRT, ONNX Runtime, 3D UNet, Vision Transformers (ViT), Model Quantization (INT8/FP16), Medical Image Processing (DICOM, ITK, MONAI), Triton Inference Server, and HIPAA Compliance.\n\nProfessional & Research Experience:\n• Senior ML Engineer at HealthAI Diagnostics (2022–Present): Lead architect for clinical MRI brain lesion segmentation pipeline deployed across 18 regional hospital networks. Architected hybrid 3D UNet and Vision Transformer backbone achieving 94.2% Dice similarity coefficient on unseen multicenter MRI scans. Overcame GPU memory constraints during high-resolution volumetric inference by implementing mixed-precision FP16 TensorRT compilation and CUDA kernel fusion, cutting inference latency from 820ms to 64ms on NVIDIA T4 GPUs and enabling real-time clinical review.\n• AI Research Scientist Intern at Google Health (2021): Developed self-supervised pretraining representations on 400,000 unlabelled mammography scans. Published findings in MICCAI, demonstrating a 7.8% AUC improvement over baseline supervised models under scarce label conditions.",
+    jd: "Senior Machine Learning Engineer - Clinical Diagnostics & Edge AI. Responsibilities: Develop, fine-tune, and deploy deep learning models for high-resolution medical imaging (MRI, CT, Pathology). Optimize inference pipelines using TensorRT, CUDA, and model quantization for edge hospital hardware. Ensure end-to-end data security, regulatory compliance (HIPAA/FDA SaMD), and model explainability for radiologists."
   },
   {
     id: "data-platform",
-    name: "Liam O'Connor",
+    name: "Kavita Krishnan",
     role: "Data Platform Architect",
-    company: "Netflix",
+    company: "MediaStream Corp",
     level: "Senior",
     interviewType: "Leadership & Team Dynamics (Cross-Functional)",
     interviewDuration: "Standard Round (6-7 Questions • ~45 mins)",
     difficulty: "Neutral Corporate (Standard Hiring Bar / Objective)",
     tagline: "Streaming Lakehouse & Kafka/Flink",
-    cv: "Architected real-time stream processing platform ingesting 15B events/day using Apache Kafka, Apache Flink, and Iceberg lakehouse. Slashed analytics pipeline lag from 4 hours to 45 seconds while cutting compute costs by $620k/year.",
-    jd: "Own enterprise streaming data infrastructure, metadata cataloging, and data governance. Drive architecture reviews, scalability benchmarks, and cross-team data reliability SLAs."
+    cv: "Education: B.Tech in Information Technology from NIT Trichy (2015); M.S. in Data Engineering from Carnegie Mellon University (2017).\n\nSummary & Core Skills: Principal Data Architect with 9+ years architecting enterprise real-time streaming data lakes, distributed event hubs, and data governance platforms processing petabyte-scale telemetry. Core skills: Apache Kafka, Apache Flink, Apache Spark, Apache Iceberg, Delta Lake, Snowflake, Trino, Kubernetes, Java, Scala, Python, Terraform, Data Mesh, Schema Registry, dbt, Prometheus.\n\nProfessional Experience:\n• Lead Data Platform Architect at MediaStream Corp (2021–Present): Architected unified real-time analytics lakehouse ingesting 18 billion telemetry events per day across global CDN edge nodes using Kafka, Flink, and Apache Iceberg. Cut analytics pipeline latency from 4 hours to 35 seconds, enabling instantaneous fraud detection and live stream quality alerts. Reduced annual cloud compute and object storage spend by $620,000 by implementing zstd parquet compaction and tiered S3 Glacier lifecycle policies.\n• Senior Data Engineer at LinkedIn (2017–2021): Scaled distributed stream processing cluster from 20 to 120 nodes processing 4M events/sec. Designed self-service schema migration framework with Protobuf and Avro, eliminating breaking downstream table changes and maintaining 99.99% pipeline uptime.",
+    jd: "Data Platform Architect - Enterprise Real-Time Infrastructure. Responsibilities: Own distributed streaming and lakehouse architecture across Apache Kafka, Flink, and Iceberg. Define schema governance, SLA guarantees, data quality frameworks, and multi-region disaster recovery. Mentor distributed data engineering squads and drive technical roadmaps with executive stakeholders."
   },
   {
     id: "frontend-engineering",
-    name: "Sophia Rodriguez",
+    name: "Ananya Patel",
     role: "Senior Frontend Engineer",
-    company: "Spotify",
+    company: "SoundWave Web",
     level: "Mid-Level",
     interviewType: "Full Mixed Mock (Behavioral + Technical Architecture)",
     interviewDuration: "Focused Screening (4-5 Questions • ~25 mins)",
     difficulty: "Supportive & Conversational (Mentorship / Low Stress)",
     tagline: "Design Systems & Web Performance",
-    cv: "Created enterprise React/TypeScript accessible design system used by 45+ product squads. Improved web Core Web Vitals (LCP < 1.2s, CLS < 0.02) and reduced bundle size by 35% through tree-shaking and dynamic module federation.",
-    jd: "Build modern, accessible, high-performance web applications with React, TypeScript, and Web Audio. Collaborate with product design to build resilient component libraries meeting WCAG 2.1 AA standards."
+    cv: "Education: B.Tech in Computer Science from Delhi Technological University (DTU) (2017).\n\nSummary & Core Skills: Senior Frontend & Web Performance Engineer with 7+ years designing enterprise design systems, accessible UI component libraries, and low-latency audio/video web applications. Skills: React, TypeScript, Next.js, Web Audio API, Web Workers, WebAssembly (Wasm), Tailwind CSS, GraphQL, State Machines (XState), Jest, Cypress, Storybook, WCAG 2.1 AAA Accessibility, Core Web Vitals.\n\nProfessional Experience:\n• Senior Frontend Engineer at SoundWave Web (2020–Present): Core maintainer of enterprise React/TypeScript design system powering 45+ consumer and creator engineering teams. Led web client performance overhaul, slashing bundle size by 38% via tree-shaking, code splitting, and dynamic module federation; elevated Largest Contentful Paint (LCP) from 3.8s to 1.1s and brought Cumulative Layout Shift (CLS) to 0.01. Engineered real-time interactive waveform visualizer using Web Audio API and HTML5 Canvas inside a Web Worker, maintaining stable 60 FPS rendering on budget mobile devices.\n• Frontend Engineer at Zomato (2017–2020): Spearheaded web checkout re-architecture in TypeScript, introducing offline-first optimistic UI updates with Service Workers and IndexedDB, reducing cart-to-payment drop-offs by 22%.",
+    jd: "Senior Frontend Engineer - Design Systems & Web Performance. Responsibilities: Build and maintain world-class, accessible, high-performance web applications in React and TypeScript. Partner with product design to architect resilient component systems compliant with WCAG 2.1 AA/AAA standards. Drive engineering standards for Core Web Vitals, modular state management, and continuous performance telemetry."
   }
 ];
 
@@ -1370,6 +1421,8 @@ async function startSessionA() {
       currentQuestionText = data.first_question.text;
       const qTextEl = document.getElementById("a3-q-text");
       if (qTextEl) qTextEl.innerText = `“${currentQuestionText}”`;
+      const qTextA7 = document.getElementById("a7-q-text");
+      if (qTextA7) qTextA7.innerText = `“${currentQuestionText}”`;
     }
 
     const dlDocx = document.getElementById("btn-dl-docx");
@@ -1411,20 +1464,52 @@ function loadSampleAnswerA(attemptNumber) {
   if (!textarea) return;
 
   const role = (candidateProfile.role || "Software Engineer").toLowerCase();
-  if (role.includes("ux") || role.includes("design") || role.includes("research")) {
+  const name = candidateProfile.name || "Candidate";
+
+  if (role.includes("distributed") || role.includes("systems") || role.includes("infrastructure")) {
+    // Aarav Mehta (Staff Distributed Systems Engineer)
     if (attemptNumber === 1) {
-      textarea.value = "In my previous UX sprint, I had a disagreement with our engineer on the dashboard layout. The engineer wanted fewer filters to save loading time, while I wanted all filters visible. I scheduled a 30-minute sync to talk through user needs and we agreed on a compromise.";
+      textarea.value = "When our transaction ledger faced scaling limits under 140k writes per second, we needed to replace 2-Phase Commit because latency was too high. I recommended Raft quorum leases to make consensus faster across regions. There was some debate with our infrastructure lead over network partition risks, but we tested it and rolled it out safely.";
     } else {
-      textarea.value = "During our cross-functional sprint for the user dashboard, a lead engineer and I disagreed on whether to include an extensive filter menu or streamline it based on usability tests. Rather than escalating, I scheduled a 30-minute working session where I walked through recorded user testing clips showing that 4 out of 5 users were confused by excessive filters. I proposed an A/B test compromise with collapsible filters. As a concrete result, our engineering partner agreed, we shipped the feature 2 days ahead of deadline, and subsequent product analytics revealed a 28% higher task completion rate with zero user drop-offs.";
+      textarea.value = "When our cross-region payment ledger scaled to 140,000 writes/sec, our 2-Phase Commit coordinator became an availability bottleneck with P99 commit latency spiking to 450ms. I proposed replacing 2PC with an optimized Raft quorum lease state machine. Our infrastructure lead opposed this, citing split-brain risks under cross-region partitions. To resolve this constructively, I built an automated chaos harness simulating a 35% packet drop and partition between AWS us-east and eu-west clusters. The benchmarks proved our monotonic lease expiration strictly prevented double-commit anomalies while slashing commit latency to 42ms with 99.999% availability. Based on this empirical data, our lead approved the rollout, which we deployed with zero customer downtime and reduced cross-AZ egress costs by $410,000 annually.";
+    }
+  } else if (role.includes("ux") || role.includes("design") || role.includes("research")) {
+    // Aditi Sharma (UX Research Intern)
+    if (attemptNumber === 1) {
+      textarea.value = "In my healthcare onboarding study, I found that users were confused by the medical history form and were abandoning the flow. The engineering lead wanted to keep all fields on one page to avoid multi-page state management. I scheduled a meeting to show user feedback and we agreed to make it progressive.";
+    } else {
+      textarea.value = "During evaluative research on our healthcare onboarding flow, our diary studies and 35 usability sessions revealed a 44% drop-off caused by an overwhelming 14-field medical history form. Our engineering lead resisted breaking it into a multi-step stepper, citing complex form validation logic and an impending sprint deadline. Rather than escalating, I edited 90-second video clips of 4 participants visibly abandoning the form, paired with telemetry data proving users felt fatigued. I proposed a compromise: a progressive-disclosure accordion that preserved single-page React state while reducing visual cognitive load. As a concrete result, our engineering partner agreed, we shipped the feature 2 days ahead of deadline, and follow-up usability benchmarking revealed a 28% increase in task completion and zero critical usability errors.";
     }
   } else if (role.includes("product") || role.includes("apm") || role.includes("pm")) {
+    // Rohan Kulkarni (Associate Product Manager)
     if (attemptNumber === 1) {
-      textarea.value = "During a feature planning cycle, engineering wanted to delay an analytics integration to refactor backend services. I explained the business priority and we agreed to split the work across two milestones.";
+      textarea.value = "During our dynamic pricing pilot for marketplace merchants, engineering wanted to postpone our Q3 launch to refactor backend services, while sales wanted immediate release. I met with both teams and we agreed to split the launch into two milestones.";
     } else {
-      textarea.value = "During our mobile checkout redesign, our lead backend engineer wanted to defer Apple Pay integration to Q3 due to technical debt, but our user funnel showed 42% cart abandonments on mobile checkout. I organized a prioritization workshop, mapped out the engineering debt versus lost revenue, and proposed a phased rollout with minimal webhook refactoring. As a result, we reduced checkout drop-offs by 31% within 3 weeks and generated an estimated $140,000 in recovered monthly ARR.";
+      textarea.value = "During our marketplace dynamic commission pilot across 14 merchant categories, our backend engineering lead wanted to defer the launch by 4 months to refactor legacy SQL schemas, while commercial leaders demanded an immediate launch to hit Q3 revenue targets. Recognizing the high cost of delay ($280k/month in lost commission lift), I organized an emergency trade-off workshop. I mapped out the technical debt against lost GMV and proposed a dual-read decoupled architecture that allowed the pilot to run on cached tiers while the schema migration proceeded in parallel. As a measurable outcome, we launched on schedule across 12 tier-2 cities, generating $3.4M in annualized GMV expansion while reducing checkout drop-offs by 31% within 3 weeks.";
+    }
+  } else if (role.includes("machine") || role.includes("learning") || role.includes("vision") || role.includes("ai")) {
+    // Dr. Priya Nair (Senior Machine Learning Engineer)
+    if (attemptNumber === 1) {
+      textarea.value = "When deploying our 3D UNet model for clinical MRI segmentation to hospital edge hardware, inference latency was over 800ms per volume. The clinical team wanted real-time feedback, so I optimized the model with TensorRT and quantization to speed it up.";
+    } else {
+      textarea.value = "When deploying our 3D UNet MRI brain lesion segmentation pipeline across 18 regional hospital networks, volumetric inference latency exceeded 820ms on edge NVIDIA T4 GPUs, causing unacceptable workflow delays for reviewing radiologists. Our clinical software lead suggested downsampling voxel resolution by 50%, but this caused small micro-lesion Dice scores to collapse from 94% to 78%. Instead, I spearheaded an inference optimization initiative using mixed-precision FP16 TensorRT compilation and custom CUDA kernel fusion for 3D convolutions. I benchmarked the pipeline against 500 validated clinical scans, proving zero degradation in Dice similarity (maintained at 94.2%) while cutting latency from 820ms down to 64ms, successfully enabling real-time intraoperative clinical review.";
+    }
+  } else if (role.includes("data") || role.includes("lakehouse") || role.includes("flink") || role.includes("kafka")) {
+    // Kavita Krishnan (Data Platform Architect)
+    if (attemptNumber === 1) {
+      textarea.value = "In our real-time streaming platform, pipeline lag was 4 hours and compute costs were too high. I led the migration to Apache Flink and Iceberg lakehouse. The team was concerned about schema migrations, but we resolved it with a schema registry.";
+    } else {
+      textarea.value = "Our legacy analytics batch pipeline suffered from a 4-hour processing lag across 18 billion daily telemetry events, rendering our automated fraud detection ineffective. I architected a unified real-time stream processing platform using Apache Kafka, Apache Flink, and Apache Iceberg. When our analytics lead expressed concerns that real-time schema evolution would break downstream BI dashboards, I introduced a strict Protobuf schema registry with automated backward-compatibility checks in CI/CD. As a measurable outcome, we slashed end-to-end data latency from 4 hours to 35 seconds, enabled instantaneous fraud detection, and reduced annual cloud compute and object storage spend by $620,000 through zstd parquet file compaction.";
+    }
+  } else if (role.includes("frontend") || role.includes("web") || role.includes("react")) {
+    // Ananya Patel (Senior Frontend Engineer)
+    if (attemptNumber === 1) {
+      textarea.value = "Our web application had high bundle size and poor Core Web Vitals. The product team wanted to keep adding features, but I convinced them to let us optimize the bundle through code splitting and tree shaking.";
+    } else {
+      textarea.value = "Our core web client bundle had ballooned to 4.2MB, causing Largest Contentful Paint (LCP) to spike to 3.8 seconds on 3G connections and triggering a 22% bounce rate. Our product manager wanted to prioritize new audio player features rather than performance work. I set up an A/B synthetic performance experiment showing that every 100ms delay in LCP corresponded to a 1.2% drop in free-to-premium trial conversions. With executive sponsorship secured, I spearheaded a modular refactoring using dynamic module federation, route-level code splitting, and Web Worker offloading for audio waveforms. As a result, we slashed bundle size by 38%, brought LCP down to 1.1s, and drove a 14% uplift in trial conversions within 30 days.";
     }
   } else {
-    // Software Engineer / General
+    // General Software Engineering
     if (attemptNumber === 1) {
       textarea.value = "In our last sprint, we found a memory leak in the production caching tier right before a major release. I investigated the logs, found the offending circular reference, and created a quick hotfix that unblocked the release.";
     } else {
@@ -1480,6 +1565,11 @@ async function submitAnswerA(attemptNumber) {
 function renderFeedbackScreenA4(evalData) {
   document.getElementById("a4-overall-score").innerText = `${evalData.overall_score} / 10`;
 
+  const qTextA7 = document.getElementById("a7-q-text");
+  if (qTextA7 && currentQuestionText) {
+    qTextA7.innerText = `“${currentQuestionText}”`;
+  }
+
   // Criteria Scores
   document.getElementById("a4-rel-score").innerText = `${evalData.relevance.score}/10`;
   document.getElementById("a4-rel-reason").innerText = evalData.relevance.reason;
@@ -1502,6 +1592,34 @@ function renderFeedbackScreenA4(evalData) {
 
   // Actionable suggestions
   document.getElementById("a4-suggestions").innerText = evalData.actionable_suggestions.join(" ");
+
+  // Adaptive AI Follow-up Probe
+  const adaptiveContainer = document.getElementById("a4-adaptive-container");
+  const adaptiveFollowup = document.getElementById("a4-adaptive-followup");
+  const adaptiveReasoning = document.getElementById("a4-adaptive-reasoning");
+  const adaptiveSource = document.getElementById("a4-adaptive-source");
+  const a7AdaptiveBox = document.getElementById("a7-adaptive-prompt-box");
+  const a7AdaptivePrompt = document.getElementById("a7-adaptive-prompt");
+
+  if (evalData.adaptive_followup && evalData.adaptive_followup.followup_question) {
+    if (adaptiveFollowup) adaptiveFollowup.innerText = evalData.adaptive_followup.followup_question;
+    if (adaptiveReasoning) adaptiveReasoning.innerText = `💡 Why this probe: ${evalData.adaptive_followup.reasoning || "Contextual probe on unevidenced competencies."}`;
+    if (adaptiveSource) {
+      const src = evalData.adaptive_followup.source || "adaptive_ai_dialogue_engine";
+      adaptiveSource.innerText = src.includes("nemotron") ? "NVIDIA Nemotron 3.5" : (src.includes("gemini") ? "Google Gemini 1.5" : "Adaptive AI Dialogue Engine");
+    }
+    if (adaptiveContainer) adaptiveContainer.style.display = "block";
+
+    if (a7AdaptivePrompt) {
+      a7AdaptivePrompt.innerText = evalData.adaptive_followup.followup_question;
+    }
+    if (a7AdaptiveBox) {
+      a7AdaptiveBox.style.display = "block";
+    }
+  } else if (adaptiveContainer) {
+    adaptiveContainer.style.display = "none";
+    if (a7AdaptiveBox) a7AdaptiveBox.style.display = "none";
+  }
 
   // Populate Why Modal
   document.getElementById("modal-why-score").innerText = `${evalData.evidence_outcome.score} / 10`;
@@ -1586,7 +1704,7 @@ function renderComparisonTable(comp) {
       <td><strong>Evidence & Outcome (STAR)</strong></td>
       <td>${comp.attempt1_scores.evidence}/10</td>
       <td>${comp.attempt2_scores.evidence}/10</td>
-      <td><span class="score-delta" style="color: #ea580c; font-weight: 800;">+${comp.deltas.evidence_outcome || comp.deltas.evidence} ★</span></td>
+      <td><span class="score-delta score-delta-star">+${comp.deltas.evidence_outcome || comp.deltas.evidence} ★</span></td>
     </tr>
     <tr>
       <td><strong>Structure & Clarity</strong></td>
@@ -1838,10 +1956,18 @@ function loadSampleAnswerB() {
 
   if (simulationTurn === 1) {
     // Stage 1: Authentic Self-Introduction
-    if (role.includes("product") || role.includes("apm")) {
-      ta.value = `Good morning Dr. Vance! I'm ${name}. Over the past 3 years as an Associate Product Manager, I've driven user onboarding optimization and checkout funnel improvements. I specialize in turning user friction into prioritized engineering roadmaps, and I'm excited about this opportunity to scale our core product offerings.`;
+    if (role.includes("distributed") || role.includes("systems") || role.includes("infrastructure")) {
+      ta.value = `Good morning Dr. Vance! I'm ${name}. Over the past 8 years as a distributed systems engineer, I've specialized in high-throughput consensus protocols, financial transaction ledgers, and low-latency storage engines. Most recently at Stripe, I led the re-architecture of our core transaction ledger to Raft quorum leases, handling 140,000 writes/sec at 42ms commit latency. I'm excited about this opportunity to tackle mission-critical scale.`;
+    } else if (role.includes("machine") || role.includes("learning") || role.includes("vision") || role.includes("ai")) {
+      ta.value = `Good morning Dr. Vance! I'm ${name}. I'm a Senior Machine Learning and Computer Vision Engineer with a Ph.D. from Stanford. For the past 6 years, I've built deep learning segmentation architectures and deployed low-latency clinical inference pipelines on edge GPUs using TensorRT and CUDA kernel optimizations. I love bridging state-of-the-art vision models with strict clinical safety standards.`;
+    } else if (role.includes("data") || role.includes("lakehouse") || role.includes("flink") || role.includes("kafka")) {
+      ta.value = `Good morning Dr. Vance! I'm ${name}. For the past 9 years, I've architected enterprise real-time streaming data lakes and event hubs processing petabyte-scale telemetry. At MediaStream, I designed our unified streaming lakehouse ingesting 18 billion events per day using Apache Kafka, Apache Flink, and Apache Iceberg, cutting analytics pipeline latency from 4 hours to 35 seconds.`;
+    } else if (role.includes("frontend") || role.includes("web") || role.includes("react")) {
+      ta.value = `Good morning Dr. Vance! I'm ${name}. Over the past 7 years as a frontend engineer, I've specialized in enterprise React and TypeScript design systems, accessibility compliance, and web performance optimization. At SoundWave Web, I led our web performance initiative cutting bundle size by 38% and bringing LCP to 1.1s, while building high-performance audio waveform visualizers using Web Workers.`;
+    } else if (role.includes("product") || role.includes("apm")) {
+      ta.value = `Good morning Dr. Vance! I'm ${name}. Over the past 3 years as an Associate Product Manager, I've driven marketplace growth funnels, dynamic pricing algorithms, and checkout conversion optimization at Flipkart. I specialize in turning user friction into prioritized engineering roadmaps, and I'm excited about this opportunity to scale our core product offerings.`;
     } else if (role.includes("ux") || role.includes("design")) {
-      ta.value = `Good morning Dr. Vance! I'm ${name}. I'm a UX Researcher with a background in cognitive human-computer interaction and mixed-methods research. I specialize in translating qualitative field studies and usability metrics into validated product features.`;
+      ta.value = `Good morning Dr. Vance! I'm ${name}. I'm a UX Researcher with a background in cognitive human-computer interaction from IIT Gandhinagar and mixed-methods research. I specialize in translating qualitative field studies, usability benchmarking, and cognitive walkthroughs into validated product features that drive task completion.`;
     } else {
       ta.value = `Good morning Dr. Vance! I'm ${name}. For the past 4 years I've worked as a backend software engineer specializing in distributed systems, microservices decoupling, and high-throughput data pipelines. I'm really excited about this role because I love building resilient architectures that handle mission-critical scale.`;
     }
@@ -1915,6 +2041,14 @@ const loadSampleRahulAnswer = loadSampleAnswerB;
 window.loadSampleAnswerB = loadSampleAnswerB;
 window.loadSampleRahulAnswer = loadSampleAnswerB;
 
+function concludeInterviewNaturally() {
+  const closingPrompt = "Thank you, Dr. Vance. I think we have covered the key areas of my experience and background, and I am ready to wrap up our interview session and receive the hiring committee evaluation.";
+  const ansBox = document.getElementById("b-answer");
+  if (ansBox) ansBox.value = closingPrompt;
+  submitSimulationAnswer();
+}
+window.concludeInterviewNaturally = concludeInterviewNaturally;
+
 async function submitSimulationAnswer() {
   const answer = document.getElementById("b-answer").value.trim();
   if (!answer) {
@@ -1964,7 +2098,7 @@ async function submitSimulationAnswer() {
   const typingBubbleHtml = `
     <div class="chat-bubble interviewer typing-bubble" id="b-typing-bubble">
       <div class="chat-meta">DR. MARCUS VANCE • OFFICIAL INTERVIEWER</div>
-      <div style="display: flex; align-items: center; gap: 0.6rem; color: #475569; font-size: 0.88rem;">
+      <div style="display: flex; align-items: center; gap: 0.6rem; color: var(--text-muted); font-size: 0.88rem;">
         <div class="typing-dots"><span></span><span></span><span></span></div>
         <span>Dr. Vance is listening and formulating the next question...</span>
       </div>
@@ -2041,15 +2175,17 @@ async function submitSimulationAnswer() {
     let engineLabel = "🟢 NVIDIA Nemotron 3.5";
     if (data.source === "gemini_1.5_flash") {
       engineLabel = "🟢 Google Gemini 1.5 Flash";
-    } else if (data.source === "semantic_dialogue_engine") {
-      engineLabel = "⚡ Semantic NLP Engine";
+    } else if (data.openrouter_status && data.openrouter_status.status_code === 429) {
+      engineLabel = "⚠️ OpenRouter Quota Limit (429) • Adaptive Engine Active";
+    } else if (data.source === "semantic_dialogue_engine" || data.source === "adaptive_ai_dialogue_engine") {
+      engineLabel = "🟢 Adaptive AI Dialogue Engine";
     }
 
     const currentTurnAssistantIdx = simConversationHistory.filter(m => m.role === "assistant").length - 1;
 
     chat.innerHTML += `
       <div class="chat-bubble interviewer">
-        <div class="chat-meta">DR. MARCUS VANCE • OFFICIAL INTERVIEW (${stageTitle}) • <span style="color: #047857; font-weight: 600;">${engineLabel}</span></div>
+        <div class="chat-meta">DR. MARCUS VANCE • OFFICIAL INTERVIEW (${stageTitle}) • <span class="engine-badge-label">${engineLabel}</span></div>
         <p>${escapeHtml(reply)}</p>
         <div style="margin-top: 0.4rem;">
           <button class="btn btn-secondary btn-sm" onclick="replayInterviewerTurn(${currentTurnAssistantIdx})">🔊 Hear Audio</button>
@@ -2069,19 +2205,19 @@ async function submitSimulationAnswer() {
     // If the interview reaches conclusion, render manual conclusion action card WITHOUT auto-redirecting
     if (data.is_concluded) {
       chat.innerHTML += `
-        <div class="chat-bubble interviewer" style="background: #ecfdf5; border: 2px solid #10b981; border-radius: 12px; padding: 1.25rem; margin-top: 1rem; box-shadow: 0 4px 12px rgba(16, 185, 129, 0.15);">
-          <div style="display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.5rem;">
-            <span style="font-size: 1.5rem;">🎉</span>
+        <div class="chat-bubble interviewer interview-concluded-card">
+          <div class="concluded-header">
+            <span class="concluded-icon">🎉</span>
             <div>
-              <strong style="color: #065f46; font-size: 1.05rem;">Interview Completed with Dr. Marcus Vance</strong>
-              <div style="font-size: 0.82rem; color: #047857;">All conversation turns have been recorded and transcribed.</div>
+              <strong class="concluded-title">Interview Completed with Dr. Marcus Vance</strong>
+              <div class="concluded-sub">All conversation turns have been recorded and transcribed.</div>
             </div>
           </div>
-          <p style="color: #1e293b; font-size: 0.9rem; margin-bottom: 1rem; line-height: 1.55;">
+          <p class="concluded-body">
             Dr. Vance has wrapped up the oral questioning. When you are ready, proceed to convene the Hiring Committee Evaluation Scorecard to inspect your detailed BARS ratings, turn-by-turn evidence audit, and targeted development plan.
           </p>
-          <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center;">
-            <button class="btn btn-primary" id="btn-proceed-evaluation" onclick="finishSimulation()" style="background: #059669; border-color: #047857; font-weight: 700; padding: 0.65rem 1.35rem; font-size: 0.92rem; box-shadow: 0 3px 10px rgba(5, 150, 105, 0.3);">
+          <div class="concluded-actions">
+            <button class="btn btn-primary btn-concluded" id="btn-proceed-evaluation" onclick="finishSimulation()">
               📊 View Official Hiring Committee Evaluation Scorecard →
             </button>
             <button class="btn btn-secondary btn-sm" onclick="replayInterviewerTurn(${currentTurnAssistantIdx})">🔊 Replay Closing Remarks</button>
@@ -2250,7 +2386,7 @@ function renderDetailedSimulationFeedback(evalData = null) {
             <span class="comp-name">${escapeHtml(c.name)}</span>
             <span class="comp-score-tag" style="color: ${barColor}">${s.toFixed(1)} / 10</span>
           </div>
-          <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: #64748b; margin-bottom: 0.25rem;">
+          <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.25rem;">
             <span>Evaluation Weight: <strong>${w}%</strong></span>
             <strong style="color: ${barColor}">${escapeHtml(c.rating_label || 'Meets Bar')}</strong>
           </div>
@@ -2264,7 +2400,7 @@ function renderDetailedSimulationFeedback(evalData = null) {
         </div>
       </div>
     `;
-  }).join("") || `<p style="color: #64748b; padding: 1rem;">Competencies evaluated against role standard.</p>`;
+  }).join("") || `<p style="color: var(--text-muted); padding: 1rem;">Competencies evaluated against role standard.</p>`;
 
   // 2. Build Turn-by-Turn Question & Response Audit
   const turns = d.turn_evaluations || [];
@@ -2281,17 +2417,17 @@ function renderDetailedSimulationFeedback(evalData = null) {
         <div class="turn-audit-header">
           <div>
             <span class="turn-audit-stage">${escapeHtml(t.stage_name || `Turn ${t.turn_index}`)}</span>
-            <span style="font-size: 0.82rem; color: #64748b; margin-left: 0.5rem;">• Focus Competency: <strong>${escapeHtml(t.competency_tested || 'Domain Competency')}</strong></span>
+            <span style="font-size: 0.82rem; color: var(--text-muted); margin-left: 0.5rem;">• Focus Competency: <strong>${escapeHtml(t.competency_tested || 'Domain Competency')}</strong></span>
           </div>
           <span class="badge ${badgeClass}" style="font-weight: 800; font-size: 0.85rem;">Turn Rating: ${tScore.toFixed(1)} / 10</span>
         </div>
         <div class="turn-audit-body">
           <div class="turn-q-box">
-            <div style="font-size: 0.75rem; font-weight: 800; color: #475569; margin-bottom: 0.2rem;">💼 DR. MARCUS VANCE (LEAD EVALUATOR):</div>
+            <div class="turn-q-label">💼 DR. MARCUS VANCE (LEAD EVALUATOR):</div>
             <div>“${escapeHtml(t.interviewer_question)}”</div>
           </div>
           <div class="turn-ans-box">
-            <div style="font-size: 0.75rem; font-weight: 800; color: #1e40af; margin-bottom: 0.2rem;">🎙️ CANDIDATE'S SPOKEN RESPONSE:</div>
+            <div class="turn-ans-label">🎙️ CANDIDATE'S SPOKEN RESPONSE:</div>
             <div>“${escapeHtml(t.candidate_response)}”</div>
           </div>
           <div class="turn-insights-grid">
@@ -2313,7 +2449,7 @@ function renderDetailedSimulationFeedback(evalData = null) {
         </div>
       </div>
     `;
-  }).join("") || `<p style="color: #64748b; padding: 1rem;">Turn breakdown recorded.</p>`;
+  }).join("") || `<p style="color: var(--text-muted); padding: 1rem;">Turn breakdown recorded.</p>`;
 
   // 3. Build Job Description & Resume Requirements Alignment Matrix
   const jdList = d.job_description_alignment || [];
@@ -2323,13 +2459,13 @@ function renderDetailedSimulationFeedback(evalData = null) {
     if (j.status === "Not Assessed / Missing") bClass = "badge-danger";
     return `
       <tr>
-        <td style="font-weight: 600; color: #1e293b; width: 28%;">${escapeHtml(j.requirement)}</td>
-        <td style="width: 18%;"><span class="badge ${bClass}">${escapeHtml(j.status)}</span></td>
-        <td style="font-style: italic; color: #475569; width: 28%; font-size: 0.82rem;">${escapeHtml(j.evidence_quote || 'No direct quote identified')}</td>
-        <td style="color: #334155; width: 26%; font-size: 0.82rem;">${escapeHtml(j.alignment_analysis || '')}</td>
+        <td class="jd-req-cell">${escapeHtml(j.requirement)}</td>
+        <td class="jd-status-cell"><span class="badge ${bClass}">${escapeHtml(j.status)}</span></td>
+        <td class="jd-quote-cell">${escapeHtml(j.evidence_quote || 'No direct quote identified')}</td>
+        <td class="jd-analysis-cell">${escapeHtml(j.alignment_analysis || '')}</td>
       </tr>
     `;
-  }).join("") || `<tr><td colspan="4" style="text-align: center; color: #64748b; padding: 1rem;">Candidate demonstrated core role alignment.</td></tr>`;
+  }).join("") || `<tr><td colspan="4" style="text-align: center; color: var(--text-muted); padding: 1rem;">Candidate demonstrated core role alignment.</td></tr>`;
 
   // 4. Build Debrief & 30-Day Coaching Plan
   const topStrengths = (d.key_strengths || []).map(s => `<li style="margin-bottom: 0.4rem;">${escapeHtml(s)}</li>`).join("");
@@ -2411,7 +2547,7 @@ function renderDetailedSimulationFeedback(evalData = null) {
           <h3 style="font-size: 1.15rem; color: var(--text-main); margin: 0;">Prerequisite Alignment & Resume Substantiation Audit</h3>
           <p style="font-size: 0.84rem; color: var(--text-muted); margin: 0.2rem 0 0 0;">Verification of core requirements extracted from the target Job Description and Candidate CV highlights.</p>
         </div>
-        <div style="overflow-x: auto; background: #ffffff; border-radius: 8px; border: 1px solid var(--border);">
+        <div class="table-container jd-table-wrapper">
           <table class="jd-audit-matrix">
             <thead>
               <tr>
@@ -2435,23 +2571,23 @@ function renderDetailedSimulationFeedback(evalData = null) {
           <p style="font-size: 0.84rem; color: var(--text-muted); margin: 0.2rem 0 0 0;">Concrete, high-leverage recommendations to elevate performance to the next seniority tier.</p>
         </div>
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem; margin-bottom: 1.25rem;">
-          <div style="background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 10px; padding: 1.25rem;">
-            <div style="font-weight: 800; color: #065f46; font-size: 0.95rem; margin-bottom: 0.6rem;">✓ TOP CANDIDATE SUPERPOWERS:</div>
-            <ul style="margin: 0; padding-left: 1.2rem; color: #064e3b; font-size: 0.85rem; line-height: 1.5;">
+          <div class="debrief-box debrief-superpowers">
+            <div class="debrief-heading">✓ TOP CANDIDATE SUPERPOWERS:</div>
+            <ul class="debrief-list">
               ${topStrengths}
             </ul>
           </div>
-          <div style="background: #fffbeb; border: 1px solid #fde68a; border-radius: 10px; padding: 1.25rem;">
-            <div style="font-weight: 800; color: #92400e; font-size: 0.95rem; margin-bottom: 0.6rem;">⚠️ CRITICAL GROWTH & ONBOARDING RISKS:</div>
-            <ul style="margin: 0; padding-left: 1.2rem; color: #78350f; font-size: 0.85rem; line-height: 1.5;">
+          <div class="debrief-box debrief-risks">
+            <div class="debrief-heading">⚠️ CRITICAL GROWTH & ONBOARDING RISKS:</div>
+            <ul class="debrief-list">
               ${topGrowth}
             </ul>
           </div>
         </div>
 
-        <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 10px; padding: 1.25rem;">
-          <div style="font-weight: 800; color: #1e40af; font-size: 0.95rem; margin-bottom: 0.6rem;">🎯 30-DAY TARGETED ACTION PLAN TO REACH NEXT LEVEL:</div>
-          <ol style="margin: 0; padding-left: 1.3rem; color: #1e3a8a; font-size: 0.88rem; line-height: 1.6;">
+        <div class="debrief-box debrief-actions">
+          <div class="debrief-heading">🎯 30-DAY TARGETED ACTION PLAN TO REACH NEXT LEVEL:</div>
+          <ol class="debrief-list debrief-ordered">
             ${topActions}
           </ol>
         </div>
@@ -2679,11 +2815,61 @@ function exportEvaluationDataset() {
 // ==========================================
 function openConfigModal() {
   document.getElementById("modal-config").style.display = "flex";
+  loadConfigSettings();
 }
 
 function closeConfigModal() {
   document.getElementById("modal-config").style.display = "none";
 }
+
+async function testLiveOpenRouterConnection() {
+  const btn = document.getElementById("btn-test-openrouter");
+  const diag = document.getElementById("cfg-openrouter-diag");
+  if (btn) btn.innerText = "⏳ Testing API...";
+  if (diag) diag.innerHTML = "Sending live test ping to <code>https://openrouter.ai/api/v1/chat/completions</code>...";
+
+  try {
+    const res = await fetch("/api/openrouter/test");
+    const data = await res.json();
+    if (btn) btn.innerText = "🧪 Test Connection Now";
+
+    let html = "";
+    if (data.chat_status_code === 200) {
+      html = `
+        <div style="color: var(--success, #10b981); font-weight: 600; margin-bottom: 0.25rem;">
+          ✓ LIVE CALL SUCCEEDED (HTTP 200 OK)
+        </div>
+        <div>Model: <code>${escapeHtml(data.model)}</code> | Key: <code>${escapeHtml(data.api_key_masked)}</code></div>
+        <div>Generation ID: <code>${escapeHtml(data.chat_generation_id || 'active')}</code></div>
+        <div style="margin-top: 0.35rem; color: var(--text);">${escapeHtml(data.dashboard_logging_explanation || '')}</div>
+      `;
+    } else if (data.chat_status_code === 429) {
+      const quota = data.quota_status || {};
+      html = `
+        <div style="color: #f59e0b; font-weight: 600; margin-bottom: 0.25rem;">
+          ⚠️ HTTP 429: FREE DAILY QUOTA EXHAUSTED (Used: ${quota.used !== undefined ? quota.used : 50} / Limit: ${quota.limit || 50})
+        </div>
+        <div>Key: <code>${escapeHtml(data.api_key_masked)}</code> | Generation ID: <code>${escapeHtml(data.chat_generation_id || 'none')}</code></div>
+        <div style="margin-top: 0.35rem; padding: 0.4rem; background: rgba(245, 158, 11, 0.1); border-left: 3px solid #f59e0b; border-radius: 4px; color: var(--text);">
+          <strong>Why no logs appear in OpenRouter dashboard:</strong> OpenRouter's dashboard Activity tab ONLY logs requests that return 200 OK. When an account exceeds the 50 free requests/day limit, Cloudflare rejects the call at the edge gateway before model execution. The API was contacted (HTTP 429 returned), but 429s are not stored as completed generations.<br>
+          <em>To use live model completions, paste a new key with fresh quota or credits above and click 'Save Settings'.</em>
+        </div>
+      `;
+    } else {
+      html = `
+        <div style="color: #ef4444; font-weight: 600; margin-bottom: 0.25rem;">
+          ❌ OpenRouter Status: ${data.chat_status_code || 'Error'}
+        </div>
+        <div>${escapeHtml(data.message || 'Connection failed')}</div>
+      `;
+    }
+    if (diag) diag.innerHTML = html;
+  } catch (err) {
+    if (btn) btn.innerText = "🧪 Test Connection Now";
+    if (diag) diag.innerHTML = `<span style="color: #ef4444;">Error testing OpenRouter: ${err.message}</span>`;
+  }
+}
+window.testLiveOpenRouterConnection = testLiveOpenRouterConnection;
 
 async function loadConfigSettings() {
   try {
@@ -2695,7 +2881,7 @@ async function loadConfigSettings() {
     if (orBadge) {
       if (data.openrouter_active) {
         orBadge.className = "badge badge-success";
-        orBadge.innerText = "✓ Nemotron 3.5 Super VL Active";
+        orBadge.innerText = "✓ OpenRouter Key Configured";
       } else {
         orBadge.className = "badge badge-outline";
         orBadge.innerText = "Curated Fallback Ready ($0 Free)";
@@ -2705,13 +2891,23 @@ async function loadConfigSettings() {
     if (badge) {
       if (data.openrouter_active) {
         badge.className = "badge badge-success";
-        badge.innerText = "NVIDIA Nemotron 3.5 Super VL (Free Tier)";
+        badge.innerText = "NVIDIA Nemotron 3.5 Super VL (OpenRouter)";
       } else if (data.gemini_active) {
         badge.className = "badge badge-success";
         badge.innerText = "Gemini 1.5 Flash Free Tier Active";
       } else {
         badge.className = "badge badge-primary";
         badge.innerText = "Curated Sample Questions + STAR Evaluator ($0 Free)";
+      }
+    }
+
+    const diag = document.getElementById("cfg-openrouter-diag");
+    if (diag && data.openrouter_last_status && data.openrouter_last_status.status_code) {
+      const st = data.openrouter_last_status;
+      if (st.status_code === 200) {
+        diag.innerHTML = `🟢 <strong>Live OpenRouter 200 OK:</strong> Last generation ID: <code>${escapeHtml(st.generation_id || '')}</code>`;
+      } else if (st.status_code === 429) {
+        diag.innerHTML = `⚠️ <strong>OpenRouter HTTP 429 (Rate Limit):</strong> Daily quota exhausted (50/50 used). Cloudflare gateway blocks requests before token generation, so 429s are not logged in dashboard Activity. Paste a key with fresh quota above.`;
       }
     }
   } catch (err) {
@@ -2780,7 +2976,9 @@ window.loadSampleAnswerB = loadSampleAnswerB;
 window.loadSampleRahulAnswer = loadSampleAnswerB;
 window.toggleVoiceInputUniversal = toggleVoiceInputUniversal;
 window.clearAnswerDirect = clearAnswerDirect;
-window.toggleWireframeMode = toggleWireframeMode;
+window.toggleTheme = toggleTheme;
+window.applyTheme = applyTheme;
+window.initTheme = initTheme;
 window.openConfigModal = openConfigModal;
 window.closeConfigModal = closeConfigModal;
 window.saveConfigSettings = saveConfigSettings;

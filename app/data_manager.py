@@ -6,21 +6,25 @@ literature review findings, and user requirements synthesized from CS 435 Assign
 PERSONAS = {
     "aditi": {
         "id": "aditi",
-        "name": "Aditi",
-        "title": "Master's Student Seeking an Internship",
+        "name": "Aditi Sharma",
+        "title": "Master's Student in HCI Seeking UX Research Roles",
         "age": 23,
-        "education": "Master's Student",
+        "education": "Master's Candidate in HCI, IIT Gandhinagar; B.Des in Interaction Design, NID Ahmedabad",
         "target_role": "UX Research Intern",
-        "interview_type": "Behavioral",
+        "interview_type": "Behavioral & Culture Fit (STAR Method Focus)",
         "difficulty": "Medium",
         "cv_summary": (
-            "Master's candidate in HCI. Experience conducting 15+ semi-structured user interviews, "
-            "usability evaluations, and persona development for educational apps. Proficient in Figma and qualitative coding."
+            "Master's candidate in Human-Computer Interaction (HCI) at IIT Gandhinagar with background in Interaction Design from NID. "
+            "Extensive experience conducting 35+ mixed-methods usability tests, semi-structured user interviews, contextual inquiries, and cognitive walkthroughs. "
+            "Led evaluative research on healthcare onboarding flows, identifying critical friction points in medical history input that reduced drop-offs by 28% "
+            "and boosted task completion rate from 62% to 90%. Completed research internship at Swiggy examining grocery checkout drop-offs, delivering diary "
+            "studies that inspired a transparent price breakdown yielding an 18% lift in checkout completion. Proficient in Dovetail, Figma, UserTesting, SPSS, "
+            "and thematic qualitative coding grounded in grounded theory."
         ),
         "job_description": (
-            "Seeking a passionate UX Research Intern to collaborate with cross-functional product squads. "
+            "Seeking a passionate UX Research Intern to collaborate with cross-functional product squads at Google. "
             "Responsibilities: Plan and execute evaluative studies, synthesize user feedback into actionable insights, "
-            "and communicate findings to designers and engineers."
+            "and communicate findings to designers and engineers. Conduct usability benchmarking, cognitive walkthroughs, and diary studies."
         ),
         "pain_points": [
             "Unsure whether her answers are good or sufficiently rigorous",
@@ -34,20 +38,23 @@ PERSONAS = {
     },
     "rahul": {
         "id": "rahul",
-        "name": "Rahul",
-        "title": "Recent Graduate Seeking Full-Time Roles",
+        "name": "Rahul Verma",
+        "title": "Recent B.Tech Graduate Seeking Associate Product Manager Roles",
         "age": 24,
-        "education": "Recent Graduate (B.Tech / B.S.)",
+        "education": "B.Tech in Computer Science & Engineering, BITS Pilani (Class of 2024)",
         "target_role": "Associate Product Manager",
-        "interview_type": "Behavioral",
+        "interview_type": "Situational Problem Solving & Strategy (Execution)",
         "difficulty": "Medium",
         "cv_summary": (
-            "Computer Science graduate with leadership experience in student venture accelerator. "
-            "Shipped 2 web applications, led agile sprint planning for a team of 5, and analyzed user retention funnels."
+            "Computer Science graduate from BITS Pilani with leadership experience as Product Lead in student venture accelerator. "
+            "Directed an agile squad of 8 engineers and 2 designers to launch a campus peer-to-peer textbook marketplace adopted by 6,200 active students. "
+            "Analyzed retention funnels using Mixpanel, uncovering a 44% onboarding drop-off and redesigning the signup drawer to lift day-7 retention by 22%. "
+            "Completed Product Management internship at Flipkart Marketplace, managing merchant inventory dynamic pricing pilots across 12 tier-2 cities that "
+            "generated $180k in annualized GMV expansion. Experienced in PRD writing, North Star metrics, A/B experimentation, SQL cohort analysis, and agile scrum."
         ),
         "job_description": (
             "Associate Product Manager (APM). Seeking ambitious graduates to drive feature roadmaps, "
-            "resolve cross-team conflicts, make data-informed trade-offs under ambiguity, and deliver business impact."
+            "resolve cross-team conflicts, make data-informed trade-offs under ambiguity, and deliver business impact at Flipkart."
         ),
         "pain_points": [
             "Needs realistic interview simulation with tough follow-up questions",

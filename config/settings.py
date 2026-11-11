@@ -76,14 +76,12 @@ def load_environment(filepath: Optional[Path] = None) -> Dict[str, str]:
 def get_secret(key: str, default: str = "") -> str:
     """
     Safely retrieves a configuration key or secret.
-    Refreshes from the active .env file if currently empty in os.environ.
+    Always refreshes from the active .env file on disk so updates take effect immediately without server reboot.
     """
+    active_path = resolve_active_dotenv_path()
+    if active_path.exists():
+        load_environment(active_path)
     val = os.environ.get(key, "").strip()
-    if not val:
-        active_path = resolve_active_dotenv_path()
-        if active_path.exists():
-            load_environment(active_path)
-            val = os.environ.get(key, "").strip()
     return val or default
 
 

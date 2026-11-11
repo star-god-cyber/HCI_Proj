@@ -17,15 +17,11 @@ class TestAPIEndpoints(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn("AI Interview Practice System", response.text)
 
-    def test_personas_and_survey(self):
+    def test_personas(self):
         resp_p = self.client.get("/api/personas")
         self.assertEqual(resp_p.status_code, 200)
         self.assertIn("aditi", resp_p.json())
         self.assertIn("rahul", resp_p.json())
-
-        resp_s = self.client.get("/api/survey-data")
-        self.assertEqual(resp_s.status_code, 200)
-        self.assertEqual(resp_s.json()["survey"]["total_n"], 30)
 
     def test_prototype_a_flow(self):
         # 1. Setup
@@ -150,6 +146,34 @@ class TestAPIEndpoints(unittest.TestCase):
         self.assertIn("interviewer_message", turn2_data)
         self.assertEqual(turn2_data["turn_index"], 3)
         self.assertNotIn("Good morning", turn2_data["interviewer_message"])
+
+        # 4. User-communicated wrap-up ending
+        wrap_resp = self.client.post("/api/interview/turn", json={
+            "session_id": session_id,
+            "user_message": "Thank you Dr. Vance, that covers everything from my side and I am ready to wrap up.",
+            "turn_index": 3,
+            "job_role": "Staff Distributed Systems Engineer"
+        })
+        self.assertEqual(wrap_resp.status_code, 200)
+        wrap_data = wrap_resp.json()
+        self.assertTrue(wrap_data["is_concluded"])
+        self.assertIn("conclude", wrap_data["interviewer_message"].lower())
+
+        # 5. Interviewer-initiated ending once needful info extracted (Turn 4+)
+        turn4_resp = self.client.post("/api/interview/turn", json={
+            "session_id": session_id,
+            "user_message": "Our Prometheus and Datadog telemetry verified p99 latency dropped by 38ms, achieving 99.999% uptime across all multi-region clusters.",
+            "turn_index": 4,
+            "job_role": "Staff Distributed Systems Engineer"
+        })
+        self.assertEqual(turn4_resp.status_code, 200)
+        turn4_data = turn4_resp.json()
+        self.assertTrue(turn4_data["is_concluded"])
+        self.assertTrue(
+            "needful" in turn4_data["interviewer_message"].lower() or 
+            "conclude" in turn4_data["interviewer_message"].lower() or
+            "scorecard" in turn4_data["interviewer_message"].lower()
+        )
 
     def test_config_endpoints(self):
         # GET config

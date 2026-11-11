@@ -27,7 +27,7 @@ from app.models import (
 )
 from app.evaluator import evaluator
 from app.env_loader import get_env_variable, DOTENV_PATH
-from app.data_manager import PERSONAS, QUESTION_BANKS, SURVEY_INSIGHTS, ROL_SYNTHESIS, get_question_bank_for_role
+from app.data_manager import PERSONAS, QUESTION_BANKS, get_question_bank_for_role
 from app.database import (
     init_db,
     save_session,
@@ -96,14 +96,6 @@ async def get_personas():
     return PERSONAS
 
 
-@app.get("/api/survey-data")
-async def get_survey_data():
-    return {
-        "survey": SURVEY_INSIGHTS,
-        "rol": ROL_SYNTHESIS
-    }
-
-
 @app.get("/api/questions")
 async def get_questions(role: str = "Software Engineer"):
     return get_question_bank_for_role(role)
@@ -131,11 +123,15 @@ async def setup_session(req: SessionSetupRequest):
         count=3
     )
 
-    company_ref = f" at {req.target_company}" if req.target_company else ""
-    opening_greeting = (
-        f"Good morning, {cand_name}! Welcome to your official mock interview for the {job_role} position{company_ref}. "
-        "I'm Dr. Marcus Vance, lead hiring evaluator for our team today. Thanks for taking the time to join me. "
-        "To kick off our conversation, could you please introduce yourself, walk me through your background, and share what brings you to this role?"
+    opening_greeting = evaluator.generate_opening_question(
+        candidate_name=cand_name,
+        job_role=job_role,
+        target_company=req.target_company or "",
+        experience_level=req.experience_level or "Mid-Level",
+        interview_type=int_type,
+        difficulty=int_tone,
+        cv_text=req.cv_text or "",
+        job_description=req.job_description or ""
     )
 
     if req.prototype_type == "B":
@@ -432,11 +428,19 @@ async def get_config():
     return {
         "openrouter_active": has_openrouter,
         "openrouter_model": evaluator.openrouter_model,
+        "openrouter_last_status": evaluator.last_openrouter_status,
         "gemini_active": has_gemini,
         "mode": mode,
         "stt_engine": "web_speech_api",
         "tts_engine": "web_speech_synthesis"
     }
+
+
+@app.get("/api/openrouter/test")
+@app.post("/api/openrouter/test")
+async def test_openrouter_api_endpoint():
+    """Live diagnostic endpoint testing OpenRouter API key validity, daily quota, and chat response."""
+    return await evaluator.test_openrouter_connection()
 
 
 @app.post("/api/config")
@@ -446,23 +450,27 @@ async def update_config(req: ConfigUpdateRequest):
         evaluator.openrouter_api_key = clean_or_key
         os.environ["OPENROUTER_API_KEY"] = clean_or_key
         update_dotenv_key("OPENROUTER_API_KEY", clean_or_key)
+        print(f"[Config Update] OpenRouter API key updated in memory and .env: {clean_or_key[:7]}...{clean_or_key[-4:]}", flush=True)
 
     if req.openrouter_model and req.openrouter_model.strip():
         clean_model = req.openrouter_model.strip()
         evaluator.openrouter_model = clean_model
         os.environ["OPENROUTER_MODEL"] = clean_model
         update_dotenv_key("OPENROUTER_MODEL", clean_model)
+        print(f"[Config Update] OpenRouter Model updated: {clean_model}", flush=True)
 
     if req.gemini_api_key is not None and req.gemini_api_key.strip():
         clean_gem_key = req.gemini_api_key.strip()
         evaluator.gemini_api_key = clean_gem_key
         os.environ["GEMINI_API_KEY"] = clean_gem_key
         update_dotenv_key("GEMINI_API_KEY", clean_gem_key)
+        print(f"[Config Update] Gemini API key updated in memory and .env: {clean_gem_key[:7]}...", flush=True)
 
     return {
         "status": "updated",
         "openrouter_active": bool(evaluator.get_openrouter_api_key()),
         "openrouter_model": evaluator.openrouter_model,
+        "openrouter_last_status": evaluator.last_openrouter_status,
         "gemini_active": bool(evaluator.get_gemini_api_key())
     }
 

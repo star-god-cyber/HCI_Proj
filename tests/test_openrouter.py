@@ -41,7 +41,7 @@ class TestOpenRouterIntegration(unittest.TestCase):
         ))
         self.assertIn("followup_question", res)
         self.assertIn("reasoning", res)
-        self.assertIn(res.get("source"), ["deterministic_engine", "gemini_1.5_flash"])
+        self.assertIn(res.get("source"), ["deterministic_engine", "gemini_1.5_flash", "adaptive_ai_dialogue_engine"])
 
     def test_fallback_evaluate_answer_when_key_empty(self):
         self.evaluator.get_openrouter_api_key = lambda: ""
@@ -50,12 +50,15 @@ class TestOpenRouterIntegration(unittest.TestCase):
             question_text="Tell me about a time you resolved a disagreement.",
             answer_text="At my previous job, I organized a sprint review with the lead engineer to align on product priorities.",
             job_role="Product Manager",
-            attempt_number=1
+            attempt_number=1,
+            candidate_name="Rohan Kulkarni"
         ))
         self.assertIsNotNone(eval_res)
         self.assertGreater(eval_res.overall_score, 0)
         self.assertIsNotNone(eval_res.relevance)
         self.assertIsNotNone(eval_res.specificity)
+        self.assertIsNotNone(eval_res.adaptive_followup)
+        self.assertIn("followup_question", eval_res.adaptive_followup)
 
     def test_api_config_openrouter_endpoints(self):
         # Test GET /api/config
@@ -78,6 +81,14 @@ class TestOpenRouterIntegration(unittest.TestCase):
         self.assertIn("OPENROUTER_API_KEY", content)
         self.assertIn("OPENROUTER_MODEL", content)
         self.assertIn("nvidia/nemotron-3.5-super-vl:free", content)
+
+    def test_openrouter_diagnostic_endpoint(self):
+        res = self.client.get("/api/openrouter/test")
+        self.assertEqual(res.status_code, 200)
+        data = res.json()
+        self.assertIn("model", data)
+        self.assertIn("api_key_masked", data)
+        self.assertIn("chat_status_code", data)
 
 
 if __name__ == "__main__":

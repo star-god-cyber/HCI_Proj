@@ -24,6 +24,7 @@ class EvaluationResult(BaseModel):
     actionable_suggestions: List[str]
     example_improved_answer: Optional[str] = None
     why_feedback_summary: Dict[str, Any] = {}
+    adaptive_followup: Optional[Dict[str, Any]] = None
 
 
 class SessionSetupRequest(BaseModel):

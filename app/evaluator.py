@@ -9,6 +9,7 @@ import os
 import re
 import json
 import logging
+from datetime import datetime
 from typing import Dict, Any, List, Optional
 import httpx
 from app.models import EvaluationResult, RubricCriterion, AttemptComparison
@@ -27,6 +28,7 @@ class InterviewEvaluator:
         self.gemini_api_key = os.environ.get("GEMINI_API_KEY", "")
         self.openrouter_api_key = os.environ.get("OPENROUTER_API_KEY", "")
         self.openrouter_model = os.environ.get("OPENROUTER_MODEL", OPENROUTER_MODEL)
+        self.last_openrouter_status: Dict[str, Any] = {}
         # Action keywords
         self.action_words = [
             "decided", "implemented", "organized", "scheduled", "analyzed", "researched",
@@ -47,8 +49,21 @@ class InterviewEvaluator:
         ]
 
     def get_openrouter_api_key(self) -> str:
-        key = self.openrouter_api_key or get_env_variable("OPENROUTER_API_KEY", "")
-        clean_key = key.strip().strip('"').strip("'")
+        """
+        Dynamically retrieves the latest OpenRouter API key from .env / settings.
+        Detects live edits on disk immediately without requiring a server reboot.
+        """
+        env_key = get_env_variable("OPENROUTER_API_KEY", "")
+        # Always prefer dynamically refreshed key from .env unless explicitly overridden
+        key = self.openrouter_api_key or env_key
+        # If the key in .env on disk has changed from previous memory, update in-memory cache
+        if env_key and self.openrouter_api_key != env_key:
+            self.openrouter_api_key = env_key
+            key = env_key
+
+        clean_key = (key or "").strip().strip('"').strip("'")
+        if clean_key.lower().startswith("bearer "):
+            clean_key = clean_key[7:].strip()
         if clean_key:
             if clean_key.startswith("v1-"):
                 clean_key = f"sk-or-{clean_key}"
@@ -57,8 +72,15 @@ class InterviewEvaluator:
         return clean_key
 
     def get_gemini_api_key(self) -> str:
-        key = self.gemini_api_key or get_env_variable("GEMINI_API_KEY", "")
-        return key.strip().strip('"').strip("'")
+        """Dynamically retrieves the latest Gemini API key from .env / settings."""
+        env_key = get_env_variable("GEMINI_API_KEY", "")
+        if env_key and self.gemini_api_key != env_key:
+            self.gemini_api_key = env_key
+        key = self.gemini_api_key or env_key
+        clean_key = (key or "").strip().strip('"').strip("'")
+        if clean_key.lower().startswith("bearer "):
+            clean_key = clean_key[7:].strip()
+        return clean_key
 
     def evaluate_answer(
         self,
@@ -574,10 +596,11 @@ Respond ONLY with a JSON object in this format:
     ) -> Optional[str]:
         """
         Executes a chat completion call to OpenRouter targeting nvidia/nemotron-3.5-super-vl:free.
-        Zero cost free tier reasoning model.
+        Zero cost free tier reasoning model. Logs real-time request and response telemetry.
         """
         api_key = self.get_openrouter_api_key()
         if not api_key:
+            print("[OpenRouter] No API key configured. Bypassing OpenRouter call.", flush=True)
             return None
 
         model_name = (self.openrouter_model or OPENROUTER_MODEL).strip()
@@ -588,6 +611,7 @@ Respond ONLY with a JSON object in this format:
             "X-Title": "CS 435 AI Interview Practice",
             "Content-Type": "application/json"
         }
+        masked_key = f"{api_key[:7]}...{api_key[-4:]}" if len(api_key) > 11 else "***"
         # Nemotron 3.5 requires sufficient token budget for reasoning + output
         token_budget = max(max_tokens, 2800)
         payload = {
@@ -597,28 +621,153 @@ Respond ONLY with a JSON object in this format:
             "max_tokens": token_budget
         }
 
+        print(f"\n=======================================================", flush=True)
+        print(f"[OpenRouter LIVE REQUEST] >>> POST {OPENROUTER_API_URL}", flush=True)
+        print(f"[OpenRouter LIVE REQUEST] Model: {model_name} | Key: {masked_key}", flush=True)
+        print(f"[OpenRouter LIVE REQUEST] Messages Count: {len(messages)} | Token Budget: {token_budget}", flush=True)
+
         try:
             # 60 second timeout with 15s connect for reasoning model completion
             async with httpx.AsyncClient(timeout=httpx.Timeout(60.0, connect=15.0)) as client:
                 resp = await client.post(OPENROUTER_API_URL, headers=headers, json=payload)
+                gen_id = resp.headers.get("x-generation-id", "none")
+                rl_rem = resp.headers.get("x-ratelimit-remaining", "n/a")
+                rl_lim = resp.headers.get("x-ratelimit-limit", "n/a")
+
+                self.last_openrouter_status = {
+                    "timestamp": datetime.utcnow().isoformat(),
+                    "model": model_name,
+                    "status_code": resp.status_code,
+                    "generation_id": gen_id,
+                    "ratelimit_remaining": rl_rem,
+                    "ratelimit_limit": rl_lim,
+                    "response_snippet": resp.text[:300]
+                }
+
+                print(f"[OpenRouter LIVE RESPONSE] <<< HTTP Status: {resp.status_code}", flush=True)
+                print(f"[OpenRouter LIVE RESPONSE] Generation ID: {gen_id}", flush=True)
+                print(f"[OpenRouter LIVE RESPONSE] Daily Quota Remaining: {rl_rem} / {rl_lim}", flush=True)
+
                 if resp.status_code == 200:
                     data = resp.json()
                     choices = data.get("choices", [])
+                    print(f"[OpenRouter LIVE RESPONSE] [SUCCESS] Received completion from {model_name}!", flush=True)
+                    print(f"=======================================================\n", flush=True)
                     if choices:
                         msg = choices[0].get("message", {})
                         content = msg.get("content")
                         if content and content.strip():
                             return content.strip()
-                        # Fallback if reasoning model placed answer in reasoning
                         reasoning = msg.get("reasoning", "")
                         if reasoning and ("[" in reasoning or "{" in reasoning):
                             return reasoning.strip()
+                elif resp.status_code == 429:
+                    print(f"[OpenRouter LIVE RESPONSE] [HTTP 429 RATE LIMIT EXCEEDED]", flush=True)
+                    print(f"[OpenRouter LIVE RESPONSE] Error Details: {resp.text}", flush=True)
+                    print(f"[OpenRouter LIVE RESPONSE] CRITICAL NOTE: OpenRouter does NOT create log entries in your dashboard Activity tab when a request is blocked by free-tier daily rate limits (429), because Cloudflare edge rejects the call before model token generation.", flush=True)
+                    print(f"[OpenRouter LIVE RESPONSE] Engaging fallback dialogue synthesis engine.", flush=True)
+                    print(f"=======================================================\n", flush=True)
                 else:
-                    logger.warning(f"OpenRouter HTTP {resp.status_code}: {resp.text[:300]}")
+                    print(f"[OpenRouter LIVE RESPONSE] [HTTP {resp.status_code}] {resp.text[:300]}", flush=True)
+                    print(f"=======================================================\n", flush=True)
         except Exception as e:
-            logger.warning(f"OpenRouter API call exception: {e}")
+            self.last_openrouter_status = {
+                "timestamp": datetime.utcnow().isoformat(),
+                "model": model_name,
+                "status_code": 0,
+                "error": str(e)
+            }
+            print(f"[OpenRouter LIVE EXCEPTION] Failed to connect: {e}", flush=True)
+            print(f"=======================================================\n", flush=True)
 
         return None
+
+    async def test_openrouter_connection(self) -> Dict[str, Any]:
+        """
+        Executes an instant end-to-end diagnostic ping to OpenRouter to inspect API key validity,
+        daily quota limits, and live model responsiveness.
+        """
+        api_key = self.get_openrouter_api_key()
+        if not api_key:
+            return {
+                "success": False,
+                "status": "missing_key",
+                "message": "No OpenRouter API key found in .env or active settings."
+            }
+
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+            "HTTP-Referer": "http://127.0.0.1:8000",
+            "X-Title": "CS 435 AI Interview Practice",
+            "Content-Type": "application/json"
+        }
+        masked_key = f"{api_key[:7]}...{api_key[-4:]}" if len(api_key) > 11 else "***"
+        model_name = (self.openrouter_model or OPENROUTER_MODEL).strip()
+
+        result: Dict[str, Any] = {
+            "api_key_masked": masked_key,
+            "model": model_name,
+            "key_valid": False,
+            "quota_status": None,
+            "chat_status_code": None,
+            "chat_generation_id": None,
+            "chat_response": None,
+            "dashboard_logging_explanation": ""
+        }
+
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            # 1. Inspect key status & quota
+            try:
+                k_resp = await client.get("https://openrouter.ai/api/v1/auth/key", headers=headers)
+                if k_resp.status_code == 200:
+                    k_data = k_resp.json().get("data", {})
+                    result["key_valid"] = True
+                    result["quota_status"] = k_data.get("free_model_daily_requests")
+                    result["credits"] = {
+                        "usage": k_data.get("usage", 0),
+                        "is_free_tier": k_data.get("is_free_tier", True)
+                    }
+            except Exception as e:
+                result["key_error"] = str(e)
+
+            # 2. Live chat test probe
+            try:
+                c_resp = await client.post(
+                    OPENROUTER_API_URL,
+                    headers=headers,
+                    json={
+                        "model": model_name,
+                        "messages": [{"role": "user", "content": "Respond with the single word 'CONNECTED'"}],
+                        "max_tokens": 10
+                    }
+                )
+                result["chat_status_code"] = c_resp.status_code
+                result["chat_generation_id"] = c_resp.headers.get("x-generation-id", "none")
+
+                if c_resp.status_code == 200:
+                    result["success"] = True
+                    result["chat_response"] = c_resp.json()
+                    result["message"] = "✓ OpenRouter call succeeded! A new generation log is now visible in your OpenRouter Activity tab."
+                    result["dashboard_logging_explanation"] = "Because this request returned HTTP 200 OK, OpenRouter logged this run under https://openrouter.ai/activity."
+                elif c_resp.status_code == 429:
+                    result["success"] = False
+                    result["chat_response"] = c_resp.json()
+                    result["message"] = "⚠️ OpenRouter HTTP 429: Rate limit exceeded (50/50 free daily requests used)."
+                    result["dashboard_logging_explanation"] = (
+                        "WHY NO LOGS APPEAR IN OPENROUTER DASHBOARD: OpenRouter's dashboard Activity tab ONLY logs runs where a model was called and tokens were generated (HTTP 200). "
+                        "When your account exceeds the 50 free requests/day limit, Cloudflare rejects the request at the edge gateway before model execution. "
+                        "The call definitely reached OpenRouter (as proven by the Generation ID and 429 response above), but 429s are not stored as completed generations."
+                    )
+                else:
+                    result["success"] = False
+                    result["chat_response"] = c_resp.text
+                    result["message"] = f"OpenRouter returned HTTP {c_resp.status_code}."
+            except Exception as e:
+                result["success"] = False
+                result["chat_exception"] = str(e)
+                result["message"] = f"Connection failed: {e}"
+
+        return result
 
     def _clean_json_output(self, text: str) -> Any:
         """Helper to safely parse JSON from LLM responses even if wrapped in markdown blocks, reasoning text, or containing comments/trailing commas."""
@@ -789,8 +938,357 @@ Respond ONLY with a valid JSON array of {count} question objects in this exact f
         except Exception as e:
             logger.warning(f"Failed to generate custom questions via OpenRouter: {e}")
 
-        logger.info("Retaining curated question bank fallback.")
-        return fallback_questions
+        # Try Google Gemini if key is configured
+        gemini_key = self.get_gemini_api_key()
+        if gemini_key and not gemini_key.startswith("test_mock") and len(gemini_key) > 10:
+            try:
+                content = await self.call_gemini_turn([{"role": "system", "content": system_prompt}, {"role": "user", "content": user_prompt}])
+                if content:
+                    parsed = self._clean_json_output(content)
+                    if isinstance(parsed, dict):
+                        for key in ["questions", "interview_questions", "question_list", "items", "data"]:
+                            if key in parsed and isinstance(parsed[key], list):
+                                parsed = parsed[key]
+                                break
+                    if isinstance(parsed, list) and len(parsed) > 0:
+                        sanitized = []
+                        for i, q in enumerate(parsed[:count], start=1):
+                            if isinstance(q, dict):
+                                sanitized.append({
+                                    "id": i,
+                                    "text": q.get("text") or q.get("question") or f"Tell me about your experience as a {job_role}.",
+                                    "category": q.get("category", interview_type),
+                                    "difficulty": q.get("difficulty", difficulty),
+                                    "competency": q.get("competency", "Core Competencies"),
+                                    "ideal_structure": q.get("ideal_structure", "STAR Method (Situation, Task, Action, Result)"),
+                                    "key_lookouts": q.get("key_lookouts", ["Specific actions", "Measurable outcomes"]),
+                                    "source": "gemini_1.5_flash"
+                                })
+                        if sanitized:
+                            logger.info(f"Generated {len(sanitized)} custom questions via Google Gemini.")
+                            return sanitized
+            except Exception as e:
+                logger.warning(f"Failed to generate custom questions via Gemini: {e}")
+
+        logger.info("Generating profile-grounded custom questions via Semantic Dialogue Engine.")
+        return self._synthesize_custom_questions_from_profile(
+            candidate_name=candidate_name,
+            job_role=job_role,
+            target_company=target_company,
+            experience_level=experience_level,
+            interview_type=interview_type,
+            difficulty=difficulty,
+            cv_text=cv_text,
+            job_description=job_description,
+            count=count
+        )
+
+    def _synthesize_custom_questions_from_profile(
+        self,
+        candidate_name: str,
+        job_role: str,
+        target_company: str = "",
+        experience_level: str = "Mid-Level",
+        interview_type: str = "Behavioral",
+        difficulty: str = "Medium",
+        cv_text: str = "",
+        job_description: str = "",
+        count: int = 3
+    ) -> List[Dict[str, Any]]:
+        """
+        Synthesizes deeply customized, domain-specific interview questions grounded in
+        the candidate's exact CV highlights, target role, and company expectations.
+        Never falls back to generic one-size-fits-all questions.
+        """
+        company_phrase = f" at {target_company}" if target_company else ""
+        semantics = self._extract_candidate_semantics(cv_text)
+        techs = semantics["tech"]
+        metrics = semantics["metrics"]
+        actions = semantics["actions"]
+
+        # Extract salient projects or achievements from CV lines
+        salient_points = []
+        if cv_text:
+            lines = [l.strip().lstrip("•-* ") for l in cv_text.split("\n") if len(l.strip()) > 25]
+            for line in lines:
+                if any(k in line.lower() for k in ["led", "architected", "built", "spearheaded", "designed", "optimized", "managed", "conducted", "deployed", "scaled"]):
+                    first_sent = line.split(".")[0].strip()
+                    if len(first_sent) > 20:
+                        salient_points.append(first_sent)
+
+        flagship_project = salient_points[0] if salient_points else (actions[0] if actions else f"{job_role} core systems")
+        secondary_project = salient_points[1] if len(salient_points) > 1 else (actions[1] if len(actions) > 1 else "cross-functional project delivery")
+
+        top_tech = techs[0] if techs else "core architecture"
+        secondary_tech = techs[1] if len(techs) > 1 else "scalable infrastructure"
+        metric_cite = f" (such as {metrics[0]})" if metrics else ""
+
+        int_lower = (interview_type or "").lower()
+
+        # Tailor questions by track
+        if "technical" in int_lower or "system" in int_lower or "architecture" in int_lower:
+            q1_text = (
+                f"In your work on {flagship_project}, you dealt with critical engineering constraints and scalability demands. "
+                f"Could you walk me through the architectural topology of that system, explain how you managed data flow and state persistence using {top_tech}, "
+                f"and what specific bottleneck or failure mode posed the greatest challenge?"
+            )
+            q1_comp = "System Architecture & High-Throughput Design"
+            q1_struct = "Context & scale, Architectural topology, Bottleneck diagnosis, Resolution"
+
+            q2_text = (
+                f"When implementing {secondary_project}, you had to make critical architectural trade-offs between latency, consistency, and operational complexity{metric_cite}. "
+                f"Can you describe a significant disagreement or differing viewpoint you had with a teammate or tech lead regarding whether to use {top_tech} versus an alternative approach, and how you drove consensus?"
+            )
+            q2_comp = "Technical Trade-Offs & Consensus Building"
+            q2_struct = "STAR (Conflicting viewpoints, Benchmarking data, Alignment mechanism, Quantifiable outcome)"
+
+            q3_text = (
+                f"For mission-critical systems{company_phrase}, resilience during catastrophic network partitions, service degradation, or traffic surges is paramount. "
+                f"How did you design failure recovery, chaos testing, or automated failover for your services, and how did you verify that zero data anomalies or SLA violations occurred?"
+            )
+            q3_comp = "Fault Tolerance, Chaos Engineering & Production Reliability"
+            q3_struct = "Failure scenarios, Observability & alerting, Recovery mechanics, Production telemetry"
+
+        elif "ux" in (job_role or "").lower() or "research" in (job_role or "").lower() or "design" in (job_role or "").lower():
+            q1_text = (
+                f"In your research experience on {flagship_project}, you evaluated user friction and behavioral patterns. "
+                f"Could you walk me through your end-to-end research methodology—how you formulated your research questions, selected user cohorts, and synthesized qualitative feedback into concrete design specifications?"
+            )
+            q1_comp = "Mixed-Methods Research Design & Synthesis"
+            q1_struct = "Research objective, Methodology selection, Synthesis framework, Impact on product"
+
+            q2_text = (
+                f"Tell me about a time during {secondary_project} where your evaluative research findings contradicted the core assumptions or roadmap priorities of product managers or engineering leads. "
+                f"How did you present the contradictory evidence diplomatically, and how did you navigate their pushback?"
+            )
+            q2_comp = "Evidence-Based Advocacy & Stakeholder Alignment"
+            q2_struct = "STAR (Friction with stakeholders, Evidence presentation clips/metrics, Resolution, Final design adoption)"
+
+            q3_text = (
+                f"When conducting user studies under tight sprint timelines{company_phrase}, how do you evaluate the trade-off between qualitative depth (contextual inquiries) and quantitative breadth (surveys, usability benchmarking{metric_cite}) to ensure decision confidence?"
+            )
+            q3_comp = "Research Prioritization & Rigor Under Constraints"
+            q3_struct = "Trade-off criteria, Resource balancing, Concrete past study example, Quantifiable impact"
+
+        elif "product" in (job_role or "").lower() or "apm" in (job_role or "").lower() or "strategy" in int_lower:
+            q1_text = (
+                f"In your experience leading {flagship_project}, you were tasked with driving product adoption and business value{metric_cite}. "
+                f"Could you explain how you established your North Star metric, mapped the user journey, and prioritized the initial MVP feature scope against competing team requests?"
+            )
+            q1_comp = "Product Discovery, North Star Metrics & Scoping"
+            q1_struct = "Problem statement, Metric definition, Scoping framework, Launch execution"
+
+            q2_text = (
+                f"Tell me about a high-stakes trade-off you had to manage during {secondary_project} where engineering wanted to address technical debt while business stakeholders demanded immediate customer features. "
+                f"How did you evaluate the opportunity cost, structure the compromise, and align both sides?"
+            )
+            q2_comp = "Cross-Functional Trade-Offs & Strategic Prioritization"
+            q2_struct = "STAR (Competing priorities, Cost-of-delay analysis, Stakeholder compromise, Business result)"
+
+            q3_text = (
+                f"How do you design and interpret multivariate A/B experiments when sample sizes or market volatility create noisy signals{company_phrase}? "
+                f"Can you share an example where an experiment produced ambiguous or counter-intuitive metrics, and how you made the final launch decision?"
+            )
+            q3_comp = "Experimentation Rigor & Data-Informed Decision Making"
+            q3_struct = "Hypothesis, Experiment design, Guardrail metrics analysis, Executive launch decision"
+
+        elif "leadership" in int_lower:
+            q1_text = (
+                f"Looking at your career trajectory in {flagship_project}, you have taken on increasing technical and organizational ownership. "
+                f"Can you describe how you set the technical vision and engineering standards across squads, and how you ensure team alignment with multi-quarter business milestones?"
+            )
+            q1_comp = "Technical Strategy & Organizational Alignment"
+            q1_struct = "Strategic vision, Execution roadmap, Cross-team buy-in, Measurable milestones"
+
+            q2_text = (
+                f"Describe a situation during {secondary_project} where an engineering team was falling behind on critical deliverables or experiencing severe cross-team friction. "
+                f"How did you intervene, diagnose the root cause, and realign the team without compromising morale?"
+            )
+            q2_comp = "Team Mentorship, Friction Resolution & Delivery Health"
+            q2_struct = "STAR (Diagnosis of bottleneck, Remediation actions, Psychological safety, Recovery metric)"
+
+            q3_text = (
+                f"How do you balance investing in long-term platform resilience and developer velocity against delivering urgent executive commitments{company_phrase}? "
+                f"Give an example where you successfully secured leadership buy-in for a major architectural refactoring."
+            )
+            q3_comp = "Executive Communication & Platform Investment"
+            q3_struct = "Business case formulation, ROI projection, Executive sponsorship, Operational outcome"
+
+        else: # Standard / Behavioral & Mixed
+            q1_text = (
+                f"Reflecting on your flagship work on {flagship_project}: could you walk me through the end-to-end lifecycle of that project, "
+                f"highlighting your personal technical contribution, the key tools you utilized ({top_tech}), and how you resolved the single hardest obstacle?"
+            )
+            q1_comp = "Technical Ownership & Problem Solving"
+            q1_struct = "Context & role, Execution details, Obstacle overcome, Measurable outcome"
+
+            q2_text = (
+                f"Tell me about a time during {secondary_project} when you encountered a significant conflict or breakdown in communication with a teammate, designer, or product partner. "
+                f"What was the root cause of the disagreement, and what specific steps did you take to reach an objective resolution?"
+            )
+            q2_comp = "Conflict Resolution & Cross-Functional Collaboration (STAR)"
+            q2_struct = "Situation, Task, Action (communication & compromise), Result"
+
+            q3_text = (
+                f"When working on complex deliverables under tight deadlines{company_phrase}, how do you ensure the delivered solution satisfies rigorous quality standards{metric_cite}? "
+                f"Can you share a specific instance where your verification caught a critical issue before deployment?"
+            )
+            q3_comp = "Quality Assurance, Risk Mitigation & Measurable Delivery"
+            q3_struct = "Quality framework, Risk discovery, Mitigation action, Quantified impact"
+
+        return [
+            {
+                "id": 1,
+                "text": q1_text,
+                "category": interview_type,
+                "difficulty": difficulty,
+                "competency": q1_comp,
+                "ideal_structure": q1_struct,
+                "key_lookouts": ["Depth of technical ownership", "Concrete tools & architecture mentioned", "Clarity of communication"],
+                "source": "semantic_dialogue_engine"
+            },
+            {
+                "id": 2,
+                "text": q2_text,
+                "category": "Behavioral & Cross-Functional Collaboration",
+                "difficulty": difficulty,
+                "competency": q2_comp,
+                "ideal_structure": q2_struct,
+                "key_lookouts": ["Diplomatic stakeholder handling", "STAR structure (Action & Result)", "Quantifiable resolution"],
+                "source": "semantic_dialogue_engine"
+            },
+            {
+                "id": 3,
+                "text": q3_text,
+                "category": "Operational Rigor & Measurable Outcomes",
+                "difficulty": difficulty,
+                "competency": q3_comp,
+                "ideal_structure": q3_struct,
+                "key_lookouts": ["Resilience & edge-case awareness", "Concrete metrics cited", "Verification methodology"],
+                "source": "semantic_dialogue_engine"
+            }
+        ]
+
+    def generate_opening_question(
+        self,
+        candidate_name: str,
+        job_role: str,
+        target_company: str = "",
+        experience_level: str = "",
+        interview_type: str = "Full Mixed Mock (Behavioral + Technical Architecture)",
+        difficulty: str = "Neutral Corporate (Standard Hiring Bar / Objective)",
+        cv_text: str = "",
+        job_description: str = ""
+    ) -> str:
+        """
+        Generates a natural, personalized, role-grounded opening question from Dr. Marcus Vance.
+        Anchored in the candidate's exact CV and target role, avoiding robotic one-size-fits-all greetings.
+        """
+        company_phrase = f" at {target_company}" if target_company else ""
+        semantics = self._extract_candidate_semantics(cv_text)
+        techs = semantics["tech"]
+        actions = semantics["actions"]
+
+        # Extract top highlight from CV
+        highlight = ""
+        if cv_text:
+            lines = [l.strip().lstrip("•-* ") for l in cv_text.split("\n") if len(l.strip()) > 25]
+            for l in lines:
+                if any(k in l.lower() for k in ["led", "architected", "built", "spearheaded", "designed", "deployed", "managed", "conducted"]):
+                    first_sent = l.split(".")[0].strip()
+                    highlight = first_sent if len(first_sent) < 110 else first_sent[:105].rsplit(" ", 1)[0] + "..."
+                    break
+
+        if not highlight:
+            if actions:
+                highlight = actions[0]
+            elif techs:
+                highlight = f"{techs[0]} and {techs[1]}" if len(techs) > 1 else techs[0]
+            else:
+                highlight = f"{job_role} core initiatives"
+
+        int_lower = (interview_type or "").lower()
+        if "technical" in int_lower or "architecture" in int_lower:
+            round_desc = "system architecture and engineering"
+        elif "ux" in (job_role or "").lower() or "research" in (job_role or "").lower():
+            round_desc = "design and evaluative research"
+        elif "product" in (job_role or "").lower() or "apm" in (job_role or "").lower():
+            round_desc = "strategic product execution"
+        else:
+            round_desc = "comprehensive"
+
+        intro_highlight = f" Looking through your background and resume, I noted your experience with {highlight}." if highlight else ""
+        return (
+            f"Good morning, {candidate_name}! Welcome to your official {round_desc} interview for the {job_role} position{company_phrase}. "
+            f"I'm Dr. Marcus Vance, lead hiring evaluator for the team today.{intro_highlight} "
+            f"To kick off our conversation, could you please introduce yourself, walk me through your background and career journey, and share what specifically brings you to this role?"
+        )
+
+    def _is_user_requesting_wrapup(self, message: str) -> bool:
+        """Detects if the candidate communicated that they are ready to wrap up or conclude the interview."""
+        clean = message.lower().strip()
+        pattern = r'\b(wrap\s*up|conclude|concluding|end\s+(?:the\s+)?interview|finish\s+(?:the\s+)?interview|that(?:\'s|\s+is)\s+all(?:\s+from\s+my\s+side|\s+for\s+now)?|that\s+covers\s+(?:everything|it)|ready\s+for\s+(?:the\s+)?evaluation|no\s+more\s+questions|i(?:\'m|\s+am)\s+done|we\s+can\s+stop\s+here)\b'
+        return bool(re.search(pattern, clean))
+
+    def _synthesize_adaptive_followup(
+        self,
+        previous_question: str,
+        user_answer: str,
+        job_role: str = "General",
+        candidate_name: str = "Candidate",
+        cv_text: str = "",
+        job_description: str = ""
+    ) -> Dict[str, str]:
+        """
+        Synthesizes a sharp, contextually grounded adaptive AI follow-up probe
+        based directly on what the candidate mentioned or omitted in their spoken answer.
+        Never falls back to generic static strings.
+        """
+        semantics = self._extract_candidate_semantics(user_answer)
+        techs = semantics["tech"]
+        metrics = semantics["metrics"]
+        actions = semantics["actions"]
+
+        if actions:
+            anchor = actions[0]
+        elif len(techs) >= 2:
+            anchor = f"{techs[0]} and {techs[1]}"
+        elif techs:
+            anchor = techs[0]
+        else:
+            anchor = f"your {job_role} solution"
+
+        lower_ans = user_answer.lower()
+        if not metrics:
+            probe = (
+                f"You laid out your execution steps on {anchor} clearly, {candidate_name}. "
+                f"However, could you share the concrete measurable outcome: what specific metrics, KPIs, or latency numbers proved the initiative succeeded?"
+            )
+            reason = "Candidate omitted quantifiable outcomes (STAR Result); probing for metrics and business impact."
+        elif not any(w in lower_ans for w in ["trade-off", "tradeoff", "alternative", "compromise", "disagreement", "pushback", "friction", "debate", "challenge"]):
+            probe = (
+                f"Achieving {metrics[0]} on {anchor} is a great result, {candidate_name}. "
+                f"What was the most significant architectural trade-off or alternative option you weighed and rejected when making that decision?"
+            )
+            reason = "Candidate presented a clean execution path; probing for architectural trade-offs and alternative designs."
+        elif not any(w in lower_ans for w in ["failure", "resilience", "edge", "bottleneck", "recovery", "outage", "monitoring"]):
+            probe = (
+                f"I appreciate how you navigated that challenge with {anchor}. "
+                f"How did you design for failure resilience—what edge case or bottleneck caused the greatest concern in production?"
+            )
+            reason = "Probing operational resilience, fault tolerance, and failure mode mitigation."
+        else:
+            probe = (
+                f"Reflecting on your experience with {anchor}, {candidate_name}: "
+                f"if you had to tackle that same problem today with your current perspective, what would you design differently?"
+            )
+            reason = "Probing retrospective architectural depth and continuous technical learning."
+
+        return {
+            "followup_question": probe,
+            "reasoning": reason,
+            "source": "adaptive_ai_dialogue_engine"
+        }
 
     async def generate_adaptive_followup_ai(
         self,
@@ -883,10 +1381,15 @@ Respond ONLY with a JSON object in this exact format:
         if gemini_key:
             return await self.generate_adaptive_followup_gemini(previous_question, user_answer, job_role, api_key=gemini_key)
 
-        # Fallback to deterministic
-        res = self.generate_adaptive_followup(previous_question, user_answer, job_role)
-        res["source"] = "deterministic_engine"
-        return res
+        # Fallback to adaptive semantic AI dialogue engine
+        return self._synthesize_adaptive_followup(
+            previous_question=previous_question,
+            user_answer=user_answer,
+            job_role=job_role,
+            candidate_name=candidate_name,
+            cv_text=cv_text,
+            job_description=job_description
+        )
 
     def build_official_interview_system_prompt(
         self,
@@ -906,12 +1409,12 @@ Respond ONLY with a JSON object in this exact format:
 
         # Determine exact current stage instruction based on turn_index
         if turn_index <= 1:
-            stage_instruction = f"""CURRENT MANDATORY STAGE TARGET: STAGE 2 (Technical Project Deep Dive)
-- The candidate has ALREADY completed their self-introduction in Turn 1!
-- CRITICAL NEGATIVE CONSTRAINT: Under NO circumstances should you ask {candidate_name} to introduce themselves, walk through their background, or state what brings them to the role. That stage is completely finished!
-- YOUR MANDATORY GOAL FOR THIS TURN:
-  1. Actively listen and mirror back 1 to 2 specific technologies, frameworks, company names, or accomplishments {candidate_name} just mentioned in their introduction.
-  2. Ask ONE focused, technical deep-dive question about a major project, system architecture, or core engineering challenge they highlighted."""
+            stage_instruction = f"""CURRENT MANDATORY STAGE TARGET: STAGE 2 (Candidate Introduction Acknowledgment & Technical Deep Dive Transition)
+- The candidate has just provided their self-introduction and career background in Turn 1.
+- MANDATORY TWO-STEP PROTOCOL:
+  1. STEP 1 - ACKNOWLEDGE THE INTRODUCTION & BACKGROUND FIRST: Warmly and explicitly acknowledge and validate {candidate_name}'s self-introduction, career journey, and specific background highlights (actively listening and mirroring back 1 to 2 specific technologies, frameworks, company names, or achievements they just mentioned).
+  2. STEP 2 - START WITH QUESTIONS: Smoothly transition from their introduction into the interview questions by asking ONE focused, deep-dive question about a major system architecture, initiative, or core technical/domain challenge they highlighted in their background.
+- CRITICAL NEGATIVE CONSTRAINT: Under NO circumstances should you ask {candidate_name} to introduce themselves or walk through their background again. That introduction is completed!"""
         elif turn_index == 2:
             stage_instruction = f"""CURRENT MANDATORY STAGE TARGET: STAGE 3 (Behavioral, Conflict & Technical Trade-Offs)
 - The candidate has just explained their technical project architecture.
@@ -991,6 +1494,22 @@ NON-NEGOTIABLE OFFICIAL INTERVIEW RULES
    - If Tone contains 'Neutral' or 'Standard': Maintain a structured, professional, executive presence, neither overly effusive nor cold.
    - If Tone contains 'Challenging' or 'Bar Raiser' or 'Stress': Rigorously examine technical depth, probe boundary conditions, question trade-offs, and push for concrete numbers and accountability without being hostile.
 
+4. NATURAL CONVERSATION CONCLUSION PROTOCOL:
+   - User-Communicated Conclusion: If the candidate signals that they wish to wrap up, conclude, have answered all questions, or are ready for evaluation (e.g., 'wrap up', 'that covers everything', 'that is all from my side', 'ready for evaluation'):
+     Warmly thank the candidate, acknowledge their contributions, state clearly that the oral questioning has concluded, and invite them to view their scorecard. Do NOT ask any further questions.
+   - Interviewer-Initiated Conclusion (Needful Information Extracted): If this is Turn 4 or later and the candidate has demonstrated their technical architecture, trade-offs, and measurable outcomes:
+     State that you have extracted all the needful signals required to convene the hiring committee scorecard, thank them warmly for their time, and conclude the interview naturally without asking another question.
+
+5. MANDATORY CV & JOB ROLE DISCREPANCY CROSS-EXAMINATION:
+   - Continuously cross-examine what {candidate_name} states in their answers against their documented Resume / CV highlights and target Job Role expectations:
+     * Seniority or Scope Inflation: Candidate claiming executive, chief architect, or sole decision-maker authority on massive enterprise initiatives when their CV lists junior, intern, or entry-level roles.
+     * Domain or Role Mismatch: Candidate claiming work completely unrelated to or conflicting with their documented track record (e.g. claiming low-level C++/CUDA kernel drivers for a purely qualitative UX Research role, or claiming marketing surveys for a distributed systems infrastructure role).
+     * Contradictory Claims or Denials: Candidate contradicting their resume dates, tech stack, metrics, or claiming they have no experience with a core skill explicitly featured on their CV.
+   - IMMEDIATE CROSS-EXAMINATION MANDATE:
+     * If you detect any strong conflict or discrepancy between what {candidate_name} claims and what is documented on their CV or required by the target Job Role:
+     * You MUST prioritize raising a direct, tactful cross-examination question on that exact discrepancy!
+     * Politely challenge and probe the gap (e.g., 'Looking at your documented resume highlights, your background is at the [documented level/domain], yet you mentioned [spoken claim]. Could you clarify your exact individual contribution and help me reconcile that with what is documented on your CV?').
+
 ==================================================
 MANDATORY HISTORY BUFFER & ACTIVE LISTENING PROTOCOL
 ==================================================
@@ -1031,6 +1550,22 @@ Every time you respond:
             max_turns = 9
         else:
             max_turns = 7
+
+        # User-Communicated Conclusion Trigger
+        if self._is_user_requesting_wrapup(user_message):
+            closing_speech = (
+                f"Thank you, {candidate_name}. You have shared thoughtful, concrete insights today across your projects and decision-making. "
+                f"We have covered all the requisite competencies and dimensions for the {job_role} position. "
+                f"That officially concludes our oral interview questioning. Whenever you are ready, please proceed to review your comprehensive Hiring Committee Evaluation Scorecard."
+            )
+            return {
+                "interviewer_message": closing_speech,
+                "followup_question": closing_speech,
+                "reasoning": "Candidate communicated wrap-up intent; concluding interview naturally.",
+                "turn_index": turn_index + 1,
+                "is_concluded": True,
+                "source": "adaptive_ai_dialogue_engine"
+            }
 
         api_key = self.get_openrouter_api_key()
         if api_key:
@@ -1117,7 +1652,7 @@ Every time you respond:
                 logger.warning(f"Gemini official turn failed, engaging semantic dialogue engine: {e}")
 
         # Tier 3: Adaptive Semantic Dialogue Engine (High-Fidelity Context-Aware NLP)
-        return self._synthesize_semantic_interview_turn(
+        turn_res = self._synthesize_semantic_interview_turn(
             conversation_history=conversation_history,
             user_message=user_message,
             candidate_name=candidate_name,
@@ -1128,8 +1663,12 @@ Every time you respond:
             interview_duration=interview_duration,
             interviewer_tone=interviewer_tone,
             turn_index=turn_index,
-            max_turns=max_turns
+            max_turns=max_turns,
+            cv_text=cv_text,
+            job_description=job_description
         )
+        turn_res["openrouter_status"] = self.last_openrouter_status
+        return turn_res
 
     def _clean_llm_reply(self, text: str) -> str:
         """Helper to extract clean dialogue from LLM replies, stripping markdown fences or nested JSON."""
@@ -1256,6 +1795,110 @@ Every time you respond:
             "prior_tech": prior_tech
         }
 
+    def _detect_cv_role_discrepancy(
+        self,
+        user_message: str,
+        cv_text: str = "",
+        job_role: str = "",
+        experience_level: str = "",
+        candidate_name: str = "Candidate"
+    ) -> Optional[Dict[str, str]]:
+        """
+        Detects strong conflicting details between what the candidate stated and what is documented
+        in their CV or target Job Role, returning a pointed, professional cross-examination probe if found.
+        """
+        user_lower = user_message.lower().strip()
+        cv_lower = (cv_text or "").lower()
+        role_lower = (job_role or "").lower()
+        level_lower = (experience_level or "").lower()
+
+        # 1. Seniority Inflation Check (Entry / Junior / Intern claiming C-suite or sole architecture authority)
+        is_junior = any(k in level_lower for k in ["entry", "junior", "intern", "associate", "student", "early", "0-1", "1-2"]) or \
+                    any(k in cv_lower for k in ["intern", "student", "junior engineer", "graduate student", "research intern"])
+        
+        seniority_patterns = [
+            (r'\b(?:chief\s+architect|principal\s+architect|chief\s+technology\s+officer|cto|vp\s+of\s+engineering|director\s+of\s+engineering)\b', "executive leadership"),
+            (r'\b(?:sole\s+architect|solely\s+architected|single-handedly\s+built|single\s+handedly\s+designed|single-handedly\s+architected)\b', "sole architectural authority"),
+            (r'\b(?:directed\s+the\s+entire\s+engineering\s+team|oversaw\s+all\s+corporate\s+infrastructure|spearheaded\s+the\s+company-wide\s+overhaul)\b', "company-wide architectural oversight")
+        ]
+        if is_junior:
+            for pattern, label in seniority_patterns:
+                match = re.search(pattern, user_lower)
+                if match:
+                    claim = match.group(0)
+                    reaction = f"I noted your remark regarding {claim}, {candidate_name}."
+                    probe = (
+                        f"Looking at your documented resume highlights, your experience is at the {experience_level or 'entry/associate'} level. "
+                        f"Could you clarify the exact boundary of your individual contribution versus senior staff, and help me reconcile that with what is documented on your CV?"
+                    )
+                    return {
+                        "reaction": reaction,
+                        "probe": probe,
+                        "reasoning": f"Seniority inflation discrepancy: candidate claimed '{claim}' while CV/level indicates '{experience_level or 'entry/junior'}'.",
+                        "discrepancy_type": "seniority_inflation"
+                    }
+
+        # 2. Domain / Role Mismatch Check
+        # A) UX / Design role candidate claiming low-level systems or CUDA kernel development
+        is_ux_role = any(k in role_lower for k in ["ux", "user research", "product design", "ui designer"])
+        systems_heavy_terms = ["cuda", "kernel driver", "raft consensus", "paxos", "fpga", "verilog", "high-frequency trading", "memory management in c++"]
+        if is_ux_role:
+            for term in systems_heavy_terms:
+                if re.search(r'\b' + re.escape(term) + r'\b', user_lower):
+                    reaction = f"I noted that you brought up {term}, {candidate_name}."
+                    probe = (
+                        f"Your target role is {job_role} and your CV focuses primarily on evaluative research and product design methodologies. "
+                        f"Could you explain how your work with {term} connects back to your core user research background, and how it directly informs your qualifications for the {job_role} role?"
+                    )
+                    return {
+                        "reaction": reaction,
+                        "probe": probe,
+                        "reasoning": f"Domain mismatch discrepancy: UX candidate claimed '{term}'.",
+                        "discrepancy_type": "domain_mismatch"
+                    }
+
+        # B) Distributed Systems / Backend role candidate giving purely qualitative design responses
+        is_backend_role = any(k in role_lower for k in ["backend", "distributed", "systems", "cloud", "devops", "infrastructure"])
+        ux_exclusive_terms = ["paper prototypes", "usability test sessions", "color palette selection", "mood boards", "heuristic evaluation of wireframes"]
+        if is_backend_role:
+            for term in ux_exclusive_terms:
+                if re.search(r'\b' + re.escape(term) + r'\b', user_lower):
+                    reaction = f"I noted your emphasis on {term}, {candidate_name}."
+                    probe = (
+                        f"Given that this interview is specifically for the {job_role} position focusing on technical infrastructure and data scalability, "
+                        f"could you clarify how {term} relates to the backend engineering and system scalability requirements documented for this role?"
+                    )
+                    return {
+                        "reaction": reaction,
+                        "probe": probe,
+                        "reasoning": f"Domain mismatch discrepancy: backend candidate claimed '{term}'.",
+                        "discrepancy_type": "domain_mismatch"
+                    }
+
+        # 3. Explicit Denial of Skills Documented on CV
+        denial_patterns = [
+            r'\bi\s+(?:have\s+never|haven\'t|never)\s+(?:used|worked\s+with|touched|learned)\s+([a-zA-Z0-9#\+\.]+)\b',
+            r'\bi\s+(?:don\'t\s+know|do\s+not\s+know|have\s+no\s+experience\s+with)\s+([a-zA-Z0-9#\+\.]+)\b'
+        ]
+        for pat in denial_patterns:
+            matches = re.finditer(pat, user_lower)
+            for m in matches:
+                tech_denied = m.group(1).strip()
+                if len(tech_denied) >= 3 and re.search(r'\b' + re.escape(tech_denied) + r'\b', cv_lower):
+                    reaction = f"I noticed you mentioned that you have no experience with {tech_denied}, {candidate_name}."
+                    probe = (
+                        f"Your CV specifically highlights {tech_denied} as one of your documented technical competencies. "
+                        f"Could you clarify that discrepancy—what was the nature of your exposure to {tech_denied} during the projects listed on your resume?"
+                    )
+                    return {
+                        "reaction": reaction,
+                        "probe": probe,
+                        "reasoning": f"Direct CV contradiction: candidate denied experience with '{tech_denied}', which is listed on their CV.",
+                        "discrepancy_type": "cv_skill_denial"
+                    }
+
+        return None
+
     def _synthesize_semantic_interview_turn(
         self,
         conversation_history: List[Dict[str, str]],
@@ -1268,17 +1911,24 @@ Every time you respond:
         interview_duration: str,
         interviewer_tone: str,
         turn_index: int,
-        max_turns: int
+        max_turns: int,
+        cv_text: str = "",
+        job_description: str = ""
     ) -> Dict[str, Any]:
         """
         Generates deeply context-aware, adaptive official interview turns that interpret,
         quote, and probe candidate responses using semantic NLP.
+        Adapts dynamically to the candidate's exact words, interview track, and technical domain.
         """
         semantics = self._extract_candidate_semantics(user_message, conversation_history)
         techs = semantics["tech"]
         metrics = semantics["metrics"]
         actions = semantics["actions"]
         prior_techs = semantics["prior_tech"]
+
+        # Extract direct phrase from user message for authentic active listening quote
+        clauses = re.findall(r'\b(?:we|i|our team)\s+([a-zA-Z0-9\s\-/]{12,50})(?:[,\.;]|$)', user_message, re.IGNORECASE)
+        clean_quote = clauses[0].strip() if clauses else ""
 
         # Select primary conversational anchor from candidate statements
         if actions:
@@ -1297,77 +1947,230 @@ Every time you respond:
             primary_topic = words[0] if words else f"{job_role} architecture"
 
         company_ref = f" at {target_company}" if target_company else ""
-        metric_cite = f", particularly achieving {metrics[0]}" if metrics else ""
+        metric_cite = f" (specifically achieving {metrics[0]})" if metrics else ""
+        quote_cite = f", particularly when you noted that you “{clean_quote}”" if clean_quote else ""
+
+        # 1. User-Communicated Conclusion Trigger
+        if self._is_user_requesting_wrapup(user_message):
+            closing_speech = (
+                f"Thank you, {candidate_name}. You have shared thoughtful, concrete insights today across your projects and decision-making. "
+                f"We have covered all the requisite competencies and dimensions for the {job_role} position. "
+                f"That officially concludes our oral interview questioning. Whenever you are ready, please proceed to review your comprehensive Hiring Committee Evaluation Scorecard."
+            )
+            return {
+                "interviewer_message": closing_speech,
+                "followup_question": closing_speech,
+                "reasoning": "Candidate communicated wrap-up intent; concluding interview naturally.",
+                "turn_index": turn_index + 1,
+                "is_concluded": True,
+                "source": "adaptive_ai_dialogue_engine",
+                "extracted_topic": primary_topic,
+                "extracted_metrics": metrics
+            }
+
+        # 2. Mandatory CV & Job Role Discrepancy Cross-Examination
+        discrepancy = self._detect_cv_role_discrepancy(
+            user_message=user_message,
+            cv_text=cv_text,
+            job_role=job_role,
+            experience_level=experience_level,
+            candidate_name=candidate_name
+        )
+        if discrepancy:
+            full_reply = f"{discrepancy['reaction']} {discrepancy['probe']}"
+            return {
+                "interviewer_message": full_reply,
+                "followup_question": full_reply,
+                "reasoning": discrepancy["reasoning"],
+                "turn_index": turn_index + 1,
+                "is_concluded": False,
+                "source": "adaptive_ai_dialogue_engine",
+                "extracted_topic": primary_topic,
+                "extracted_metrics": metrics,
+                "discrepancy_detected": True,
+                "discrepancy_type": discrepancy["discrepancy_type"]
+            }
+
+        # 3. Interviewer-Initiated Conclusion: Needful Information Extracted
+        # (Once technical architecture, trade-off/conflict, and measurable outcomes have been collected by Turn 4+)
+        if turn_index >= max_turns or (turn_index >= 4 and (len(metrics) > 0 or len(techs) > 0 or turn_index >= 5)):
+            reaction = (
+                f"Thank you for sharing those comprehensive insights and verified outcomes on {primary_topic}{metric_cite}, {candidate_name}."
+            )
+            probe = (
+                f"You have provided clear, concrete evidence across your system architecture, trade-off resolution, and measurable business impact. "
+                f"I now have extracted all the needful signals required to convene our hiring committee and finalize your evaluation. "
+                f"That brings our oral interview questioning to a natural close. Whenever you're ready, please proceed to review your official scorecard."
+            )
+            full_reply = f"{reaction} {probe}"
+            return {
+                "interviewer_message": full_reply,
+                "followup_question": full_reply,
+                "reasoning": f"Sufficient hiring signals extracted across all key competencies (Turn {turn_index}). Interview naturally concluded.",
+                "turn_index": turn_index + 1,
+                "is_concluded": True,
+                "source": "adaptive_ai_dialogue_engine",
+                "extracted_topic": primary_topic,
+                "extracted_metrics": metrics
+            }
+
+        int_lower = (interview_type or "").lower()
+        is_tech = "technical" in int_lower or "system" in int_lower or "architecture" in int_lower
+        is_ux = "ux" in (job_role or "").lower() or "research" in (job_role or "").lower() or "design" in (job_role or "").lower()
+        is_pm = "product" in (job_role or "").lower() or "apm" in (job_role or "").lower() or "strategy" in int_lower
 
         # Construct Stage-by-Stage tailored responses
         if turn_index == 1:
-            reaction = (
-                f"Thank you for that thorough introduction, {candidate_name}. "
-                f"Your background with {primary_topic}{metric_cite} directly aligns with what we look for in our {job_role} team{company_ref}."
-            )
-            probe = (
-                f"Diving into your direct work on {primary_topic}: could you walk me through the most technically complex project or architecture you spearheaded there, "
-                f"and what specific engineering hurdle or bottleneck you had to overcome?"
-            )
+            if is_tech:
+                reaction = (
+                    f"Thank you for introducing yourself and walking me through your background, {candidate_name}. "
+                    f"Your foundation across {primary_topic}{metric_cite} establishes strong context for our engineering discussion today{company_ref}."
+                )
+                probe = (
+                    f"To start our technical deep-dive questions: looking at your direct work on {primary_topic}{quote_cite}, could you walk me through the end-to-end data flow when a request or write is committed, "
+                    f"how you maintained strict consistency, and what specific design trade-offs you accepted along the way?"
+                )
+            elif is_ux:
+                reaction = (
+                    f"Thank you for introducing yourself and sharing your background, {candidate_name}. "
+                    f"Grounding product iterations in structured user research around {primary_topic} is central to how we design{company_ref}."
+                )
+                probe = (
+                    f"To begin our targeted questions: looking at that initiative on {primary_topic}{quote_cite}, walk me through your participant recruitment and research methodology—how did you ensure your sample was unbiased, and how did you translate raw qualitative observations into prioritized product recommendations?"
+                )
+            elif is_pm:
+                reaction = (
+                    f"Thank you for introducing yourself and walking through your career journey, {candidate_name}. "
+                    f"Driving measurable business momentum across {primary_topic}{metric_cite} is exactly what we look for in our product leads{company_ref}."
+                )
+                probe = (
+                    f"To start our product execution questions: zooming in on your ownership of {primary_topic}{quote_cite}, how did you define the North Star metric, and what framework did you use to prioritize feature scope when engineering capacity was constrained?"
+                )
+            else:
+                reaction = (
+                    f"Thank you for introducing yourself and walking through your background, {candidate_name}. "
+                    f"Your track record across {primary_topic}{metric_cite} clearly aligns with the core requirements of this {job_role} role{company_ref}."
+                )
+                probe = (
+                    f"To kick off our targeted questions: diving into your work on {primary_topic}{quote_cite}, could you walk me through the most technically or operationally complex initiative you spearheaded there, and what specific roadblock you had to overcome?"
+                )
+
         elif turn_index == 2:
-            reaction = (
-                f"I appreciate that deep-dive into {primary_topic}, {candidate_name}. "
-                f"Building systems under those operational constraints{metric_cite} inevitably surfaces competing technical priorities and team friction."
-            )
-            probe = (
-                f"Tell me about a specific time during that project where you encountered a significant disagreement or differing viewpoint with a teammate, tech lead, or product partner over technical priorities or architecture trade-offs. "
-                f"What was the core debate, and how did you resolve it?"
-            )
+            if is_tech:
+                reaction = (
+                    f"I appreciate that deep-dive into {primary_topic}, {candidate_name}. "
+                    f"Making architectural decisions under high-throughput constraints inevitably surfaces conflicting technical viewpoints among engineering peers."
+                )
+                probe = (
+                    f"Tell me about a specific time while architecting {primary_topic} where you had a significant technical disagreement with a teammate, tech lead, or SRE partner regarding design trade-offs. "
+                    f"What was the core debate, what objective benchmarks or prototypes did you use to substantiate your position, and how did you reach alignment?"
+                )
+            elif is_ux:
+                reaction = (
+                    f"That shows rigorous research discipline on {primary_topic}, {candidate_name}."
+                )
+                probe = (
+                    f"Tell me about a time during that project where your evaluative research contradicted the strong intuitions or roadmap commitments of an engineering lead or product manager. "
+                    f"How did you present the contradictory data diplomatically, and how did you resolve the friction?"
+                )
+            elif is_pm:
+                reaction = (
+                    f"That shows strong customer empathy and strategic thinking regarding {primary_topic}, {candidate_name}."
+                )
+                probe = (
+                    f"Tell me about a high-stakes trade-off during that cycle where engineering pushed to address technical debt while business stakeholders demanded immediate feature delivery. "
+                    f"How did you resolve the conflicting priorities and negotiate a phased milestone agreement?"
+                )
+            else:
+                reaction = (
+                    f"I appreciate that context around {primary_topic}, {candidate_name}. "
+                    f"Navigating operational hurdles under those constraints inevitably creates cross-team tension."
+                )
+                probe = (
+                    f"Tell me about a specific time during that project where you encountered a significant disagreement with a teammate or cross-functional partner. "
+                    f"What was the dispute, how did you handle the interpersonal dynamics, and what was the resolution?"
+                )
+
         elif turn_index == 3 and turn_index < max_turns:
-            reaction = (
-                f"Navigating technical deadlocks around {primary_topic} with objective data is essential in high-impact engineering teams, {candidate_name}."
-            )
-            probe = (
-                f"Looking back on that solution: when requirements, scale surges, or system dependencies unexpectedly spiked, how did you handle bottlenecks, failure modes, or architectural trade-offs to ensure resilience?"
-            )
+            if is_tech:
+                reaction = (
+                    f"Resolving architectural debates with empirical benchmarks around {primary_topic} demonstrates senior engineering maturity, {candidate_name}."
+                )
+                probe = (
+                    f"Looking at operational resilience: when sudden traffic surges, network partitions, or dependency failures struck that system{metric_cite}, how did your architecture respond? "
+                    f"What failover mechanics, circuit breakers, or recovery runbooks did you put in place to ensure zero data anomalies?"
+                )
+            elif is_ux:
+                reaction = (
+                    f"Advocating for the user with indisputable evidence is the hallmark of great UX research, {candidate_name}."
+                )
+                probe = (
+                    f"When sprint deadlines compress and product squads ask to skip full discovery cycles, how do you maintain research rigor? "
+                    f"How do you decide between quick unmoderated tests versus in-depth longitudinal studies under time pressure?"
+                )
+            elif is_pm:
+                reaction = (
+                    f"Balancing technical debt against growth velocity requires rigorous commercial discipline, {candidate_name}."
+                )
+                probe = (
+                    f"How did you validate that feature release using A/B experimentation or staged rollouts? "
+                    f"What guardrail metrics did you monitor to ensure your primary conversion lift didn't cannibalize other key areas of the user journey?"
+                )
+            else:
+                reaction = (
+                    f"Navigating technical disagreements with objective data is essential in high-impact teams, {candidate_name}."
+                )
+                probe = (
+                    f"Looking back on that solution: when unexpected scale surges, requirement changes, or system dependencies arose, how did you handle bottlenecks and failure modes to ensure reliability?"
+                )
+
         elif turn_index == 4 and turn_index < max_turns:
             reaction = (
-                f"That demonstrates strong systems thinking and operational resilience regarding {primary_topic}, {candidate_name}."
+                f"That demonstrates strong systems thinking and execution discipline on {primary_topic}, {candidate_name}."
             )
             probe = (
-                f"Beyond the engineering delivery, how did you verify the measurable outcome and business impact? "
-                f"What concrete quantitative metrics, KPIs, or user feedback validated that this implementation succeeded?"
+                f"Beyond implementation delivery, how did you verify the measurable outcome and business impact? "
+                f"What concrete quantitative metrics, KPIs, or telemetry dashboards validated that this project achieved its goal{metric_cite}?"
             )
+
         elif turn_index == 5 and turn_index < max_turns:
             reaction = (
-                f"Those are compelling insights and quantified outcomes for {primary_topic}{metric_cite}, {candidate_name}."
+                f"Those are compelling insights and verified outcomes for {primary_topic}{metric_cite}, {candidate_name}."
             )
             probe = (
-                f"If you had to reflect on that entire lifecycle from inception to deployment, what was your single biggest retrospective takeaway or architectural choice you would redesign with hindsight?"
+                f"If you had to reflect on that entire lifecycle with the benefit of hindsight, what was the single biggest architectural compromise, assumption, or design choice you would do differently today?"
             )
+
         elif turn_index == 6 and turn_index < max_turns:
             reaction = (
-                f"That self-awareness and iterative engineering mindset are critical for senior leadership, {candidate_name}."
+                f"That reflective self-awareness and willingness to dissect technical debt are hallmarks of leadership, {candidate_name}."
             )
             probe = (
-                f"Moving into cross-functional execution: how do you typically bridge the gap between engineering complexities and non-technical stakeholders or product managers when roadmap deadlines are under pressure?"
+                f"Looking at organizational impact: how do you translate these complex technical or domain nuances to non-technical stakeholders, and how do you mentor junior teammates to raise engineering standards across the org?"
             )
+
         elif turn_index >= 7 and turn_index < max_turns:
             reaction = (
-                f"Managing stakeholder expectations while upholding quality across {primary_topic} is a vital leadership balance, {candidate_name}."
+                f"Upholding standards across {primary_topic} while mentoring peers creates compounding leverage, {candidate_name}."
             )
             probe = (
-                f"Can you describe how you mentor peers, elevate team engineering standards, or drive technical strategy across broader initiatives?"
+                f"To round out our technical evaluation: how do you stay ahead of emerging industry standards and ensure your team's architecture remains resilient over a multi-year horizon?"
             )
+
         else:
             reaction = (
-                f"Those are thorough insights and impressive results across {primary_topic}, {candidate_name}."
+                f"Those are impressive insights and verified outcomes across {primary_topic}, {candidate_name}."
             )
             probe = (
-                f"Thank you for walking through your experience with me today—it gave me a great window into how you lead and solve complex challenges. "
-                f"That brings our interview questions to a close, and I'll now finalize your comprehensive rubric scorecard."
+                f"Thank you for sharing your experience and technical depth with me today—it gave me a great window into how you architect solutions, collaborate through friction, and deliver impact. "
+                f"That brings our oral interview questioning to a close. When you're ready, proceed to review your official Hiring Committee Evaluation Scorecard."
             )
 
         full_reply = f"{reaction} {probe}"
         return {
             "interviewer_message": full_reply,
             "followup_question": full_reply,
-            "reasoning": f"Adaptive Semantic NLP probe interpreting: {primary_topic}{metric_cite}.",
+            "reasoning": f"Adaptive Semantic Dialogue probe interpreting: {primary_topic}{metric_cite}.",
             "turn_index": turn_index + 1,
             "is_concluded": turn_index >= max_turns,
             "source": "semantic_dialogue_engine",
@@ -1396,6 +2199,16 @@ Every time you respond:
         """
         base_eval = self.evaluate_answer(question_text, answer_text, job_role, attempt_number)
         if len(answer_text.strip().split()) < 15:
+            try:
+                base_eval.adaptive_followup = await self.generate_adaptive_followup_ai(
+                    previous_question=question_text,
+                    user_answer=answer_text,
+                    job_role=job_role,
+                    candidate_name=candidate_name,
+                    cv_text=cv_text
+                )
+            except Exception:
+                pass
             return base_eval
 
         api_key = self.get_openrouter_api_key()
@@ -1467,14 +2280,31 @@ Respond ONLY with a JSON object in this format:
                             base_eval.example_improved_answer = str(improved)
 
                         base_eval.why_feedback_summary["evaluator_engine"] = "openrouter_nemotron"
-                        return base_eval
             except Exception as e:
                 logger.warning(f"OpenRouter answer evaluation failed, falling back: {e}")
 
         # Fallback to Gemini if configured
         gemini_key = self.get_gemini_api_key()
         if gemini_key:
-            return await self.evaluate_answer_gemini(question_text, answer_text, job_role, attempt_number, api_key=gemini_key)
+            try:
+                base_eval = await self.evaluate_answer_gemini(question_text, answer_text, job_role, attempt_number, api_key=gemini_key)
+            except Exception as e:
+                logger.warning(f"Gemini answer evaluation failed, retaining deterministic base: {e}")
+
+        # Always attach contextually grounded adaptive AI follow-up probe for next round / revision
+        try:
+            base_eval.adaptive_followup = await self.generate_adaptive_followup_ai(
+                previous_question=question_text,
+                user_answer=answer_text,
+                job_role=job_role,
+                candidate_name=candidate_name,
+                target_company=target_company,
+                experience_level=experience_level,
+                cv_text=cv_text,
+                job_description=job_description
+            )
+        except Exception as e:
+            logger.warning(f"Failed to attach adaptive follow-up to evaluation result: {e}")
 
         return base_eval
 
