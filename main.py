@@ -52,8 +52,14 @@ try:
     import json
     import wave
     from vosk import Model, KaldiRecognizer
-    vosk_model = Model(lang="en-us")
-    print("[OK] Vosk Offline Speech-to-Text Model loaded successfully!")
+    _custom_model = os.environ.get("VOSK_MODEL_PATH", "vosk_model")
+    if os.path.isdir(_custom_model):
+        vosk_model = Model(model_path=_custom_model)
+        print(f"[OK] Vosk Offline STT Model loaded from local path: {_custom_model}")
+    else:
+        # Automatically downloads and caches official small English model on first startup
+        vosk_model = Model(lang="en-us")
+        print("[OK] Vosk Offline Speech-to-Text Model loaded successfully!")
 except Exception as _vosk_err:
     try:
         print("[Notice] Vosk offline model initialization:", str(_vosk_err))
