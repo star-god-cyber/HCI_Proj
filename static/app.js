@@ -349,13 +349,19 @@ function clearCockpitAnswer() {
   }
   const preview = document.getElementById("b3-live-preview");
   if (preview) {
+    preview.innerHTML = "";
     preview.innerText = "";
     preview.classList.remove("active");
+    preview.style.display = "none";
   }
   const status = document.getElementById("b3-stt-status");
   if (status) {
     status.innerHTML = "🎙️ Ready for your response. Click the button above to speak.";
   }
+  universalSpeechAccumulated = "";
+  universalLiveStreamAccumulated = "";
+  universalBaseText = "";
+  universalPCMChunks = [];
 }
 
 async function confirmExitSimulation() {
@@ -434,12 +440,18 @@ function clearAnswerDirect(textareaId, statusId, previewId) {
     ta.dispatchEvent(new Event("input"));
   }
   const st = document.getElementById(statusId);
-  if (st) st.innerText = "🎙️ Ready for Voice Input";
+  if (st) st.innerHTML = "🎙️ Ready for your response. Click the button above to speak.";
   const pr = document.getElementById(previewId);
   if (pr) {
+    pr.innerHTML = "";
     pr.innerText = "";
     pr.classList.remove("active");
+    pr.style.display = "none";
   }
+  universalSpeechAccumulated = "";
+  universalLiveStreamAccumulated = "";
+  universalBaseText = "";
+  universalPCMChunks = [];
 }
 
 function floatTo16BitPCM(float32Array) {
@@ -1896,14 +1908,37 @@ function loadQuestionA(index) {
   }
   const prevA3 = document.getElementById("a3-live-preview");
   if (prevA3) {
+    prevA3.innerHTML = "";
     prevA3.innerText = "";
     prevA3.classList.remove("active");
+    prevA3.style.display = "none";
+  }
+  const prevA6 = document.getElementById("a6-live-preview");
+  if (prevA6) {
+    prevA6.innerHTML = "";
+    prevA6.innerText = "";
+    prevA6.classList.remove("active");
+    prevA6.style.display = "none";
   }
   const prevA7 = document.getElementById("a7-live-preview");
   if (prevA7) {
+    prevA7.innerHTML = "";
     prevA7.innerText = "";
     prevA7.classList.remove("active");
+    prevA7.style.display = "none";
   }
+
+  const statA3 = document.getElementById("a3-stt-status");
+  if (statA3) statA3.innerHTML = "🎙️ Ready for your response. Click the button above to speak.";
+  const statA6 = document.getElementById("a6-stt-status");
+  if (statA6) statA6.innerHTML = "🎙️ Ready for your reflection. Click the button above to speak.";
+  const statA7 = document.getElementById("a7-stt-status");
+  if (statA7) statA7.innerHTML = "🎙️ Ready for your revision. Click the button above to speak.";
+
+  universalSpeechAccumulated = "";
+  universalLiveStreamAccumulated = "";
+  universalBaseText = "";
+  universalPCMChunks = [];
 
   setCockpitInputModeA('voice', 'a3');
   setCockpitInputModeA('voice', 'a7');
@@ -2029,15 +2064,42 @@ function loadSampleAnswerA(attemptNumber) {
 }
 
 async function submitAnswerA(attemptNumber) {
+  if (isUniversalRecording) {
+    await stopUniversalRecordingAndTranscribe();
+  }
+  stopActiveRecognition();
+
   const textarea = attemptNumber === 1 ? document.getElementById("a-answer") : document.getElementById("a-retry-answer");
-  const answer = textarea.value.trim();
+  const answer = textarea ? textarea.value.trim() : "";
 
   if (!answer) {
     alert("Please provide or dictate an answer before submitting.");
     return;
   }
 
-  stopActiveRecognition();
+  // Clear answer textarea and live transcript box immediately upon submission
+  if (textarea) {
+    textarea.value = "";
+    textarea.dispatchEvent(new Event("input"));
+  }
+  const prevId = attemptNumber === 1 ? "a3-live-preview" : "a7-live-preview";
+  const prevEl = document.getElementById(prevId);
+  if (prevEl) {
+    prevEl.innerHTML = "";
+    prevEl.innerText = "";
+    prevEl.classList.remove("active");
+    prevEl.style.display = "none";
+  }
+  const statId = attemptNumber === 1 ? "a3-stt-status" : "a7-stt-status";
+  const statEl = document.getElementById(statId);
+  if (statEl) {
+    statEl.innerHTML = "🎙️ Ready for your response. Click the button above to speak.";
+  }
+  universalSpeechAccumulated = "";
+  universalLiveStreamAccumulated = "";
+  universalBaseText = "";
+  universalPCMChunks = [];
+
   const submitBtn = attemptNumber === 1 ? document.getElementById("btn-submit-a") : document.getElementById("btn-submit-a7");
   const origBtnText = submitBtn ? submitBtn.innerText : (attemptNumber === 1 ? "Submit Answer for Evaluation →" : "Submit Revision for Comparison →");
   const noticeEl = attemptNumber === 1 ? document.getElementById("a3-loading-notice") : document.getElementById("a7-loading-notice");
@@ -2295,8 +2357,31 @@ function loadSampleReflectionA() {
 }
 
 async function saveReflectionA() {
+  if (isUniversalRecording) {
+    await stopUniversalRecordingAndTranscribe();
+  }
+  stopActiveRecognition();
+
   const change = document.getElementById("a-change") ? document.getElementById("a-change").value : "";
   const learn = document.getElementById("a-learn") ? document.getElementById("a-learn").value : "";
+
+  // Clear live preview and status for reflection immediately upon proceeding
+  const prevA6 = document.getElementById("a6-live-preview");
+  if (prevA6) {
+    prevA6.innerHTML = "";
+    prevA6.innerText = "";
+    prevA6.classList.remove("active");
+    prevA6.style.display = "none";
+  }
+  const statA6 = document.getElementById("a6-stt-status");
+  if (statA6) {
+    statA6.innerHTML = "🎙️ Ready for your reflection. Click the button above to speak.";
+  }
+  universalSpeechAccumulated = "";
+  universalLiveStreamAccumulated = "";
+  universalBaseText = "";
+  universalPCMChunks = [];
+
   const notice = document.getElementById("a6-loading-notice");
   const saveBtn = document.getElementById("btn-save-reflection-a");
 
@@ -2773,6 +2858,13 @@ function goToScreenB(screenId, pushHistory = true) {
 
   if (cleanId === "b3") {
     setCockpitInputMode("voice");
+    const preview = document.getElementById("b3-live-preview");
+    if (preview) {
+      preview.innerHTML = "";
+      preview.innerText = "";
+      preview.classList.remove("active");
+      preview.style.display = "none";
+    }
   }
 }
 
@@ -3125,13 +3217,18 @@ function concludeInterviewNaturally() {
 window.concludeInterviewNaturally = concludeInterviewNaturally;
 
 async function submitSimulationAnswer() {
-  const answer = document.getElementById("b-answer").value.trim();
+  if (isUniversalRecording) {
+    await stopUniversalRecordingAndTranscribe();
+  }
+  stopActiveRecognition();
+
+  const bAns = document.getElementById("b-answer");
+  const answer = bAns ? bAns.value.trim() : "";
   if (!answer) {
     alert("Please speak or type an answer to continue.");
     return;
   }
 
-  stopActiveRecognition();
   const chat = document.getElementById("b-chat-container");
 
   // Append candidate response
@@ -3141,16 +3238,27 @@ async function submitSimulationAnswer() {
       <p>${escapeHtml(answer)}</p>
     </div>
   `;
-  document.getElementById("b-answer").value = "";
+
+  // Explicitly clear textarea and the live transcript preview box immediately upon sending
+  if (bAns) {
+    bAns.value = "";
+    bAns.dispatchEvent(new Event("input"));
+  }
   const preview = document.getElementById("b3-live-preview");
   if (preview) {
+    preview.innerHTML = "";
     preview.innerText = "";
     preview.classList.remove("active");
+    preview.style.display = "none";
   }
   const sttStatus = document.getElementById("b3-stt-status");
   if (sttStatus) {
     sttStatus.innerHTML = "🎙️ Waiting for Dr. Vance's response...";
   }
+  universalSpeechAccumulated = "";
+  universalLiveStreamAccumulated = "";
+  universalBaseText = "";
+  universalPCMChunks = [];
   chat.scrollTop = chat.scrollHeight;
 
   // Add candidate input to local dialogue history
@@ -3264,6 +3372,17 @@ async function submitSimulationAnswer() {
     const readyStatus = document.getElementById("b3-stt-status");
     if (readyStatus) {
       readyStatus.innerHTML = "🎙️ Ready for your response. Click the button above to speak.";
+    }
+    const b3Prev = document.getElementById("b3-live-preview");
+    if (b3Prev) {
+      b3Prev.innerHTML = "";
+      b3Prev.innerText = "";
+      b3Prev.classList.remove("active");
+      b3Prev.style.display = "none";
+    }
+    const bAnsBox = document.getElementById("b-answer");
+    if (bAnsBox) {
+      bAnsBox.value = "";
     }
 
     if (autoSpeakEnabled) {

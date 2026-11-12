@@ -2000,10 +2000,13 @@ textarea.form-control {
   font-size: 0.98rem;
   font-weight: 600;
   color: #020617;
-  min-height: 1.5rem;
   line-height: 1.6;
   word-break: break-word;
   transition: all 0.2s ease;
+}
+
+.caption-preview:empty {
+  display: none !important;
 }
 
 .caption-preview.active {
