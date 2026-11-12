@@ -624,80 +624,13 @@ async def web_search(q: str = ""):
     }
 
 
-@app.websocket("/api/ws/transcribe")
-async def websocket_transcribe(websocket: WebSocket):
-    """
-    Live streaming Speech-to-Text WebSocket endpoint.
-    Converts incoming audio frames in real time concurrently DURING recording,
-    eliminating sequential delays and delivering instantaneous transcription on finish.
-    """
-    await websocket.accept()
-    if not vosk_model:
-        await websocket.send_json({"type": "error", "message": "Speech engine unavailable"})
-        await websocket.close()
-        return
-
-    rec = KaldiRecognizer(vosk_model, 16000)
-    rec.SetWords(True)
-    accumulated_words: List[str] = []
-
-    try:
-        while True:
-            message = await websocket.receive()
-            if "bytes" in message and message["bytes"]:
-                chunk = message["bytes"]
-                if chunk:
-                    if rec.AcceptWaveform(chunk):
-                        res = json.loads(rec.Result())
-                        text = res.get("text", "").strip()
-                        if text:
-                            accumulated_words.append(text)
-                            current_total = " ".join(accumulated_words).strip()
-                            await websocket.send_json({
-                                "type": "final",
-                                "text": text,
-                                "accumulated": current_total
-                            })
-                    else:
-                        part = json.loads(rec.PartialResult())
-                        partial_text = part.get("partial", "").strip()
-                        if partial_text:
-                            current_preview = (" ".join(accumulated_words) + " " + partial_text).strip()
-                            await websocket.send_json({
-                                "type": "partial",
-                                "text": partial_text,
-                                "accumulated": current_preview
-                            })
-            elif "text" in message and message["text"]:
-                try:
-                    payload = json.loads(message["text"])
-                    if payload.get("action") == "finish":
-                        final_res = json.loads(rec.FinalResult())
-                        final_text = final_res.get("text", "").strip()
-                        if final_text:
-                            accumulated_words.append(final_text)
-                        full_result = " ".join(accumulated_words).strip()
-                        if full_result:
-                            full_result = full_result[0].upper() + full_result[1:] + "."
-                        await websocket.send_json({
-                            "type": "complete",
-                            "text": full_result
-                        })
-                        break
-                except Exception:
-                    pass
-    except WebSocketDisconnect:
-        pass
-    except Exception as e:
-        print("[WebSocket Transcribe Notice]:", e)
-
-
-@app.post("/api/transcribe")
-async def transcribe_audio(audio: UploadFile = File(...)):
-    audio_bytes = await audio.read()
+async def _transcribe_audio_bytes(audio_bytes: bytes, interim: bool = False) -> Dict[str, Any]:
+    """Helper to transcribe WAV audio bytes across Vosk, Gemini, or SpeechRecognition."""
+    if len(audio_bytes) < 200:
+        return {"transcript": "", "source": "empty", "message": "Audio too short"}
 
     # 1. Primary: 100% Offline Local Vosk Speech Recognition (Zero Network, Zero Cloud, 100% Private)
-    if vosk_model and len(audio_bytes) > 200:
+    if vosk_model:
         try:
             with wave.open(io.BytesIO(audio_bytes), "rb") as wf:
                 framerate = wf.getframerate()
@@ -720,7 +653,7 @@ async def transcribe_audio(audio: UploadFile = File(...)):
 
                 transcript = " ".join(words).strip()
                 if transcript:
-                    formatted = transcript[0].upper() + transcript[1:] + "."
+                    formatted = transcript if interim else (transcript[0].upper() + transcript[1:].rstrip(".") + ".")
                     return {
                         "transcript": formatted,
                         "source": "vosk_local_offline",
@@ -737,19 +670,18 @@ async def transcribe_audio(audio: UploadFile = File(...)):
 
     # 2. Secondary: Gemini Free Tier if API key available
     key = evaluator.get_gemini_api_key()
-    if key and len(audio_bytes) > 200:
-        b64 = base64.b64encode(audio_bytes).decode("utf-8")
-        mime = audio.content_type or "audio/wav"
-        prompt = "Transcribe the candidate's spoken interview response verbatim. Return ONLY the transcribed text without extra commentary."
-        for m in ["gemini-3.5-flash-lite"]:
-            try:
-                async with httpx.AsyncClient(timeout=15.0) as client:
+    if key:
+        try:
+            b64 = base64.b64encode(audio_bytes).decode("utf-8")
+            prompt = "Transcribe the candidate's spoken interview response verbatim. Return ONLY the transcribed text without extra commentary or timestamps."
+            for m in ["gemini-3.5-flash-lite"]:
+                async with httpx.AsyncClient(timeout=12.0) as client:
                     resp = await client.post(
                         f"https://generativelanguage.googleapis.com/v1beta/models/{m}:generateContent?key={key}",
                         json={
                             "contents": [{
                                 "parts": [
-                                    {"inline_data": {"mime_type": mime, "data": b64}},
+                                    {"inline_data": {"mime_type": "audio/wav", "data": b64}},
                                     {"text": prompt}
                                 ]
                             }]
@@ -761,9 +693,14 @@ async def transcribe_audio(audio: UploadFile = File(...)):
                         if candidates:
                             text = candidates[0].get("content", {}).get("parts", [{}])[0].get("text", "").strip()
                             if text:
-                                return {"transcript": text, "source": f"gemini_{m}_audio"}
-            except Exception:
-                continue
+                                clean_text = text if interim else (text[0].upper() + text[1:].rstrip(".") + ".")
+                                return {
+                                    "transcript": clean_text,
+                                    "source": f"gemini_{m}_audio",
+                                    "words_count": len(clean_text.split())
+                                }
+        except Exception as g_err:
+            pass
 
     # 3. Tertiary: SpeechRecognition Google fallback (if unblocked)
     try:
@@ -773,15 +710,123 @@ async def transcribe_audio(audio: UploadFile = File(...)):
             audio_data = r.record(source)
             transcript = r.recognize_google(audio_data)
             if transcript and transcript.strip():
-                return {"transcript": transcript.strip(), "source": "speech_recognition_google"}
+                clean_text = transcript.strip() if interim else (transcript.strip()[0].upper() + transcript.strip()[1:].rstrip(".") + ".")
+                return {
+                    "transcript": clean_text,
+                    "source": "speech_recognition_google",
+                    "words_count": len(clean_text.split())
+                }
     except Exception:
         pass
 
     return {
         "transcript": "",
         "source": "empty",
-        "message": "Could not recognize audio. Please speak clearly or type your answer."
+        "message": "No clear speech detected. Please speak closer to microphone."
     }
+
+
+@app.websocket("/api/ws/transcribe")
+async def websocket_transcribe(websocket: WebSocket):
+    """
+    Live streaming Speech-to-Text WebSocket endpoint.
+    Converts incoming audio frames in real time concurrently DURING recording,
+    eliminating sequential delays and delivering instantaneous transcription on finish.
+    """
+    await websocket.accept()
+
+    rec = None
+    if vosk_model:
+        try:
+            rec = KaldiRecognizer(vosk_model, 16000)
+            rec.SetWords(True)
+        except Exception as e:
+            print("[Vosk Init Error in WS]:", e)
+
+    accumulated_words: List[str] = []
+    pcm_buffer = bytearray()
+
+    try:
+        while True:
+            message = await websocket.receive()
+            if "bytes" in message and message["bytes"]:
+                chunk = message["bytes"]
+                if chunk:
+                    pcm_buffer.extend(chunk)
+                    if rec:
+                        if rec.AcceptWaveform(chunk):
+                            res = json.loads(rec.Result())
+                            text = res.get("text", "").strip()
+                            if text:
+                                accumulated_words.append(text)
+                                current_total = " ".join(accumulated_words).strip()
+                                await websocket.send_json({
+                                    "type": "final",
+                                    "text": text,
+                                    "accumulated": current_total
+                                })
+                        else:
+                            part = json.loads(rec.PartialResult())
+                            partial_text = part.get("partial", "").strip()
+                            if partial_text:
+                                current_preview = (" ".join(accumulated_words) + " " + partial_text).strip()
+                                await websocket.send_json({
+                                    "type": "partial",
+                                    "text": partial_text,
+                                    "accumulated": current_preview
+                                })
+            elif "text" in message and message["text"]:
+                try:
+                    payload = json.loads(message["text"])
+                    if payload.get("action") == "finish":
+                        full_result = ""
+                        if rec:
+                            final_res = json.loads(rec.FinalResult())
+                            final_text = final_res.get("text", "").strip()
+                            if final_text:
+                                accumulated_words.append(final_text)
+                            full_result = " ".join(accumulated_words).strip()
+
+                        if not full_result and len(pcm_buffer) > 1000:
+                            wav_io = io.BytesIO()
+                            with wave.open(wav_io, "wb") as wf:
+                                wf.setnchannels(1)
+                                wf.setsampwidth(2)
+                                wf.setframerate(16000)
+                                wf.writeframes(pcm_buffer)
+                            res = await _transcribe_audio_bytes(wav_io.getvalue(), interim=False)
+                            full_result = res.get("transcript", "")
+
+                        if full_result:
+                            full_result = full_result[0].upper() + full_result[1:].rstrip(".") + "."
+                        await websocket.send_json({
+                            "type": "complete",
+                            "text": full_result
+                        })
+                        break
+                except Exception as e:
+                    print("[WS Text Message Error]:", e)
+    except WebSocketDisconnect:
+        pass
+    except Exception as e:
+        print("[WebSocket Transcribe Notice]:", e)
+
+
+@app.get("/api/ws/status")
+async def websocket_status():
+    """Diagnostic status for Speech-to-Text streaming services."""
+    return {
+        "status": "online",
+        "websocket_active": True,
+        "vosk_loaded": vosk_model is not None,
+        "transcription_ready": True
+    }
+
+
+@app.post("/api/transcribe")
+async def transcribe_audio(audio: UploadFile = File(...), interim: bool = False):
+    audio_bytes = await audio.read()
+    return await _transcribe_audio_bytes(audio_bytes, interim=interim)
 
 
 

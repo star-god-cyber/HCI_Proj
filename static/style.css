@@ -2005,14 +2005,78 @@ textarea.form-control {
 
 .caption-preview.active {
   margin-top: 0.5rem;
-  padding: 0.65rem 0.85rem;
-  background: rgba(37, 99, 235, 0.05);
-  border: 1px dashed rgba(37, 99, 235, 0.3);
-  border-radius: 6px;
-  max-height: 160px;
+  padding: 0.75rem 1rem;
+  background: rgba(37, 99, 235, 0.06);
+  border: 1px solid rgba(37, 99, 235, 0.35);
+  box-shadow: 0 2px 10px rgba(37, 99, 235, 0.08);
+  border-radius: 8px;
+  max-height: 180px;
   overflow-y: auto;
   font-style: normal;
   color: #0f172a;
+}
+
+.live-transcribe-box {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+  min-height: 28px;
+}
+
+.live-mic-pulse {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.76rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.12);
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  animation: pulseGlow 1.4s ease-in-out infinite;
+}
+
+@keyframes pulseGlow {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.75; transform: scale(0.97); }
+}
+
+.live-voice-bars {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  height: 18px;
+}
+
+.live-voice-bars .bar {
+  width: 3px;
+  background: #2563eb;
+  border-radius: 2px;
+  height: 6px;
+  transition: height 0.08s ease;
+}
+
+.live-text-stream {
+  font-size: 0.95rem;
+  color: #0f172a;
+  line-height: 1.5;
+  font-style: normal;
+}
+
+.typing-cursor {
+  display: inline-block;
+  font-weight: 800;
+  color: #2563eb;
+  margin-left: 2px;
+  animation: cursorBlink 0.8s infinite;
+}
+
+@keyframes cursorBlink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
 }
 
 .cockpit-bottom-bar {

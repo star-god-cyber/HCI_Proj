@@ -400,6 +400,9 @@ let universalPreviewId = null;
 let universalBaseText = "";
 let universalWebSpeechGotText = false;
 let universalSpeechAccumulated = "";
+let universalLastSpeechTime = 0;
+let universalInterimInterval = null;
+let universalVoiceAnimFrame = null;
 let simSilenceTimer = null;
 let simSilenceCountdownTimer = null;
 let simTurnAnswers = {
@@ -583,6 +586,7 @@ async function toggleVoiceInputUniversal(textareaId, btnId, panelId, statusId, m
   universalSpeechAccumulated = "";
   universalLiveStreamGotText = false;
   universalLiveStreamAccumulated = "";
+  universalLastSpeechTime = Date.now();
   universalPCMChunks = [];
   isUniversalRecording = true;
 
@@ -627,6 +631,24 @@ async function toggleVoiceInputUniversal(textareaId, btnId, panelId, statusId, m
     }
   }
 
+  // 2. Activate Preview Container immediately with live listening indicator & animated voice waveform
+  if (preview) {
+    preview.classList.add("active");
+    preview.innerHTML = `
+      <div class="live-transcribe-box">
+        <span class="live-mic-pulse">🔴 Live Listening</span>
+        <span class="live-voice-bars" id="live-voice-bars-${previewId}">
+          <span class="bar b1" style="height: 6px;"></span>
+          <span class="bar b2" style="height: 10px;"></span>
+          <span class="bar b3" style="height: 14px;"></span>
+          <span class="bar b4" style="height: 8px;"></span>
+          <span class="bar b5" style="height: 5px;"></span>
+        </span>
+        <span class="live-text-stream" id="${previewId}-stream">Speak aloud... Transcribing in real time</span>
+      </div>`;
+    preview.scrollTop = preview.scrollHeight;
+  }
+
   universalStartTime = Date.now();
   universalTimerInterval = setInterval(() => {
     if (!isUniversalRecording) return;
@@ -641,7 +663,41 @@ async function toggleVoiceInputUniversal(textareaId, btnId, panelId, statusId, m
     }
   }, 100);
 
-  // 2. LAYER A: Web Speech API (Client-side native streaming)
+  // Unified helper to update running transcript across Web Speech, WebSockets, and Interim Chunk Polling
+  function updateLiveRunningText(text, isInterim = false) {
+    if (!text || !text.trim() || !isUniversalRecording) return;
+    const cleanSpoken = text.trim();
+    const fullRunningText = (universalBaseText ? universalBaseText + " " : "") + cleanSpoken;
+
+    if (textarea) {
+      textarea.value = fullRunningText;
+      textarea.dispatchEvent(new Event("input"));
+    }
+
+    if (preview) {
+      preview.classList.add("active");
+      const streamSpan = document.getElementById(`${previewId}-stream`);
+      if (streamSpan) {
+        streamSpan.innerHTML = `“${escapeHtml(cleanSpoken)}” <span class="typing-cursor">▌</span>`;
+      } else {
+        preview.innerHTML = `
+          <div class="live-transcribe-box">
+            <span class="live-mic-pulse">🗣️ Live:</span>
+            <span class="live-text-stream">“${escapeHtml(cleanSpoken)}” <span class="typing-cursor">▌</span></span>
+          </div>`;
+      }
+      preview.scrollTop = preview.scrollHeight;
+    }
+
+    if (status) {
+      const wordCount = fullRunningText.split(/\s+/).filter(Boolean).length;
+      status.innerHTML = `🗣️ <strong>Transcribing Live (${wordCount} words):</strong> ${escapeHtml(cleanSpoken.slice(-55))}`;
+    }
+
+    checkSimSilenceAutoForward(cleanSpoken, universalTextareaId, status);
+  }
+
+  // 3. LAYER A: Web Speech API (Client-side native streaming)
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (SpeechRecognition) {
     try {
@@ -651,7 +707,7 @@ async function toggleVoiceInputUniversal(textareaId, btnId, panelId, statusId, m
       universalRecognition = new SpeechRecognition();
       universalRecognition.continuous = true;
       universalRecognition.interimResults = true;
-      universalRecognition.lang = navigator.language || "en-US";
+      universalRecognition.lang = "en-US";
       universalRecognition.maxAlternatives = 1;
 
       universalRecognition.onresult = (event) => {
@@ -677,35 +733,40 @@ async function toggleVoiceInputUniversal(textareaId, btnId, panelId, statusId, m
         const totalSpoken = (universalSpeechAccumulated + (interimBatch ? " " + interimBatch : "")).trim();
         if (totalSpoken) {
           universalWebSpeechGotText = true;
-          const fullRunningText = (universalBaseText ? universalBaseText + " " : "") + totalSpoken;
-          if (textarea) {
-            textarea.value = fullRunningText;
-            textarea.dispatchEvent(new Event("input"));
-          }
-          if (preview) {
-            preview.innerText = `“${fullRunningText}”`;
-            preview.classList.add("active");
-            preview.scrollTop = preview.scrollHeight;
-          }
-          if (status) {
-            const wordCount = fullRunningText.split(/\s+/).filter(Boolean).length;
-            status.innerHTML = `🗣️ <strong>Transcribing Live (${wordCount} words):</strong> ${escapeHtml((interimBatch || totalSpoken).slice(-50))}`;
-          }
-          checkSimSilenceAutoForward(totalSpoken, universalTextareaId, status);
+          universalLastSpeechTime = Date.now();
+          updateLiveRunningText(totalSpoken, true);
+        }
+      };
+
+      universalRecognition.onend = () => {
+        // Automatically restart while user is still speaking so pauses don't cut off live text
+        if (isUniversalRecording && universalRecognition) {
+          try { universalRecognition.start(); } catch (restartErr) {}
         }
       };
 
       universalRecognition.onerror = (e) => {
         console.warn("Web Speech API note (resilient fallback active):", e.error);
+        if (isUniversalRecording && (e.error === "no-speech" || e.error === "network")) {
+          setTimeout(() => {
+            if (isUniversalRecording && universalRecognition) {
+              try { universalRecognition.start(); } catch (err) {}
+            }
+          }, 300);
+        }
       };
 
-      universalRecognition.start();
-    } catch (wsErr) {
-      console.warn("Web Speech start note:", wsErr);
+      try {
+        universalRecognition.start();
+      } catch (wsErr) {
+        console.warn("Web Speech start notice:", wsErr);
+      }
+    } catch (wsInitErr) {
+      console.warn("Web Speech constructor notice:", wsInitErr);
     }
   }
 
-  // 3. LAYER B: Live Streaming Full-Duplex WebSocket STT (Vosk Concurrent Transcriber)
+  // 4. LAYER B: Live Streaming Full-Duplex WebSocket STT
   try {
     const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
     const wsUrl = `${proto}//${window.location.host}/api/ws/transcribe`;
@@ -720,23 +781,8 @@ async function toggleVoiceInputUniversal(textareaId, btnId, panelId, statusId, m
           if (text) {
             universalLiveStreamGotText = true;
             universalLiveStreamAccumulated = text;
-            // If Web Speech API is not providing text or Vosk has more text, update UI directly
             if (!universalWebSpeechGotText || text.length >= (universalSpeechAccumulated || "").length) {
-              const fullRunningText = (universalBaseText ? universalBaseText + " " : "") + text;
-              if (textarea) {
-                textarea.value = fullRunningText;
-                textarea.dispatchEvent(new Event("input"));
-              }
-              if (preview) {
-                preview.innerText = `“${fullRunningText}”`;
-                preview.classList.add("active");
-                preview.scrollTop = preview.scrollHeight;
-              }
-              if (status) {
-                const wordCount = fullRunningText.split(/\s+/).filter(Boolean).length;
-                status.innerHTML = `🗣️ <strong>Transcribing Live (${wordCount} words):</strong> ${escapeHtml(text.slice(-50))}`;
-              }
-              checkSimSilenceAutoForward(text, universalTextareaId, status);
+              updateLiveRunningText(text);
             }
           }
         } else if (msg.type === "complete") {
@@ -744,13 +790,7 @@ async function toggleVoiceInputUniversal(textareaId, btnId, panelId, statusId, m
           if (text) {
             universalLiveStreamGotText = true;
             universalLiveStreamAccumulated = text;
-            if (textarea) {
-              const base = universalBaseText ? universalBaseText + " " : "";
-              if (!universalWebSpeechGotText || text.length >= textarea.value.length) {
-                textarea.value = base + text;
-                textarea.dispatchEvent(new Event("input"));
-              }
-            }
+            updateLiveRunningText(text);
           }
         }
       } catch (err) {
@@ -765,7 +805,7 @@ async function toggleVoiceInputUniversal(textareaId, btnId, panelId, statusId, m
     console.warn("WebSocket connect notice:", wsConnErr);
   }
 
-  // 4. LAYER C: 100% Reliable Web Audio API buffer capture & frame streaming
+  // 5. LAYER C: Web Audio API buffer capture, live visualizer & periodic interim chunk streaming
   try {
     const stream = await navigator.mediaDevices.getUserMedia({
       audio: {
@@ -789,7 +829,7 @@ async function toggleVoiceInputUniversal(textareaId, btnId, panelId, statusId, m
 
     const source = universalAudioCtx.createMediaStreamSource(stream);
     universalAnalyser = universalAudioCtx.createAnalyser();
-    universalAnalyser.fftSize = 512;
+    universalAnalyser.fftSize = 256;
 
     universalScriptProcessor = universalAudioCtx.createScriptProcessor(4096, 1, 1);
     const audioContextSampleRate = universalAudioCtx.sampleRate;
@@ -799,7 +839,7 @@ async function toggleVoiceInputUniversal(textareaId, btnId, panelId, statusId, m
       const inputData = e.inputBuffer.getChannelData(0);
       universalPCMChunks.push(new Float32Array(inputData));
 
-      // Stream concurrently to backend Speech-to-Text converter during recording
+      // Stream concurrently to backend Speech-to-Text WebSocket if open
       if (universalWebSocket && universalWebSocket.readyState === WebSocket.OPEN) {
         try {
           const chunk16k = downsampleChunkTo16k(inputData, audioContextSampleRate);
@@ -814,6 +854,83 @@ async function toggleVoiceInputUniversal(textareaId, btnId, panelId, statusId, m
     source.connect(universalAnalyser);
     universalAnalyser.connect(universalScriptProcessor);
     universalScriptProcessor.connect(universalAudioCtx.destination);
+
+    // Live Voice Waveform Visualizer
+    function runVoiceVisualizer() {
+      if (!isUniversalRecording) return;
+      if (universalAnalyser) {
+        const dataArray = new Uint8Array(universalAnalyser.frequencyBinCount);
+        universalAnalyser.getByteFrequencyData(dataArray);
+        let sum = 0;
+        for (let i = 0; i < dataArray.length; i++) sum += dataArray[i];
+        const avg = sum / dataArray.length;
+        const barsContainer = document.getElementById(`live-voice-bars-${previewId}`);
+        if (barsContainer) {
+          const bars = barsContainer.querySelectorAll('.bar');
+          bars.forEach((bar, idx) => {
+            const factor = (idx + 1) * 0.35;
+            const h = Math.min(22, Math.max(4, Math.round(avg * factor * 0.3)));
+            bar.style.height = `${h}px`;
+          });
+        }
+      }
+      universalVoiceAnimFrame = requestAnimationFrame(runVoiceVisualizer);
+    }
+    universalVoiceAnimFrame = requestAnimationFrame(runVoiceVisualizer);
+
+    // 6. LAYER D: Periodic Interim Chunk Streaming Fallback (The 100% Guarantee on Any Browser/Host)
+    let interimSliceBusy = false;
+    let lastSliceChunkCount = 0;
+
+    universalInterimInterval = setInterval(async () => {
+      if (!isUniversalRecording) return;
+      // If Web Speech API is actively emitting text, skip HTTP slice polling
+      const timeSinceWebSpeech = Date.now() - (universalLastSpeechTime || 0);
+      if (universalWebSpeechGotText && timeSinceWebSpeech < 2200) {
+        return;
+      }
+      if (interimSliceBusy) return;
+      if (universalPCMChunks.length < 12) return; // need at least ~1.2s of audio
+      if (universalPCMChunks.length <= lastSliceChunkCount + 10) return; // don't re-transcribe tiny additions
+
+      interimSliceBusy = true;
+      try {
+        let totalLen = 0;
+        for (let i = 0; i < universalPCMChunks.length; i++) {
+          totalLen += universalPCMChunks[i].length;
+        }
+        const mergedFloat32 = new Float32Array(totalLen);
+        let offset = 0;
+        for (let i = 0; i < universalPCMChunks.length; i++) {
+          mergedFloat32.set(universalPCMChunks[i], offset);
+          offset += universalPCMChunks[i].length;
+        }
+
+        const pcm16k = downsampleBuffer(mergedFloat32, audioContextSampleRate, 16000);
+        const wavBlob = encodeWAV(pcm16k, 16000);
+
+        const formData = new FormData();
+        formData.append("audio", wavBlob, "interim_slice.wav");
+
+        const res = await fetch("/api/transcribe?interim=true", {
+          method: "POST",
+          body: formData
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.transcript && data.transcript.trim()) {
+            const sliceText = data.transcript.trim();
+            universalLiveStreamGotText = true;
+            lastSliceChunkCount = universalPCMChunks.length;
+            updateLiveRunningText(sliceText, true);
+          }
+        }
+      } catch (sliceErr) {
+        console.warn("Interim slice transcribe notice:", sliceErr);
+      } finally {
+        interimSliceBusy = false;
+      }
+    }, 2200);
 
   } catch (micErr) {
     console.error("Microphone access error:", micErr);
@@ -834,9 +951,18 @@ async function stopUniversalRecordingAndTranscribe() {
     clearInterval(universalTimerInterval);
     universalTimerInterval = null;
   }
+  if (universalInterimInterval) {
+    clearInterval(universalInterimInterval);
+    universalInterimInterval = null;
+  }
+  if (universalVoiceAnimFrame) {
+    cancelAnimationFrame(universalVoiceAnimFrame);
+    universalVoiceAnimFrame = null;
+  }
 
   const textarea = document.getElementById(universalTextareaId);
   const status = document.getElementById(universalStatusId);
+  const preview = document.getElementById(universalPreviewId);
   const targetTextareaId = universalTextareaId;
 
   if (simSilenceTimer) {
@@ -865,6 +991,11 @@ async function stopUniversalRecordingAndTranscribe() {
                   textarea.value = base + data.text;
                   textarea.dispatchEvent(new Event("input"));
                 }
+              }
+              if (preview) {
+                const currentText = textarea ? textarea.value.trim() : data.text;
+                preview.innerText = `“${currentText}”`;
+                preview.classList.add("active");
               }
             }
           } catch (e) {}
@@ -911,6 +1042,10 @@ async function stopUniversalRecordingAndTranscribe() {
   const gotLiveText = (universalLiveStreamGotText || universalWebSpeechGotText) && (currentVal.length > universalBaseText.length);
 
   if (gotLiveText) {
+    if (preview) {
+      preview.innerText = `“${currentVal}”`;
+      preview.classList.add("active");
+    }
     if (status) {
       status.innerHTML = "✓ <strong>Voice Converted in Real-Time:</strong> Answer captured live with zero wait time!";
     }
@@ -974,9 +1109,14 @@ async function stopUniversalRecordingAndTranscribe() {
 
     if (data && data.transcript && data.transcript.trim()) {
       const text = data.transcript.trim();
+      const fullText = (universalBaseText ? universalBaseText + " " : "") + text;
       if (textarea) {
-        textarea.value = (universalBaseText ? universalBaseText + " " : "") + text;
+        textarea.value = fullText;
         textarea.dispatchEvent(new Event("input"));
+      }
+      if (preview) {
+        preview.innerText = `“${fullText}”`;
+        preview.classList.add("active");
       }
       if (status) {
         status.innerHTML = `✓ <strong>Spoken Answer Transcribed:</strong> “${escapeHtml(text.slice(0, 70))}${text.length > 70 ? '...' : ''}”`;
@@ -1054,7 +1194,11 @@ function resetUniversalUI() {
   }
   if (universalPreviewId) {
     const preview = document.getElementById(universalPreviewId);
-    if (preview) preview.classList.remove("active");
+    if (preview) {
+      if (!preview.innerText || !preview.innerText.trim() || preview.innerText.includes("Speak aloud...")) {
+        preview.classList.remove("active");
+      }
+    }
   }
 
   isUniversalRecording = false;
