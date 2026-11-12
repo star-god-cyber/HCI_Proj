@@ -22,31 +22,6 @@ secrets/
 credentials.json
 client_secret*.json
 
-# --- Reports & Printables ---
-Report.pdf
-Report_Printable.html
-*.pdf
-
-# --- Presentations & Office Documents ---
-Presentation_Slides.pptx
-*.pptx
-*.docx
-*.xlsx
-~$*
-~$*.pptx
-~$*.docx
-~$*.xlsx
-
-# --- Media, Video & Audio Recordings ---
-Demo_Video.mp4
-*.mp4
-*.mov
-*.avi
-*.mkv
-*.webm
-*.wav
-*.mp3
-*.ogg
 
 # --- Submission Packages & Archives ---
 submission_package/
