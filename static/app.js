@@ -3406,10 +3406,13 @@ async function submitSimulationAnswer() {
       8: "Completed • Rubric Evaluation"
     };
 
+    const isClarification = !!data.is_clarification;
     const stageTitle = stageNames[simulationTurn] || `STAGE ${simulationTurn}: INTERVIEW PROBE`;
+    const stageMeta = isClarification ? `${stageTitle} • Context Clarification` : stageTitle;
     const badgeTitle = stageBadgeNames[simulationTurn] || `Stage ${simulationTurn}`;
+    const badgeMeta = isClarification ? `${badgeTitle} (Clarifying)` : badgeTitle;
     const badge = document.getElementById("sim-status-badge");
-    if (badge) badge.innerText = badgeTitle;
+    if (badge) badge.innerText = badgeMeta;
 
     const histPill = document.getElementById("sim-history-pill");
     if (histPill) {
@@ -3417,13 +3420,15 @@ async function submitSimulationAnswer() {
       histPill.innerHTML = `🧠 History Buffer: <strong>${turnsCount} ${turnsCount === 1 ? 'exchange' : 'exchanges'} active</strong>`;
     }
 
-    let engineLabel = "🟢 AI Interview Evaluator";
+    let engineLabel = (data.source === "gemini")
+      ? '<span style="color: #10b981; font-weight: 700;">🟢 Gemini 1.5 Flash (Live AI)</span>'
+      : '<span style="color: #f59e0b; font-weight: 700;">⚡ Deterministic NLP Fallback</span>';
 
     const currentTurnAssistantIdx = simConversationHistory.filter(m => m.role === "assistant").length - 1;
 
     chat.innerHTML += `
       <div class="chat-bubble interviewer">
-        <div class="chat-meta">DR. MARCUS VANCE • OFFICIAL INTERVIEW (${stageTitle}) • <span class="engine-badge-label">${engineLabel}</span></div>
+        <div class="chat-meta">DR. MARCUS VANCE • OFFICIAL INTERVIEW (${stageMeta}) • <span class="engine-badge-label">${engineLabel}</span></div>
         <p>${escapeHtml(reply)}</p>
         <div style="margin-top: 0.4rem;">
           <button class="btn btn-secondary btn-sm" onclick="replayInterviewerTurn(${currentTurnAssistantIdx})">🔊 Hear Audio</button>
@@ -4214,33 +4219,25 @@ function exportEvaluationDataset() {
 // 7. SETTINGS & USER STUDY FEEDBACK SYSTEM
 // ==========================================
 function switchSettingsTab(tabName) {
+  const aiTab = document.getElementById("cfg-tab-ai");
   const audioTab = document.getElementById("cfg-tab-audio");
   const fbTab = document.getElementById("cfg-tab-feedback");
+  const aiBtn = document.getElementById("tab-btn-cfg-ai");
   const audioBtn = document.getElementById("tab-btn-cfg-audio");
   const fbBtn = document.getElementById("tab-btn-cfg-feedback");
 
+  [aiTab, audioTab, fbTab].forEach(t => { if (t) t.style.display = "none"; });
+  [aiBtn, audioBtn, fbBtn].forEach(b => { if (b) { b.classList.remove("btn-primary"); b.classList.add("btn-outline"); } });
+
   if (tabName === "feedback") {
-    if (audioTab) audioTab.style.display = "none";
     if (fbTab) fbTab.style.display = "block";
-    if (audioBtn) {
-      audioBtn.classList.remove("btn-primary");
-      audioBtn.classList.add("btn-outline");
-    }
-    if (fbBtn) {
-      fbBtn.classList.remove("btn-outline");
-      fbBtn.classList.add("btn-primary");
-    }
-  } else {
+    if (fbBtn) { fbBtn.classList.remove("btn-outline"); fbBtn.classList.add("btn-primary"); }
+  } else if (tabName === "audio") {
     if (audioTab) audioTab.style.display = "block";
-    if (fbTab) fbTab.style.display = "none";
-    if (audioBtn) {
-      audioBtn.classList.remove("btn-outline");
-      audioBtn.classList.add("btn-primary");
-    }
-    if (fbBtn) {
-      fbBtn.classList.remove("btn-primary");
-      fbBtn.classList.add("btn-outline");
-    }
+    if (audioBtn) { audioBtn.classList.remove("btn-outline"); audioBtn.classList.add("btn-primary"); }
+  } else {
+    if (aiTab) aiTab.style.display = "block";
+    if (aiBtn) { aiBtn.classList.remove("btn-outline"); aiBtn.classList.add("btn-primary"); }
   }
 }
 
@@ -4266,7 +4263,7 @@ function toggleAutoSpeak(enabled) {
 function openConfigModal() {
   const modal = document.getElementById("modal-config");
   if (modal) modal.style.display = "flex";
-  switchSettingsTab('audio');
+  switchSettingsTab('ai');
   loadConfigSettings();
 }
 
@@ -4275,7 +4272,7 @@ function closeConfigModal() {
   if (modal) modal.style.display = "none";
 }
 
-function loadConfigSettings() {
+async function loadConfigSettings() {
   const rateInput = document.getElementById("cfg-voice-rate");
   const rateVal = document.getElementById("cfg-rate-val");
   const autoSpeakCheck = document.getElementById("cfg-auto-speak");
@@ -4287,6 +4284,134 @@ function loadConfigSettings() {
   if (autoSpeakCheck) {
     autoSpeakCheck.checked = autoSpeakEnabled;
   }
+
+  // Fetch /api/config to update Gemini status & masked key
+  try {
+    const res = await fetch("/api/config");
+    if (res.ok) {
+      const data = await res.json();
+      updateEngineUIState(data);
+    }
+  } catch (err) {
+    console.warn("Failed to fetch /api/config:", err);
+  }
+}
+
+function updateEngineUIState(cfg) {
+  const isGemini = !!cfg.gemini_active;
+  const pill = document.getElementById("global-engine-pill");
+  const dot = document.getElementById("global-engine-dot");
+  const text = document.getElementById("global-engine-text");
+  const statusCard = document.getElementById("cfg-ai-status-card");
+  const statusTitle = document.getElementById("cfg-ai-title-text");
+  const statusBadge = document.getElementById("cfg-ai-status-badge");
+  const statusDesc = document.getElementById("cfg-ai-status-desc");
+  const keyInput = document.getElementById("cfg-gemini-key");
+
+  if (dot && text) {
+    if (isGemini) {
+      dot.innerText = "🟢";
+      text.innerText = "Gemini 1.5 Flash";
+      if (pill) { pill.className = "badge badge-success"; pill.title = "Google Gemini Live AI Active"; }
+    } else {
+      dot.innerText = "⚡";
+      text.innerText = "Offline NLP ($0)";
+      if (pill) { pill.className = "badge badge-warning"; pill.title = "Deterministic Local Offline Engine ($0 Cost)"; }
+    }
+  }
+
+  if (statusCard && statusBadge) {
+    if (isGemini) {
+      statusCard.style.background = "#f0fdf4";
+      statusCard.style.borderColor = "#bbf7d0";
+      if (statusTitle) statusTitle.innerText = "Live Cloud AI Active";
+      statusBadge.className = "badge badge-success";
+      statusBadge.innerText = "Google Gemini Active";
+      if (statusDesc) statusDesc.innerHTML = `Connected to Google Gemini (<code>${cfg.gemini_model || 'gemini-1.5-flash'}</code>). Real-time AI interview questioning and committee evaluations are live!`;
+    } else {
+      statusCard.style.background = "#fffbeb";
+      statusCard.style.borderColor = "#fde68a";
+      if (statusTitle) statusTitle.innerText = "Deterministic Zero-Cost Mode";
+      statusBadge.className = "badge badge-warning";
+      statusBadge.innerText = "Offline NLP Active";
+      if (statusDesc) statusDesc.innerHTML = `Running on deterministic semantic dialogue engine. Enter a free Gemini API key below to activate Google Gemini cloud intelligence ($0 free tier).`;
+    }
+  }
+
+  if (keyInput && cfg.gemini_key_masked) {
+    keyInput.placeholder = `Key active: ${cfg.gemini_key_masked} (Paste new key to replace)`;
+  }
+}
+
+function toggleGeminiKeyVisibility() {
+  const input = document.getElementById("cfg-gemini-key");
+  const btn = document.getElementById("btn-toggle-key");
+  if (!input) return;
+  if (input.type === "password") {
+    input.type = "text";
+    if (btn) btn.innerText = "🔒";
+  } else {
+    input.type = "password";
+    if (btn) btn.innerText = "👁️";
+  }
+}
+
+async function testGeminiConnectionUI() {
+  const btn = document.getElementById("btn-test-gemini");
+  const resultBox = document.getElementById("cfg-gemini-test-result");
+  const keyInput = document.getElementById("cfg-gemini-key");
+  const enteredKey = keyInput ? keyInput.value.trim() : "";
+
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = "⏳ Testing Connection...";
+  }
+  if (resultBox) {
+    resultBox.style.display = "block";
+    resultBox.style.background = "var(--bg-surface, #f8fafc)";
+    resultBox.style.border = "1px solid var(--border, #cbd5e1)";
+    resultBox.style.color = "var(--text-main, #0f172a)";
+    resultBox.innerHTML = "Pinging Google Generative Language API endpoint...";
+  }
+
+  try {
+    const res = await fetch("/api/gemini/test", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ gemini_api_key: enteredKey || undefined })
+    });
+    const data = await res.json();
+    if (data.success) {
+      if (resultBox) {
+        resultBox.style.background = "#f0fdf4";
+        resultBox.style.border = "1.5px solid #86efac";
+        resultBox.style.color = "#14532d";
+        resultBox.innerHTML = `<strong>✅ Gemini Connection Verified!</strong><br>${data.message || 'API responded successfully.'} Model: <code>${data.model_tested || 'gemini-1.5-flash'}</code>. Live response: "<em>${escapeHtml(data.test_reply || 'CONNECTED')}</em>"`;
+      }
+      showAppToast("✅ Google Gemini API key validated successfully!", "success");
+      loadConfigSettings();
+    } else {
+      if (resultBox) {
+        resultBox.style.background = "#fef2f2";
+        resultBox.style.border = "1.5px solid #fca5a5";
+        resultBox.style.color = "#991b1b";
+        resultBox.innerHTML = `<strong>⚠️ Connection Failed:</strong> ${data.message || 'Check your API key and network connectivity.'}`;
+      }
+      showAppToast("⚠️ Gemini test failed: " + (data.message || "Invalid key"), "error");
+    }
+  } catch (err) {
+    if (resultBox) {
+      resultBox.style.background = "#fef2f2";
+      resultBox.style.border = "1.5px solid #fca5a5";
+      resultBox.style.color = "#991b1b";
+      resultBox.innerHTML = `<strong>⚠️ Network / Server Error:</strong> ${err.message}`;
+    }
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = "🔌 Test &amp; Validate Gemini Connection";
+    }
+  }
 }
 
 async function saveConfigSettings() {
@@ -4296,19 +4421,29 @@ async function saveConfigSettings() {
   const autoSpeakCheck = document.getElementById("cfg-auto-speak");
   if (autoSpeakCheck) toggleAutoSpeak(autoSpeakCheck.checked);
 
+  const keyInput = document.getElementById("cfg-gemini-key");
+  const enteredKey = keyInput ? keyInput.value.trim() : "";
+
   try {
-    await fetch("/api/config", {
+    const payload = {
+      voice_speed: speechRate,
+      auto_speak: autoSpeakEnabled
+    };
+    if (enteredKey) {
+      payload.gemini_api_key = enteredKey;
+    }
+    const res = await fetch("/api/config", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        voice_speed: speechRate,
-        auto_speak: autoSpeakEnabled
-      })
+      body: JSON.stringify(payload)
     });
+    if (res.ok) {
+      showAppToast("✅ System settings & Gemini key saved successfully!", "success");
+    }
   } catch (err) {
     console.warn("Config save notice:", err);
   }
-  showAppToast("✅ System settings saved successfully!", "success");
+  loadConfigSettings();
   closeConfigModal();
 }
 
@@ -4436,4 +4571,9 @@ window.switchSettingsTab = switchSettingsTab;
 window.setSpeechRate = setSpeechRate;
 window.toggleAutoSpeak = toggleAutoSpeak;
 window.submitUserStudyFeedback = submitUserStudyFeedback;
+window.toggleGeminiKeyVisibility = toggleGeminiKeyVisibility;
+window.testGeminiConnectionUI = testGeminiConnectionUI;
+window.saveConfigSettings = saveConfigSettings;
+window.openConfigModal = openConfigModal;
+window.closeConfigModal = closeConfigModal;
 

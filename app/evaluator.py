@@ -18,14 +18,14 @@ from app.env_loader import get_env_variable
 
 logger = logging.getLogger(__name__)
 
-GEMINI_MODELS = ["gemini-1.5-flash", "gemini-2.0-flash", "gemini-1.5-pro"]
+GEMINI_MODELS = ["gemini-1.5-flash", "gemini-2.0-flash", "gemini-1.5-pro", "gemini-2.5-flash", "gemini-flash-latest"]
 DEFAULT_GEMINI_MODEL = "gemini-1.5-flash"
 GEMINI_API_URL = f"https://generativelanguage.googleapis.com/v1beta/models/{DEFAULT_GEMINI_MODEL}:generateContent"
 
 
 class InterviewEvaluator:
     def __init__(self):
-        self.gemini_api_key = os.environ.get("GEMINI_API_KEY", "")
+        self.gemini_api_key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY") or get_env_variable("GEMINI_API_KEY", "") or get_env_variable("GOOGLE_API_KEY", "")
         # Action keywords
         self.action_words = [
             "decided", "implemented", "organized", "scheduled", "analyzed", "researched",
@@ -50,15 +50,34 @@ class InterviewEvaluator:
         return ""
 
     def get_gemini_api_key(self) -> str:
-        """Dynamically retrieves the latest Gemini API key from .env / settings."""
-        env_key = get_env_variable("GEMINI_API_KEY", "")
-        if env_key and self.gemini_api_key != env_key:
-            self.gemini_api_key = env_key
-        key = self.gemini_api_key or env_key
-        clean_key = (key or "").strip().strip('"').strip("'")
-        if clean_key.lower().startswith("bearer "):
-            clean_key = clean_key[7:].strip()
-        return clean_key
+        """Dynamically retrieves the latest Gemini API key from memory, process env, or .env."""
+        # 1. In-memory override
+        if self.gemini_api_key:
+            clean = self.gemini_api_key.strip().strip('"').strip("'")
+            if clean.lower().startswith("bearer "):
+                clean = clean[7:].strip()
+            if clean:
+                return clean
+
+        # 2. Check process environment variables (Render / System)
+        for var_name in ["GEMINI_API_KEY", "GOOGLE_API_KEY", "GEMINI_KEY"]:
+            val = os.environ.get(var_name, "").strip().strip('"').strip("'")
+            if val:
+                if val.lower().startswith("bearer "):
+                    val = val[7:].strip()
+                self.gemini_api_key = val
+                return val
+
+        # 3. Check .env file
+        for var_name in ["GEMINI_API_KEY", "GOOGLE_API_KEY", "GEMINI_KEY"]:
+            val = get_env_variable(var_name, "").strip().strip('"').strip("'")
+            if val:
+                if val.lower().startswith("bearer "):
+                    val = val[7:].strip()
+                self.gemini_api_key = val
+                return val
+
+        return ""
 
     def evaluate_answer(
         self,
@@ -931,6 +950,7 @@ Respond ONLY with a valid JSON array of {count} question objects in this exact f
         Never falls back to generic one-size-fits-all questions.
         """
         company_phrase = f" at {target_company}" if target_company else ""
+
         semantics = self._extract_candidate_semantics(cv_text)
         techs = semantics["tech"]
         metrics = semantics["metrics"]
@@ -1115,6 +1135,7 @@ Respond ONLY with a valid JSON array of {count} question objects in this exact f
         Anchored in the candidate's exact CV and target role, avoiding robotic one-size-fits-all greetings.
         """
         company_phrase = f" at {target_company}" if target_company else ""
+
         semantics = self._extract_candidate_semantics(cv_text)
         techs = semantics["tech"]
         actions = semantics["actions"]
@@ -1257,6 +1278,125 @@ Respond ONLY with a valid JSON array of {count} question objects in this exact f
             job_description=job_description
         )
 
+    def check_stage_minimum_requirements(
+        self,
+        stage_index: int,
+        user_answer: str,
+        job_role: str = "Software Engineer"
+    ) -> Tuple[bool, str, str]:
+        """
+        Evaluates whether the candidate's response meets modest minimum requirements
+        for the current interview stage (topic relevance and conversational context).
+        Returns: (is_met: bool, missing_reason: str, clarification_prompt: str)
+        """
+        cleaned = (user_answer or "").strip()
+        words = [w for w in re.findall(r'\b[a-zA-Z0-9_\-\.\#\+]{2,}\b', cleaned.lower()) if w not in {
+            'the', 'and', 'for', 'with', 'that', 'this', 'have', 'from', 'about', 'just', 'well', 'like', 'yeah'
+        }]
+        word_count = len(words)
+
+        # Baseline substance check (modest threshold: at least 7 meaningful words)
+        if word_count < 7:
+            return (
+                False,
+                "Response is too brief to establish topic context or evaluate competencies.",
+                "Could you elaborate a bit more on that? Specifically, could you walk me through the background and your direct involvement?"
+            )
+
+        ans_lower = cleaned.lower()
+
+        # Stage 1: Candidate Introduction & Career Background
+        if stage_index <= 1:
+            bg_signals = [
+                "experience", "worked", "working", "role", "engineer", "developer", "designer",
+                "manager", "student", "graduated", "university", "background", "company",
+                "team", "project", "building", "built", "skills", "tech", "years", "started",
+                "focus", "domain", "specializ", "degree", "lead"
+            ]
+            if not any(s in ans_lower for s in bg_signals) and word_count < 14:
+                return (
+                    False,
+                    "Introduction lacked professional context, role background, or project domain.",
+                    "To help me calibrate our discussion, could you briefly share a high-level overview of your primary technical or domain background and what you've focused on recently?"
+                )
+
+        # Stage 2: Technical Deep Dive & System Architecture
+        elif stage_index == 2:
+            tech_signals = [
+                "system", "service", "architecture", "data", "api", "database", "sql", "nosql",
+                "pipeline", "backend", "frontend", "model", "algorithm", "cloud", "aws", "docker",
+                "kubernetes", "react", "python", "java", "node", "scale", "feature", "app",
+                "code", "framework", "component", "platform", "infrastructure", "prototype",
+                "research", "user", "interface", "design", "workflow", "server", "microservice"
+            ]
+            if not any(t in ans_lower for t in tech_signals) and word_count < 15:
+                return (
+                    False,
+                    "Technical response did not reference concrete tools, technologies, or architectural components.",
+                    "Could you walk me through the technical details of that initiative? What specific tools, architecture, or core technical choices did you personally make?"
+                )
+
+        # Stage 3: Behavioral, Disagreement & Technical Trade-Offs
+        elif stage_index == 3:
+            tradeoff_signals = [
+                "trade-off", "tradeoff", "trade off", "conflict", "disagree", "disagreement",
+                "compromise", "debate", "alternative", "differ", "differing", "friction",
+                "tension", "balance", "convinced", "resolved", "pushback", "obstacle",
+                "constraint", "dilemma", "priorit", "opted", "counter", "conceded"
+            ]
+            if not any(t in ans_lower for t in tradeoff_signals) and word_count < 15:
+                return (
+                    False,
+                    "Response did not articulate a technical disagreement, priority trade-off, or resolution.",
+                    "In projects of that scope, trade-offs or differing technical opinions almost always arise—such as balancing delivery speed against scalability. Could you describe a specific trade-off or disagreement you navigated, and how you reached resolution?"
+                )
+
+        # Stage 4: Resilience, Failure Modes & Edge Cases
+        elif stage_index == 4:
+            resilience_signals = [
+                "failure", "fail", "error", "exception", "bug", "issue", "traffic", "spike",
+                "scale", "load", "test", "testing", "monitoring", "recovery", "fallback",
+                "edge", "case", "resilience", "bottleneck", "latency", "downtime", "crash",
+                "incident", "prevent", "safeguard", "contingency", "handled", "mitigat"
+            ]
+            if not any(r in ans_lower for r in resilience_signals) and word_count < 15:
+                return (
+                    False,
+                    "Response did not describe failure modes, edge cases, or system resilience mechanisms.",
+                    "When deploying or operating that solution, what was a critical failure mode or unexpected edge case you had to safeguard against, and what concrete mechanisms ensured resilience?"
+                )
+
+        # Stage 5: Measured Impact & Quantitative KPIs
+        elif stage_index == 5:
+            impact_signals = [
+                "percent", "%", "metric", "kpi", "result", "improved", "increased", "reduced",
+                "decreased", "saved", "latency", "ms", "seconds", "adoption", "user", "customer",
+                "conversion", "revenue", "efficiency", "launched", "deployed", "validated",
+                "measured", "feedback", "benchmark", "outcome", "success", "delivered", "impact"
+            ]
+            if not any(i in ans_lower for i in impact_signals) and word_count < 14:
+                return (
+                    False,
+                    "Response did not provide measurable outcomes, benchmarks, or verification metrics.",
+                    "How did you quantitatively measure or verify the success of that effort? What were the key metrics, performance benchmarks, or user results that validated the solution?"
+                )
+
+        # Stage 6: Retrospective Reflection & Lessons Learned
+        elif stage_index == 6:
+            reflect_signals = [
+                "differently", "today", "hindsight", "lesson", "learned", "retrospect", "improve",
+                "better", "wish", "next time", "mistake", "compromise", "evolution", "re-architect",
+                "refactor", "realized", "understand", "change"
+            ]
+            if not any(r in ans_lower for r in reflect_signals) and word_count < 14:
+                return (
+                    False,
+                    "Response did not articulate retrospective insights or architectural hindsight.",
+                    "Looking back with the benefit of hindsight, what was one technical or architectural decision you made that you would approach differently today?"
+                )
+
+        return (True, "Stage minimum requirement satisfied.", "")
+
     def build_official_interview_system_prompt(
         self,
         candidate_name: str,
@@ -1269,9 +1409,28 @@ Respond ONLY with a valid JSON array of {count} question objects in this exact f
         interview_duration: str = "Standard Round (6-7 Questions • ~45 mins)",
         interviewer_tone: str = "Neutral Corporate (Standard Hiring Bar / Objective)",
         turn_index: int = 1,
-        max_turns: int = 7
+        max_turns: int = 7,
+        is_clarification: bool = False,
+        missing_reason: str = "",
+        clarification_prompt: str = ""
     ) -> str:
         company_phrase = f" at {target_company}" if target_company else ""
+        stage_gate_note = ""
+        if is_clarification:
+            stage_gate_note = f"""
+==================================================
+CRITICAL STAGE GATE REQUIREMENT: CONTEXT CLARIFICATION NEEDED
+==================================================
+The candidate's latest response did NOT satisfy the modest minimum context requirement for Stage {turn_index}:
+Reason: {missing_reason}
+
+MANDATORY INSTRUCTION FOR THIS TURN:
+1. Warmly and naturally acknowledge what the candidate said.
+2. DO NOT advance to Stage {turn_index + 1} yet!
+3. Ask a natural clarifying follow-up question to help {candidate_name} provide the necessary topic and context for Stage {turn_index}.
+Recommended direction: "{clarification_prompt}"
+"""
+
 
         # Determine exact current stage instruction based on turn_index
         if turn_index <= 1:
@@ -1338,6 +1497,7 @@ CURRENT CONVERSATIONAL TURN & MANDATORY OBJECTIVE
 ==================================================
 Current Turn: Turn {turn_index} of {max_turns}
 {stage_instruction}
+{stage_gate_note}
 
 ==================================================
 NON-NEGOTIABLE OFFICIAL INTERVIEW RULES
@@ -1436,6 +1596,30 @@ Every time you respond:
         gemini_key = self.get_gemini_api_key()
         has_gemini = bool(gemini_key and not gemini_key.startswith("test_mock") and len(gemini_key) > 10)
 
+        # Evaluate modest minimum stage requirements (topic & context)
+        is_stage_met, missing_reason, clarification_probe = self.check_stage_minimum_requirements(
+            stage_index=turn_index,
+            user_answer=user_message,
+            job_role=job_role
+        )
+
+        # Count how many clarifications have been asked on the current stage
+        clarification_count = 0
+        for msg in reversed(conversation_history):
+            if msg.get("role") == "assistant":
+                content_low = msg.get("content", "").lower()
+                if any(probe_phrase in content_low for probe_phrase in [
+                    "elaborate a bit", "to help me calibrate", "technical details of that initiative",
+                    "trade-offs or differing", "critical failure mode", "quantitatively measure", "benefit of hindsight"
+                ]):
+                    clarification_count += 1
+                else:
+                    break
+
+        # If minimum requirement not met and candidate hasn't been probed multiple times, stay in current stage
+        should_clarify = (not is_stage_met) and (clarification_count < 2)
+        next_turn_index = turn_index if should_clarify else (turn_index + 1)
+
         # Build official interview messages payload
         system_prompt = self.build_official_interview_system_prompt(
             candidate_name=candidate_name,
@@ -1448,7 +1632,10 @@ Every time you respond:
             interview_duration=interview_duration,
             interviewer_tone=interviewer_tone,
             turn_index=turn_index,
-            max_turns=max_turns
+            max_turns=max_turns,
+            is_clarification=should_clarify,
+            missing_reason=missing_reason,
+            clarification_prompt=clarification_probe
         )
         messages = [{"role": "system", "content": system_prompt}]
         for msg in conversation_history:
@@ -1470,16 +1657,33 @@ Every time you respond:
                     return {
                         "interviewer_message": clean_reply,
                         "followup_question": clean_reply,
-                        "reasoning": f"Stage {turn_index + 1} official Google Gemini live probe.",
-                        "turn_index": turn_index + 1,
-                        "is_concluded": (turn_index >= max_turns or "conclude" in clean_reply.lower() or "evaluation" in clean_reply.lower()),
+                        "reasoning": f"Stage {turn_index} {'clarification probe: ' + missing_reason if should_clarify else 'target satisfied, advancing.'}",
+                        "turn_index": next_turn_index,
+                        "is_clarification": should_clarify,
+                        "stage_requirement_met": is_stage_met,
+                        "is_concluded": (next_turn_index >= max_turns or "conclude" in clean_reply.lower() or "evaluation" in clean_reply.lower()),
                         "source": "gemini"
                     }
             except Exception as e:
                 logger.warning(f"Gemini official turn failed, engaging semantic dialogue engine: {e}")
 
         # Tier 2: Adaptive Semantic Dialogue Engine (High-Fidelity Context-Aware NLP Offline Fallback)
-        return self._synthesize_semantic_interview_turn(
+        if should_clarify:
+            # Generate grounded clarification response to satisfy modest stage requirements
+            user_ack = f"Thank you for sharing that, {candidate_name}." if len(clean_user_msg.split()) > 4 else f"Thanks, {candidate_name}."
+            clarification_speech = f"{user_ack} {clarification_probe}"
+            return {
+                "interviewer_message": clarification_speech,
+                "followup_question": clarification_speech,
+                "reasoning": f"Stage {turn_index} clarification probe: {missing_reason}",
+                "turn_index": next_turn_index,
+                "is_clarification": True,
+                "stage_requirement_met": False,
+                "is_concluded": False,
+                "source": "adaptive_ai_dialogue_engine"
+            }
+
+        turn_res = self._synthesize_semantic_interview_turn(
             conversation_history=conversation_history,
             user_message=user_message,
             candidate_name=candidate_name,
@@ -1494,6 +1698,10 @@ Every time you respond:
             cv_text=cv_text,
             job_description=job_description
         )
+        turn_res["turn_index"] = next_turn_index
+        turn_res["is_clarification"] = False
+        turn_res["stage_requirement_met"] = True
+        return turn_res
 
     def _clean_llm_reply(self, text: str) -> str:
         """Helper to extract clean dialogue from LLM replies, stripping markdown fences or nested JSON."""

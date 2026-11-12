@@ -9,7 +9,7 @@ import json
 import base64
 from pathlib import Path
 from datetime import datetime
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 import httpx
 from fastapi import FastAPI, HTTPException, Request, UploadFile, File, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse, FileResponse
@@ -497,9 +497,11 @@ async def get_config():
     gemini_key = evaluator.get_gemini_api_key()
     has_gemini = bool(gemini_key)
     mode = "gemini_primary" if has_gemini else "deterministic_offline"
+    masked = f"{gemini_key[:7]}...{gemini_key[-4:]}" if has_gemini and len(gemini_key) > 11 else ("Configured" if has_gemini else "")
     return {
         "gemini_active": has_gemini,
         "gemini_model": "gemini-1.5-flash",
+        "gemini_key_masked": masked,
         "mode": mode,
         "stt_engine": "web_speech_api",
         "tts_engine": "web_speech_synthesis"
@@ -508,8 +510,10 @@ async def get_config():
 
 @app.get("/api/gemini/test")
 @app.post("/api/gemini/test")
-async def test_gemini_api_endpoint():
+async def test_gemini_api_endpoint(req: Optional[ConfigUpdateRequest] = None):
     """Live diagnostic endpoint testing Google Gemini API key validity and chat response."""
+    if req and req.gemini_api_key and req.gemini_api_key.strip():
+        evaluator.gemini_api_key = req.gemini_api_key.strip()
     return await evaluator.test_gemini_connection()
 
 

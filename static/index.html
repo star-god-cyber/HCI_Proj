@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>AI Interview Practice System</title>
-  <link rel="stylesheet" href="/static/style.css?v=20261112_v34">
+  <link rel="stylesheet" href="/static/style.css?v=20261112_v35">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Comic+Sans+MS&display=swap" rel="stylesheet">
@@ -35,6 +35,9 @@
       <span class="app-header-title">AI Interview Practice System</span>
     </div>
     <div class="header-right">
+      <span class="badge badge-success" id="global-engine-pill" onclick="openConfigModal()" style="cursor: pointer; font-size: 0.8rem; font-weight: 700; padding: 0.45rem 0.85rem; border-radius: 20px; display: inline-flex; align-items: center; gap: 0.4rem; box-shadow: 0 2px 8px rgba(0,0,0,0.1);" title="Click to view/configure AI engine">
+        <span id="global-engine-dot">🟢</span> <span id="global-engine-text">Gemini 1.5 Flash</span>
+      </span>
       <button class="btn btn-secondary btn-sm" onclick="openConfigModal()" title="Settings" style="box-shadow: 0 2px 8px rgba(0,0,0,0.12); border-radius: 20px; padding: 0.45rem 0.9rem; font-weight: 600;">
         ⚙️ Settings
       </button>
@@ -1787,7 +1790,10 @@
 
       <!-- Tab Navigation -->
       <div style="display: flex; gap: 0.5rem; border-bottom: 1px solid var(--border); margin-bottom: 1.25rem;">
-        <button class="btn btn-sm btn-primary" id="tab-btn-cfg-audio" onclick="switchSettingsTab('audio')" style="border-radius: 6px 6px 0 0; font-weight: 600;">
+        <button class="btn btn-sm btn-primary" id="tab-btn-cfg-ai" onclick="switchSettingsTab('ai')" style="border-radius: 6px 6px 0 0; font-weight: 600;">
+          🤖 AI Engine &amp; Gemini
+        </button>
+        <button class="btn btn-sm btn-outline" id="tab-btn-cfg-audio" onclick="switchSettingsTab('audio')" style="border-radius: 6px 6px 0 0; font-weight: 600;">
           🔊 Audio &amp; Speech
         </button>
         <button class="btn btn-sm btn-outline" id="tab-btn-cfg-feedback" onclick="switchSettingsTab('feedback')" style="border-radius: 6px 6px 0 0; font-weight: 600;">
@@ -1795,8 +1801,54 @@
         </button>
       </div>
 
-      <!-- TAB 1: AUDIO & SPEECH SPEED -->
-      <div id="cfg-tab-audio">
+      <!-- TAB 1: AI ENGINE & GOOGLE GEMINI KEY -->
+      <div id="cfg-tab-ai">
+        <!-- Engine Status Banner -->
+        <div id="cfg-ai-status-card" style="background: #f0fdf4; border: 1.5px solid #bbf7d0; padding: 0.85rem 1rem; border-radius: 8px; margin-bottom: 1.25rem;">
+          <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem;">
+            <strong id="cfg-ai-status-title" style="color: #166534; font-size: 0.92rem; display: flex; align-items: center; gap: 0.4rem;">
+              <span id="cfg-ai-dot">🟢</span> <span id="cfg-ai-title-text">Cloud AI Engine Ready</span>
+            </strong>
+            <span class="badge badge-success" id="cfg-ai-status-badge">Checking...</span>
+          </div>
+          <p style="font-size: 0.8rem; color: #14532d; margin-top: 0.35rem; line-height: 1.4;" id="cfg-ai-status-desc">
+            Google Gemini (<code>gemini-1.5-flash</code>) generates live conversational questions, multi-turn adaptive follow-ups, and hiring committee rubric audits.
+          </p>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 1.25rem;">
+          <label class="form-label" style="font-weight: 700; display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
+            <span>Google Gemini API Key</span>
+            <span class="badge badge-primary" style="font-size: 0.72rem;">Free Tier Ready</span>
+          </label>
+          <div style="display: flex; gap: 0.5rem;">
+            <input type="password" class="form-control" id="cfg-gemini-key" placeholder="AIzaSy... (Paste Google Gemini API Key here)" style="flex: 1; font-family: monospace;">
+            <button type="button" class="btn btn-outline btn-sm" id="btn-toggle-key" onclick="toggleGeminiKeyVisibility()" style="padding: 0.4rem 0.75rem;" title="Show / Hide API Key">👁️</button>
+          </div>
+          <p style="font-size: 0.78rem; color: var(--text-muted); margin-top: 0.45rem; line-height: 1.45;">
+            Get a 100% free API key from <a href="https://aistudio.google.com/apikey" target="_blank" style="color: var(--primary); text-decoration: underline; font-weight: 600;">Google AI Studio</a>. If left blank, the system automatically uses the zero-cost local semantic dialogue engine ($0.00 zero-downtime guaranteed).
+          </p>
+        </div>
+
+        <!-- Real-Time Diagnostic Test Box -->
+        <div style="margin-bottom: 1.5rem;">
+          <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+            <button type="button" class="btn btn-secondary btn-sm" id="btn-test-gemini" onclick="testGeminiConnectionUI()" style="font-weight: 600; display: inline-flex; align-items: center; gap: 0.4rem;">
+              🔌 Test &amp; Validate Gemini Connection
+            </button>
+            <span id="cfg-gemini-key-note" style="font-size: 0.78rem; color: var(--text-muted);"></span>
+          </div>
+          <div id="cfg-gemini-test-result" style="display: none; margin-top: 0.75rem; padding: 0.85rem; border-radius: 8px; font-size: 0.82rem; line-height: 1.45;"></div>
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; gap: 0.5rem; border-top: 1px solid var(--border); padding-top: 1rem;">
+          <button type="button" class="btn btn-secondary btn-sm" onclick="closeConfigModal()">Cancel</button>
+          <button type="button" class="btn btn-primary btn-sm" onclick="saveConfigSettings()">Save &amp; Apply</button>
+        </div>
+      </div>
+
+      <!-- TAB 2: AUDIO & SPEECH SPEED -->
+      <div id="cfg-tab-audio" style="display: none;">
         <div class="form-group" style="margin-bottom: 1.25rem;">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
             <label class="form-label" style="font-weight: 700; margin: 0;">Speech Playback Speed:</label>
@@ -1941,6 +1993,6 @@
   <!-- Toast Notification Container -->
   <div id="app-toast-container" style="position: fixed; bottom: 1.5rem; right: 1.5rem; z-index: 3000; display: flex; flex-direction: column; gap: 0.6rem; pointer-events: none;"></div>
 
-  <script src="/static/app.js?v=20261112_v34"></script>
+  <script src="/static/app.js?v=20261112_v35"></script>
 </body>
 </html>
