@@ -298,17 +298,20 @@ function setCockpitInputMode(mode) {
   const tStage = document.getElementById("dock-text-stage");
   const vBtn = document.getElementById("dock-btn-voice");
   const tBtn = document.getElementById("dock-btn-text");
+  const sampleBtn = document.getElementById("btn-sample-b");
 
   if (mode === "voice") {
     if (vStage) vStage.style.display = "block";
     if (tStage) tStage.style.display = "none";
     if (vBtn) vBtn.classList.add("active");
     if (tBtn) tBtn.classList.remove("active");
+    if (sampleBtn) sampleBtn.style.display = "none";
   } else {
     if (vStage) vStage.style.display = "none";
     if (tStage) tStage.style.display = "block";
     if (vBtn) vBtn.classList.remove("active");
     if (tBtn) tBtn.classList.add("active");
+    if (sampleBtn) sampleBtn.style.display = "inline-flex";
     const ta = document.getElementById("b-answer");
     if (ta) ta.focus();
   }
@@ -319,17 +322,20 @@ function setCockpitInputModeA(mode, prefix = 'a3') {
   const tStage = document.getElementById(`${prefix}-dock-text-stage`);
   const vBtn = document.getElementById(`${prefix}-dock-btn-voice`);
   const tBtn = document.getElementById(`${prefix}-dock-btn-text`);
+  const sampleBtn = document.getElementById(`btn-sample-${prefix}`);
 
   if (mode === "voice") {
     if (vStage) vStage.style.display = "block";
-    if (tStage) tStage.style.display = "block";
+    if (tStage) tStage.style.display = "none";
     if (vBtn) vBtn.classList.add("active");
     if (tBtn) tBtn.classList.remove("active");
+    if (sampleBtn) sampleBtn.style.display = "none";
   } else {
     if (vStage) vStage.style.display = "none";
     if (tStage) tStage.style.display = "block";
     if (vBtn) vBtn.classList.remove("active");
     if (tBtn) tBtn.classList.add("active");
+    if (sampleBtn) sampleBtn.style.display = "inline-flex";
     const ta = document.getElementById(prefix === "a3" ? "a-answer" : (prefix === "a6" ? "a-change" : "a-retry-answer"));
     if (ta) ta.focus();
   }
@@ -2764,6 +2770,10 @@ function goToScreenB(screenId, pushHistory = true) {
   window.scrollTo({ top: 0, behavior: "smooth" });
 
   recordNavigation(cleanId, pushHistory);
+
+  if (cleanId === "b3") {
+    setCockpitInputMode("voice");
+  }
 }
 
 function handleHomeModeSelectChange(mode) {

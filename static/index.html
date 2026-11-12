@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>AI Interview Practice System</title>
-  <link rel="stylesheet" href="/static/style.css?v=20261112_v29">
+  <link rel="stylesheet" href="/static/style.css?v=20261112_v30">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Comic+Sans+MS&display=swap" rel="stylesheet">
@@ -270,7 +270,7 @@
               </button>
             </div>
             <div class="dock-header-actions">
-              <button class="btn btn-secondary btn-sm" onclick="loadSampleAnswerA(1)">⚡ Sample Answer</button>
+              <button class="btn btn-secondary btn-sm" id="btn-sample-a3" onclick="loadSampleAnswerA(1)" style="display: none;">⚡ Sample Answer</button>
               <button class="btn btn-outline btn-sm" onclick="clearAnswerDirect('a-answer', 'a3-stt-status', 'a3-live-preview')">Clear</button>
             </div>
           </div>
@@ -296,7 +296,7 @@
           </div>
 
           <!-- TYPED MODE STAGE -->
-          <div id="a3-dock-text-stage" class="dock-stage">
+          <div id="a3-dock-text-stage" class="dock-stage" style="display: none;">
             <div class="form-group" style="margin-bottom: 0.5rem;">
               <textarea class="form-control" id="a-answer" rows="5" placeholder="Type or speak your answer here... Transcribes live as you speak, evaluated against the standard rubric."></textarea>
             </div>
@@ -661,7 +661,7 @@
               </button>
             </div>
             <div class="dock-header-actions">
-              <button class="btn btn-secondary btn-sm" onclick="loadSampleReflectionA()" title="Auto-fill high-quality contextual reflection plan">⚡ Sample Reflection</button>
+              <button class="btn btn-secondary btn-sm" id="btn-sample-a6" onclick="loadSampleReflectionA()" title="Auto-fill high-quality contextual reflection plan" style="display: none;">⚡ Sample Reflection</button>
               <button class="btn btn-outline btn-sm" onclick="clearAnswerDirect('a-change', 'a6-stt-status', 'a6-live-preview')" title="Clear reflection notes">Clear</button>
             </div>
           </div>
@@ -687,7 +687,7 @@
           </div>
 
           <!-- TYPED MODE STAGE -->
-          <div id="a6-dock-text-stage" class="dock-stage">
+          <div id="a6-dock-text-stage" class="dock-stage" style="display: none;">
             <div class="form-group" style="margin-bottom: 0.75rem;">
               <label class="form-label" style="font-weight: 600; font-size: 0.88rem;">1. What specific changes will you incorporate in your revised answer?</label>
               <textarea class="form-control" id="a-change" rows="3" placeholder="e.g., I would add the measurable outcome and user feedback metric... Transcribes live as you speak."></textarea>
@@ -779,7 +779,7 @@
               </button>
             </div>
             <div class="dock-header-actions">
-              <button class="btn btn-secondary btn-sm" onclick="loadSampleAnswerA(2)">⚡ Sample Improved</button>
+              <button class="btn btn-secondary btn-sm" id="btn-sample-a7" onclick="loadSampleAnswerA(2)" style="display: none;">⚡ Sample Improved</button>
               <button class="btn btn-outline btn-sm" onclick="clearAnswerDirect('a-retry-answer', 'a7-stt-status', 'a7-live-preview')">Clear</button>
             </div>
           </div>
@@ -805,7 +805,7 @@
           </div>
 
           <!-- TYPED MODE STAGE -->
-          <div id="a7-dock-text-stage" class="dock-stage">
+          <div id="a7-dock-text-stage" class="dock-stage" style="display: none;">
             <div class="form-group" style="margin-bottom: 0.5rem;">
               <textarea class="form-control" id="a-retry-answer" rows="5" placeholder="Rewrite or dictate your revised answer incorporating measurable evidence and structured STAR flow... Transcribes live as you speak."></textarea>
             </div>
@@ -1173,7 +1173,7 @@
               </button>
             </div>
             <div class="dock-header-actions">
-              <button class="btn btn-secondary btn-sm" onclick="loadSampleAnswerB()" title="Insert contextual sample answer for demonstration">⚡ Sample Answer</button>
+              <button class="btn btn-secondary btn-sm" id="btn-sample-b" onclick="loadSampleAnswerB()" title="Insert contextual sample answer for demonstration" style="display: none;">⚡ Sample Answer</button>
               <button class="btn btn-secondary btn-sm" id="btn-user-wrapup" onclick="concludeInterviewNaturally()" title="Tell Dr. Vance you are ready to wrap up">🤝 Conclude & Wrap Up</button>
               <button class="btn btn-outline btn-sm" onclick="clearCockpitAnswer()" title="Clear transcribed or typed response">Clear</button>
             </div>
@@ -1363,6 +1363,6 @@
   <!-- Toast Notification Container -->
   <div id="app-toast-container" style="position: fixed; bottom: 1.5rem; right: 1.5rem; z-index: 3000; display: flex; flex-direction: column; gap: 0.6rem; pointer-events: none;"></div>
 
-  <script src="/static/app.js?v=20261112_v29"></script>
+  <script src="/static/app.js?v=20261112_v30"></script>
 </body>
 </html>
