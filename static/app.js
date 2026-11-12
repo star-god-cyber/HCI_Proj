@@ -500,10 +500,10 @@ function checkSimSilenceAutoForward(totalSpoken, targetId, statusEl) {
     simSilenceCountdownTimer = null;
   }
 
-  let remainingSec = 3.5;
+  let remainingSec = 10.0;
   simSilenceCountdownTimer = setInterval(() => {
     remainingSec -= 0.5;
-    if (remainingSec <= 2.5 && isUniversalRecording && allowed.includes(universalTextareaId)) {
+    if (remainingSec <= 5.0 && isUniversalRecording && allowed.includes(universalTextareaId)) {
       if (statusEl) {
         let dest = "Dr. Marcus Vance";
         if (universalTextareaId === "a-answer") dest = "Evaluator (Attempt 1)";
@@ -529,7 +529,7 @@ function checkSimSilenceAutoForward(totalSpoken, targetId, statusEl) {
       console.log(`Natural conversational pause detected for ${universalTextareaId} -> auto-forwarding response to AI`);
       stopUniversalRecordingAndTranscribe();
     }
-  }, 3500);
+  }, 10000);
 }
 
 // Convert Float32 buffer to 16kHz mono 16-bit PCM WAV Blob
@@ -630,19 +630,19 @@ async function toggleVoiceInputUniversal(textareaId, btnId, panelId, statusId, m
       if (glyph) glyph.innerText = "⏹️";
       if (btnId === "hero-mic-b") {
         if (label) label.innerText = "Done Speaking — Send Response ↵";
-        if (sub) sub.innerText = "Listening live... Auto-sends on 3.5s pause or click now";
+        if (sub) sub.innerText = "Listening live... Auto-sends on 10s pause or click now";
       } else if (btnId === "btn-speech-a") {
         if (label) label.innerText = "Done Speaking — Submit for Evaluation ↵";
-        if (sub) sub.innerText = "Listening live... Auto-sends on 3.5s pause or click now";
+        if (sub) sub.innerText = "Listening live... Auto-sends on 10s pause or click now";
       } else if (btnId === "btn-speech-a7") {
         if (label) label.innerText = "Done Speaking — Submit Revision ↵";
-        if (sub) sub.innerText = "Listening live... Auto-sends on 3.5s pause or click now";
+        if (sub) sub.innerText = "Listening live... Auto-sends on 10s pause or click now";
       } else if (btnId === "btn-speech-a6") {
         if (label) label.innerText = "Done Speaking — Save Reflection ↵";
-        if (sub) sub.innerText = "Listening live... Auto-sends on 3.5s pause or click now";
+        if (sub) sub.innerText = "Listening live... Auto-sends on 10s pause or click now";
       } else {
         if (label) label.innerText = "Done Speaking (Auto-Sends on Pause)";
-        if (sub) sub.innerText = "Listening live... Auto-sends on 3.5s pause or click now";
+        if (sub) sub.innerText = "Listening live... Auto-sends on 10s pause or click now";
       }
       btn.classList.add("recording");
     } else if (btnId === "btn-speech-b") {
@@ -1062,16 +1062,16 @@ function resetUniversalUI() {
         if (glyph) glyph.innerText = "🎙️";
         if (universalBtnId === "hero-mic-b") {
           if (label) label.innerText = "Click to Speak to Dr. Vance";
-          if (sub) sub.innerText = "Transcribes in real time • Auto-sends on 3.5s pause or click";
+          if (sub) sub.innerText = "Transcribes in real time • Auto-sends on 10s pause or click";
         } else if (universalBtnId === "btn-speech-a7") {
           if (label) label.innerText = "Click to Dictate Attempt 2 Revision";
-          if (sub) sub.innerText = "Transcribes in real time • Auto-sends on 3.5s pause or click";
+          if (sub) sub.innerText = "Transcribes in real time • Auto-sends on 10s pause or click";
         } else if (universalBtnId === "btn-speech-a6") {
           if (label) label.innerText = "Click to Speak Your Reflection";
-          if (sub) sub.innerText = "Transcribes in real time • Auto-sends on 3.5s pause or click";
+          if (sub) sub.innerText = "Transcribes in real time • Auto-sends on 10s pause or click";
         } else {
           if (label) label.innerText = "Click to Speak Your Answer";
-          if (sub) sub.innerText = "Transcribes in real time • Auto-sends on 3.5s pause or click";
+          if (sub) sub.innerText = "Transcribes in real time • Auto-sends on 10s pause or click";
         }
         btn.classList.remove("recording");
       } else if (universalBtnId === "btn-speech-b") {
@@ -2938,7 +2938,7 @@ async function startSessionB() {
   }
   const heroSub = document.getElementById("hero-mic-sub");
   if (heroSub) {
-    heroSub.innerText = "Transcribes in real time • Auto-sends on 3.5s pause or click";
+    heroSub.innerText = "Transcribes in real time • Auto-sends on 10s pause or click";
   }
   const typedBtn = document.getElementById("btn-b-submit");
   if (typedBtn) {
