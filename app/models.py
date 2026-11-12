@@ -111,8 +111,6 @@ class AttemptComparison(BaseModel):
 
 
 class ConfigUpdateRequest(BaseModel):
-    openrouter_api_key: Optional[str] = None
-    openrouter_model: Optional[str] = "nvidia/nemotron-3.5-super-vl:free"
     gemini_api_key: Optional[str] = None
     voice_speed: Optional[float] = 1.0
     auto_speak: Optional[bool] = True

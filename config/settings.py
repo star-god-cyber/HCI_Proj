@@ -135,14 +135,11 @@ def mask_secret(secret: str) -> str:
 
 def get_config_summary() -> Dict[str, Any]:
     """Returns masked status of current environment configuration suitable for diagnostics."""
-    or_key = get_secret("OPENROUTER_API_KEY")
     gem_key = get_secret("GEMINI_API_KEY")
     return {
-        "openrouter_configured": bool(or_key),
-        "openrouter_key_masked": mask_secret(or_key),
-        "openrouter_model": get_secret("OPENROUTER_MODEL", DEFAULT_OPENROUTER_MODEL),
         "gemini_configured": bool(gem_key),
         "gemini_key_masked": mask_secret(gem_key),
+        "gemini_model": get_secret("GEMINI_MODEL", DEFAULT_GEMINI_MODEL),
         "active_env_file": str(resolve_active_dotenv_path()),
         "env_file_exists": resolve_active_dotenv_path().exists(),
     }

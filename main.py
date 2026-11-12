@@ -494,27 +494,16 @@ def update_dotenv_key(key: str, val: str):
 
 @app.get("/api/config")
 async def get_config():
-    openrouter_key = evaluator.get_openrouter_api_key()
     gemini_key = evaluator.get_gemini_api_key()
-    has_openrouter = bool(openrouter_key)
     has_gemini = bool(gemini_key)
-    mode = "openrouter_nemotron" if has_openrouter else ("gemini_free_tier" if has_gemini else "deterministic_offline")
+    mode = "gemini_primary" if has_gemini else "deterministic_offline"
     return {
-        "openrouter_active": has_openrouter,
-        "openrouter_model": evaluator.openrouter_model,
-        "openrouter_last_status": evaluator.last_openrouter_status,
         "gemini_active": has_gemini,
+        "gemini_model": "gemini-1.5-flash",
         "mode": mode,
         "stt_engine": "web_speech_api",
         "tts_engine": "web_speech_synthesis"
     }
-
-
-@app.get("/api/openrouter/test")
-@app.post("/api/openrouter/test")
-async def test_openrouter_api_endpoint():
-    """Live diagnostic endpoint testing OpenRouter API key validity, daily quota, and chat response."""
-    return await evaluator.test_openrouter_connection()
 
 
 @app.get("/api/gemini/test")
@@ -526,20 +515,6 @@ async def test_gemini_api_endpoint():
 
 @app.post("/api/config")
 async def update_config(req: ConfigUpdateRequest):
-    if req.openrouter_api_key is not None and req.openrouter_api_key.strip():
-        clean_or_key = req.openrouter_api_key.strip()
-        evaluator.openrouter_api_key = clean_or_key
-        os.environ["OPENROUTER_API_KEY"] = clean_or_key
-        update_dotenv_key("OPENROUTER_API_KEY", clean_or_key)
-        print(f"[Config Update] OpenRouter API key updated in memory and .env: {clean_or_key[:7]}...{clean_or_key[-4:]}", flush=True)
-
-    if req.openrouter_model and req.openrouter_model.strip():
-        clean_model = req.openrouter_model.strip()
-        evaluator.openrouter_model = clean_model
-        os.environ["OPENROUTER_MODEL"] = clean_model
-        update_dotenv_key("OPENROUTER_MODEL", clean_model)
-        print(f"[Config Update] OpenRouter Model updated: {clean_model}", flush=True)
-
     if req.gemini_api_key is not None and req.gemini_api_key.strip():
         clean_gem_key = req.gemini_api_key.strip()
         evaluator.gemini_api_key = clean_gem_key
@@ -549,9 +524,6 @@ async def update_config(req: ConfigUpdateRequest):
 
     return {
         "status": "updated",
-        "openrouter_active": bool(evaluator.get_openrouter_api_key()),
-        "openrouter_model": evaluator.openrouter_model,
-        "openrouter_last_status": evaluator.last_openrouter_status,
         "gemini_active": bool(evaluator.get_gemini_api_key())
     }
 

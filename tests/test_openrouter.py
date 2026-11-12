@@ -1,23 +1,22 @@
 import unittest
 import asyncio
-from app.evaluator import InterviewEvaluator, OPENROUTER_MODEL
+from app.evaluator import InterviewEvaluator, GEMINI_MODELS
 from app.data_manager import get_question_bank_for_role
 from starlette.testclient import TestClient
 from main import app
 
 
-class TestOpenRouterIntegration(unittest.TestCase):
+class TestGeminiAndAIConfiguration(unittest.TestCase):
     def setUp(self):
         self.evaluator = InterviewEvaluator()
         self.client = TestClient(app)
 
-    def test_default_model_is_nemotron_free(self):
-        self.assertEqual(OPENROUTER_MODEL, "nvidia/nemotron-3.5-super-vl:free")
-        self.assertEqual(self.evaluator.openrouter_model, "nvidia/nemotron-3.5-super-vl:free")
+    def test_gemini_models_configured(self):
+        self.assertIsInstance(GEMINI_MODELS, list)
+        self.assertIn("gemini-1.5-flash", GEMINI_MODELS)
 
     def test_fallback_custom_questions_when_key_empty(self):
-        # Empty API keys should seamlessly return the curated sample question bank
-        self.evaluator.get_openrouter_api_key = lambda: ""
+        # Empty API keys should seamlessly return curated profile-grounded questions
         self.evaluator.get_gemini_api_key = lambda: ""
         questions = asyncio.run(self.evaluator.generate_custom_interview_questions(
             candidate_name="Test Candidate",
@@ -32,7 +31,6 @@ class TestOpenRouterIntegration(unittest.TestCase):
         self.assertIn("competency", questions[0])
 
     def test_fallback_adaptive_followup_when_key_empty(self):
-        self.evaluator.get_openrouter_api_key = lambda: ""
         self.evaluator.get_gemini_api_key = lambda: ""
         res = asyncio.run(self.evaluator.generate_adaptive_followup_ai(
             previous_question="Tell me about a time you had a conflict with an engineering teammate.",
@@ -45,7 +43,6 @@ class TestOpenRouterIntegration(unittest.TestCase):
         self.assertIn(res.get("source"), ["deterministic_engine", "gemini_1.5_flash", "adaptive_ai_dialogue_engine"])
 
     def test_fallback_evaluate_answer_when_key_empty(self):
-        self.evaluator.get_openrouter_api_key = lambda: ""
         self.evaluator.get_gemini_api_key = lambda: ""
         eval_res = asyncio.run(self.evaluator.evaluate_answer_ai(
             question_text="Tell me about a time you resolved a disagreement.",
@@ -61,46 +58,33 @@ class TestOpenRouterIntegration(unittest.TestCase):
         self.assertIsNotNone(eval_res.adaptive_followup)
         self.assertIn("followup_question", eval_res.adaptive_followup)
 
-    def test_api_config_openrouter_endpoints(self):
+    def test_api_config_gemini_primary_endpoint(self):
         # Test GET /api/config
         get_res = self.client.get("/api/config")
         self.assertEqual(get_res.status_code, 200)
         data = get_res.json()
-        self.assertIn("openrouter_active", data)
-        self.assertIn("openrouter_model", data)
-        self.assertEqual(data["openrouter_model"], "nvidia/nemotron-3.5-super-vl:free")
+        self.assertIn("gemini_active", data)
+        self.assertIn("gemini_model", data)
+        self.assertNotIn("openrouter_model", data)
+        self.assertNotIn("openrouter_active", data)
 
-        # Test in-memory config without mutating real .env file
+        # Test ConfigUpdateRequest accepts gemini_api_key
         from app.models import ConfigUpdateRequest
-        req = ConfigUpdateRequest(openrouter_model="nvidia/nemotron-3.5-super-vl:free")
-        self.assertEqual(req.openrouter_model, "nvidia/nemotron-3.5-super-vl:free")
+        req = ConfigUpdateRequest(gemini_api_key="AIzaSyTestMockKey")
+        self.assertEqual(req.gemini_api_key, "AIzaSyTestMockKey")
 
     def test_dotenv_file_exists_and_loads(self):
-        from app.env_loader import DOTENV_PATH, load_dotenv_file
+        from app.env_loader import DOTENV_PATH
         self.assertTrue(DOTENV_PATH.exists())
         content = DOTENV_PATH.read_text(encoding="utf-8")
-        self.assertIn("OPENROUTER_API_KEY", content)
-        self.assertIn("OPENROUTER_MODEL", content)
-        self.assertIn("nvidia/nemotron-3.5-super-vl:free", content)
-
-    def test_openrouter_diagnostic_endpoint(self):
-        res = self.client.get("/api/openrouter/test")
-        self.assertEqual(res.status_code, 200)
-        data = res.json()
-        self.assertIn("model", data)
-        self.assertIn("api_key_masked", data)
-        self.assertIn("chat_status_code", data)
+        self.assertIn("GEMINI_API_KEY", content)
+        self.assertNotIn("OPENROUTER_API_KEY", content)
 
     def test_gemini_diagnostic_endpoint(self):
         res = self.client.get("/api/gemini/test")
         self.assertEqual(res.status_code, 200)
         data = res.json()
         self.assertTrue("api_key_masked" in data or "status" in data)
-        self.assertTrue(data.get("key_valid", False) or "status" in data)
-
-    def test_gemini_model_configuration(self):
-        from app.evaluator import GEMINI_MODELS
-        self.assertEqual(GEMINI_MODELS, ["gemini-3.5-flash-lite"])
 
 
 if __name__ == "__main__":

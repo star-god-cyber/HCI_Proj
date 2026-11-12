@@ -18,19 +18,14 @@ from app.env_loader import get_env_variable
 
 logger = logging.getLogger(__name__)
 
-GEMINI_MODELS = ["gemini-3.5-flash-lite"]
-DEFAULT_GEMINI_MODEL = "gemini-3.5-flash-lite"
+GEMINI_MODELS = ["gemini-1.5-flash", "gemini-2.0-flash", "gemini-1.5-pro"]
+DEFAULT_GEMINI_MODEL = "gemini-1.5-flash"
 GEMINI_API_URL = f"https://generativelanguage.googleapis.com/v1beta/models/{DEFAULT_GEMINI_MODEL}:generateContent"
-OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
-OPENROUTER_MODEL = "nvidia/nemotron-3.5-super-vl:free"
 
 
 class InterviewEvaluator:
     def __init__(self):
         self.gemini_api_key = os.environ.get("GEMINI_API_KEY", "")
-        self.openrouter_api_key = os.environ.get("OPENROUTER_API_KEY", "")
-        self.openrouter_model = os.environ.get("OPENROUTER_MODEL", OPENROUTER_MODEL)
-        self.last_openrouter_status: Dict[str, Any] = {}
         # Action keywords
         self.action_words = [
             "decided", "implemented", "organized", "scheduled", "analyzed", "researched",
@@ -51,27 +46,8 @@ class InterviewEvaluator:
         ]
 
     def get_openrouter_api_key(self) -> str:
-        """
-        Dynamically retrieves the latest OpenRouter API key from .env / settings.
-        Detects live edits on disk immediately without requiring a server reboot.
-        """
-        env_key = get_env_variable("OPENROUTER_API_KEY", "")
-        # Always prefer dynamically refreshed key from .env unless explicitly overridden
-        key = self.openrouter_api_key or env_key
-        # If the key in .env on disk has changed from previous memory, update in-memory cache
-        if env_key and self.openrouter_api_key != env_key:
-            self.openrouter_api_key = env_key
-            key = env_key
-
-        clean_key = (key or "").strip().strip('"').strip("'")
-        if clean_key.lower().startswith("bearer "):
-            clean_key = clean_key[7:].strip()
-        if clean_key:
-            if clean_key.startswith("v1-"):
-                clean_key = f"sk-or-{clean_key}"
-            elif not clean_key.startswith("sk-"):
-                clean_key = f"sk-or-v1-{clean_key}"
-        return clean_key
+        """Returns empty string as OpenRouter is removed and Gemini is the sole provider."""
+        return ""
 
     def get_gemini_api_key(self) -> str:
         """Dynamically retrieves the latest Gemini API key from .env / settings."""
@@ -539,7 +515,11 @@ class InterviewEvaluator:
         if not contents:
             return None
 
-        candidate_models = ["gemini-3.5-flash-lite"]
+        candidate_models = list(GEMINI_MODELS)
+        if preferred_model and preferred_model not in candidate_models:
+            candidate_models.insert(0, preferred_model)
+        elif preferred_model:
+            candidate_models = [preferred_model] + [m for m in candidate_models if m != preferred_model]
 
         for model_name in candidate_models:
             url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={key}"
@@ -751,190 +731,10 @@ Respond ONLY with a JSON object in this format:
 
         return base_eval
 
-    # =========================================================================
-    # OPENROUTER INTEGRATION: NVIDIA Nemotron 3.5 Super VL (Free)
-    # =========================================================================
 
-    async def call_openrouter(
-        self,
-        messages: List[Dict[str, str]],
-        temperature: float = 0.5,
-        max_tokens: int = 3000
-    ) -> Optional[str]:
-        """
-        Executes a chat completion call to OpenRouter targeting nvidia/nemotron-3.5-super-vl:free.
-        Zero cost free tier reasoning model. Logs real-time request and response telemetry.
-        """
-        api_key = self.get_openrouter_api_key()
-        if not api_key:
-            print("[OpenRouter] No API key configured. Bypassing OpenRouter call.", flush=True)
-            return None
 
-        model_name = (self.openrouter_model or OPENROUTER_MODEL).strip()
-        headers = {
-            "Authorization": f"Bearer {api_key}",
-            "HTTP-Referer": "http://127.0.0.1:8000",
-            "Referer": "http://127.0.0.1:8000",
-            "X-Title": "CS 435 AI Interview Practice",
-            "Content-Type": "application/json"
-        }
-        masked_key = f"{api_key[:7]}...{api_key[-4:]}" if len(api_key) > 11 else "***"
-        # Nemotron 3.5 requires sufficient token budget for reasoning + output
-        token_budget = max(max_tokens, 2800)
-        payload = {
-            "model": model_name,
-            "messages": messages,
-            "temperature": temperature,
-            "max_tokens": token_budget
-        }
 
-        print(f"\n=======================================================", flush=True)
-        print(f"[OpenRouter LIVE REQUEST] >>> POST {OPENROUTER_API_URL}", flush=True)
-        print(f"[OpenRouter LIVE REQUEST] Model: {model_name} | Key: {masked_key}", flush=True)
-        print(f"[OpenRouter LIVE REQUEST] Messages Count: {len(messages)} | Token Budget: {token_budget}", flush=True)
 
-        try:
-            # 60 second timeout with 15s connect for reasoning model completion
-            async with httpx.AsyncClient(timeout=httpx.Timeout(60.0, connect=15.0)) as client:
-                resp = await client.post(OPENROUTER_API_URL, headers=headers, json=payload)
-                gen_id = resp.headers.get("x-generation-id", "none")
-                rl_rem = resp.headers.get("x-ratelimit-remaining", "n/a")
-                rl_lim = resp.headers.get("x-ratelimit-limit", "n/a")
-
-                self.last_openrouter_status = {
-                    "timestamp": datetime.utcnow().isoformat(),
-                    "model": model_name,
-                    "status_code": resp.status_code,
-                    "generation_id": gen_id,
-                    "ratelimit_remaining": rl_rem,
-                    "ratelimit_limit": rl_lim,
-                    "response_snippet": resp.text[:300]
-                }
-
-                print(f"[OpenRouter LIVE RESPONSE] <<< HTTP Status: {resp.status_code}", flush=True)
-                print(f"[OpenRouter LIVE RESPONSE] Generation ID: {gen_id}", flush=True)
-                print(f"[OpenRouter LIVE RESPONSE] Daily Quota Remaining: {rl_rem} / {rl_lim}", flush=True)
-
-                if resp.status_code == 200:
-                    data = resp.json()
-                    choices = data.get("choices", [])
-                    print(f"[OpenRouter LIVE RESPONSE] [SUCCESS] Received completion from {model_name}!", flush=True)
-                    print(f"=======================================================\n", flush=True)
-                    if choices:
-                        msg = choices[0].get("message", {})
-                        content = msg.get("content")
-                        if content and content.strip():
-                            return content.strip()
-                        reasoning = msg.get("reasoning", "")
-                        if reasoning and ("[" in reasoning or "{" in reasoning):
-                            return reasoning.strip()
-                elif resp.status_code == 429:
-                    print(f"[OpenRouter LIVE RESPONSE] [HTTP 429 RATE LIMIT EXCEEDED]", flush=True)
-                    print(f"[OpenRouter LIVE RESPONSE] Error Details: {resp.text}", flush=True)
-                    print(f"[OpenRouter LIVE RESPONSE] CRITICAL NOTE: OpenRouter does NOT create log entries in your dashboard Activity tab when a request is blocked by free-tier daily rate limits (429), because Cloudflare edge rejects the call before model token generation.", flush=True)
-                    print(f"[OpenRouter LIVE RESPONSE] Engaging fallback dialogue synthesis engine.", flush=True)
-                    print(f"=======================================================\n", flush=True)
-                else:
-                    print(f"[OpenRouter LIVE RESPONSE] [HTTP {resp.status_code}] {resp.text[:300]}", flush=True)
-                    print(f"=======================================================\n", flush=True)
-        except Exception as e:
-            self.last_openrouter_status = {
-                "timestamp": datetime.utcnow().isoformat(),
-                "model": model_name,
-                "status_code": 0,
-                "error": str(e)
-            }
-            print(f"[OpenRouter LIVE EXCEPTION] Failed to connect: {e}", flush=True)
-            print(f"=======================================================\n", flush=True)
-
-        return None
-
-    async def test_openrouter_connection(self) -> Dict[str, Any]:
-        """
-        Executes an instant end-to-end diagnostic ping to OpenRouter to inspect API key validity,
-        daily quota limits, and live model responsiveness.
-        """
-        api_key = self.get_openrouter_api_key()
-        if not api_key:
-            return {
-                "success": False,
-                "status": "missing_key",
-                "message": "No OpenRouter API key found in .env or active settings."
-            }
-
-        headers = {
-            "Authorization": f"Bearer {api_key}",
-            "HTTP-Referer": "http://127.0.0.1:8000",
-            "X-Title": "CS 435 AI Interview Practice",
-            "Content-Type": "application/json"
-        }
-        masked_key = f"{api_key[:7]}...{api_key[-4:]}" if len(api_key) > 11 else "***"
-        model_name = (self.openrouter_model or OPENROUTER_MODEL).strip()
-
-        result: Dict[str, Any] = {
-            "api_key_masked": masked_key,
-            "model": model_name,
-            "key_valid": False,
-            "quota_status": None,
-            "chat_status_code": None,
-            "chat_generation_id": None,
-            "chat_response": None,
-            "dashboard_logging_explanation": ""
-        }
-
-        async with httpx.AsyncClient(timeout=15.0) as client:
-            # 1. Inspect key status & quota
-            try:
-                k_resp = await client.get("https://openrouter.ai/api/v1/auth/key", headers=headers)
-                if k_resp.status_code == 200:
-                    k_data = k_resp.json().get("data", {})
-                    result["key_valid"] = True
-                    result["quota_status"] = k_data.get("free_model_daily_requests")
-                    result["credits"] = {
-                        "usage": k_data.get("usage", 0),
-                        "is_free_tier": k_data.get("is_free_tier", True)
-                    }
-            except Exception as e:
-                result["key_error"] = str(e)
-
-            # 2. Live chat test probe
-            try:
-                c_resp = await client.post(
-                    OPENROUTER_API_URL,
-                    headers=headers,
-                    json={
-                        "model": model_name,
-                        "messages": [{"role": "user", "content": "Respond with the single word 'CONNECTED'"}],
-                        "max_tokens": 10
-                    }
-                )
-                result["chat_status_code"] = c_resp.status_code
-                result["chat_generation_id"] = c_resp.headers.get("x-generation-id", "none")
-
-                if c_resp.status_code == 200:
-                    result["success"] = True
-                    result["chat_response"] = c_resp.json()
-                    result["message"] = "✓ OpenRouter call succeeded! A new generation log is now visible in your OpenRouter Activity tab."
-                    result["dashboard_logging_explanation"] = "Because this request returned HTTP 200 OK, OpenRouter logged this run under https://openrouter.ai/activity."
-                elif c_resp.status_code == 429:
-                    result["success"] = False
-                    result["chat_response"] = c_resp.json()
-                    result["message"] = "⚠️ OpenRouter HTTP 429: Rate limit exceeded (50/50 free daily requests used)."
-                    result["dashboard_logging_explanation"] = (
-                        "WHY NO LOGS APPEAR IN OPENROUTER DASHBOARD: OpenRouter's dashboard Activity tab ONLY logs runs where a model was called and tokens were generated (HTTP 200). "
-                        "When your account exceeds the 50 free requests/day limit, Cloudflare rejects the request at the edge gateway before model execution. "
-                        "The call definitely reached OpenRouter (as proven by the Generation ID and 429 response above), but 429s are not stored as completed generations."
-                    )
-                else:
-                    result["success"] = False
-                    result["chat_response"] = c_resp.text
-                    result["message"] = f"OpenRouter returned HTTP {c_resp.status_code}."
-            except Exception as e:
-                result["success"] = False
-                result["chat_exception"] = str(e)
-                result["message"] = f"Connection failed: {e}"
-
-        return result
 
     def _clean_json_output(self, text: str) -> Any:
         """Helper to safely parse JSON from LLM responses even if wrapped in markdown blocks, reasoning text, or containing comments/trailing commas."""
@@ -1012,14 +812,13 @@ Respond ONLY with a JSON object in this format:
         count: int = 3
     ) -> List[Dict[str, Any]]:
         """
-        Generates high-fidelity tailored interview questions using OpenRouter (NVIDIA Nemotron 3.5 Super VL).
+        Generates high-fidelity tailored interview questions using Google Gemini.
         Falls back seamlessly to curated sample questions when offline or key is absent.
         """
-        api_key = self.get_openrouter_api_key()
         gemini_key = self.get_gemini_api_key()
         fallback_questions = get_question_bank_for_role(job_role)
 
-        if not api_key and not (gemini_key and not gemini_key.startswith("test_mock") and len(gemini_key) > 10):
+        if not (gemini_key and not gemini_key.startswith("test_mock") and len(gemini_key) > 10):
             logger.info("No AI API key configured; using curated fallback question bank.")
             return fallback_questions
 
@@ -1064,49 +863,7 @@ Respond ONLY with a valid JSON array of {count} question objects in this exact f
             {"role": "user", "content": user_prompt}
         ]
 
-        try:
-            content = await self.call_openrouter(messages, temperature=0.4, max_tokens=3000)
-            if content:
-                parsed = self._clean_json_output(content)
-                # If wrapped in a dict like {"questions": [...]} or {"data": [...]}
-                if isinstance(parsed, dict):
-                    for key in ["questions", "interview_questions", "question_list", "items", "data"]:
-                        if key in parsed and isinstance(parsed[key], list):
-                            parsed = parsed[key]
-                            break
-
-                if isinstance(parsed, list) and len(parsed) > 0:
-                    sanitized = []
-                    for i, q in enumerate(parsed[:count], start=1):
-                        if isinstance(q, str):
-                            sanitized.append({
-                                "id": i,
-                                "text": q.strip(),
-                                "category": interview_type,
-                                "difficulty": difficulty,
-                                "competency": "Core Competency",
-                                "ideal_structure": "STAR Method (Situation, Task, Action, Result)",
-                                "key_lookouts": ["Specific actions taken", "Measurable outcome"],
-                                "source": "openrouter_nemotron"
-                            })
-                        elif isinstance(q, dict):
-                            sanitized.append({
-                                "id": i,
-                                "text": q.get("text") or q.get("question") or f"Tell me about your experience as a {job_role}.",
-                                "category": q.get("category", interview_type),
-                                "difficulty": q.get("difficulty", difficulty),
-                                "competency": q.get("competency", "Core Competencies"),
-                                "ideal_structure": q.get("ideal_structure", "STAR Method (Situation, Task, Action, Result)"),
-                                "key_lookouts": q.get("key_lookouts", ["Specific actions", "Measurable outcomes"]),
-                                "source": "openrouter_nemotron"
-                            })
-                    if sanitized:
-                        logger.info(f"Generated {len(sanitized)} custom questions via OpenRouter ({self.openrouter_model}).")
-                        return sanitized
-        except Exception as e:
-            logger.warning(f"Failed to generate custom questions via OpenRouter: {e}")
-
-        # Try Google Gemini if key is configured
+        # Try Google Gemini (Primary AI Provider)
         gemini_key = self.get_gemini_api_key()
         if gemini_key and not gemini_key.startswith("test_mock") and len(gemini_key) > 10:
             try:
@@ -1477,82 +1234,18 @@ Respond ONLY with a valid JSON array of {count} question objects in this exact f
         """
         Generates an adaptive follow-up probing question.
         Priority:
-        1. OpenRouter (NVIDIA Nemotron 3.5 Super VL)
-        2. Gemini 1.5 Flash (if key present)
-        3. Deterministic local follow-up engine
+        1. Google Gemini (if key present)
+        2. Deterministic local follow-up engine
         """
-        api_key = self.get_openrouter_api_key()
-        if api_key:
-            cand_profile_str = f"Candidate: {candidate_name}, Target Role: {job_role}"
-            if target_company:
-                cand_profile_str += f", Target Company: {target_company}"
-            if experience_level:
-                cand_profile_str += f", Seniority: {experience_level}"
-            if cv_text:
-                cand_profile_str += f"\nCandidate Resume Highlights: {cv_text.strip()[:400]}"
-            if job_description:
-                cand_profile_str += f"\nTarget Job Context: {job_description.strip()[:300]}"
-
-            company_ref = f" at {target_company}" if target_company else ""
-            system_prompt = (
-                f"You are Dr. Marcus Vance, a warm, seasoned, and highly perceptive senior hiring evaluator{company_ref} "
-                f"interviewing {candidate_name} for the position of '{job_role}'. "
-                "You conduct an authentic, natural human conversation. You actively listen to the candidate's exact words, "
-                "acknowledge their points like a real human leader, and naturally probe their decision-making. "
-                "You NEVER sound like an AI, a generic rubric checklist, or a cold mechanical exam interrogation."
-            )
-            user_prompt = f"""Candidate Profile:
-{cand_profile_str}
-
-The interview question you previously asked {candidate_name} was:
-"{previous_question}"
-
-{candidate_name} just answered you with this spoken response:
-"{user_answer}"
-
-Generate your natural, in-the-moment spoken conversational follow-up response.
-Strict guidelines for an authentic, human conversation:
-1. Open with a brief, warm, authentic conversational acknowledgment referencing a specific detail or dilemma they actually stated (e.g. 'That is a classic dilemma between velocity and stability, {candidate_name}.', 'Makes total sense why that would be a contentious issue with the engineering lead.').
-2. Seamlessly transition into an insightful, natural follow-up question probing how they reached alignment, what benchmarks or prototypes they leveraged, or the actual measured outcome.
-3. Keep the total response spoken, conversational, and punchy (1 to 2 spoken sentences total).
-4. Do NOT use unescaped double quotes inside strings. Use single quotes for any internal terms.
-
-Respond ONLY with a JSON object in this exact format:
-{{
-  "followup_question": "Your spoken conversational acknowledgment and follow-up question here...",
-  "reasoning": "1-sentence note explaining why you probed this angle."
-}}
-"""
-            messages = [
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt}
-            ]
-            try:
-                content = await self.call_openrouter(messages, temperature=0.6, max_tokens=2000)
-                if content:
-                    parsed = self._clean_json_output(content)
-                    if isinstance(parsed, dict):
-                        fq = parsed.get("followup_question") or parsed.get("question") or parsed.get("followup")
-                        reason = parsed.get("reasoning") or parsed.get("reason") or "Probing situational depth."
-                        if fq:
-                            return {
-                                "followup_question": str(fq).strip(),
-                                "reasoning": str(reason).strip(),
-                                "source": "openrouter_nemotron"
-                            }
-                    elif isinstance(parsed, str) and len(parsed.strip()) > 10:
-                        return {
-                            "followup_question": parsed.strip(),
-                            "reasoning": "Contextual probing on candidate response.",
-                            "source": "openrouter_nemotron"
-                        }
-            except Exception as e:
-                logger.warning(f"OpenRouter follow-up failed, falling back: {e}")
-
-        # Fallback to Gemini if configured
+        # Priority 1: Google Gemini (Sole AI Provider)
         gemini_key = self.get_gemini_api_key()
-        if gemini_key:
-            return await self.generate_adaptive_followup_gemini(previous_question, user_answer, job_role, api_key=gemini_key)
+        if gemini_key and not gemini_key.startswith("test_mock") and len(gemini_key) > 10:
+            try:
+                gem_followup = await self.generate_adaptive_followup_gemini(previous_question, user_answer, job_role, api_key=gemini_key)
+                if gem_followup:
+                    return gem_followup
+            except Exception as e:
+                logger.warning(f"Gemini follow-up generation failed, engaging local engine: {e}")
 
         # Fallback to adaptive semantic AI dialogue engine
         return self._synthesize_adaptive_followup(
@@ -1740,10 +1433,7 @@ Every time you respond:
                 "source": "adaptive_ai_dialogue_engine"
             }
 
-        # Determine AI provider priority
-        openrouter_key = self.get_openrouter_api_key()
         gemini_key = self.get_gemini_api_key()
-        is_openrouter_dummy = not openrouter_key or "testkey" in openrouter_key.lower()
         has_gemini = bool(gemini_key and not gemini_key.startswith("test_mock") and len(gemini_key) > 10)
 
         # Build official interview messages payload
@@ -1771,24 +1461,7 @@ Every time you respond:
         if not messages or messages[-1].get("content") != clean_user_msg:
             messages.append({"role": "user", "content": clean_user_msg})
 
-        # Tier 1: Try OpenRouter (NVIDIA Nemotron 3.5 Super VL) as primary provider
-        if openrouter_key and not is_openrouter_dummy:
-            try:
-                content = await self.call_openrouter(messages, temperature=0.65, max_tokens=1500)
-                if content and len(content.strip()) > 15:
-                    clean_reply = self._clean_llm_reply(content)
-                    return {
-                        "interviewer_message": clean_reply,
-                        "followup_question": clean_reply,
-                        "reasoning": f"Stage {turn_index + 1} official Nemotron 3.5 live probe.",
-                        "turn_index": turn_index + 1,
-                        "is_concluded": (turn_index >= max_turns or "conclude" in clean_reply.lower() or "evaluation" in clean_reply.lower()),
-                        "source": "openrouter_nemotron"
-                    }
-            except Exception as e:
-                logger.warning(f"OpenRouter official turn failed, attempting secondary provider (Google Gemini 3.5 Flash-Lite): {e}")
-
-        # Tier 2: Try Google Gemini (gemini-3.5-flash-lite) as second option after Nemotron
+        # Tier 1: Try Google Gemini as sole primary AI provider
         if has_gemini:
             try:
                 gemini_content = await self.call_gemini_turn(messages, temperature=0.65)
@@ -1797,16 +1470,16 @@ Every time you respond:
                     return {
                         "interviewer_message": clean_reply,
                         "followup_question": clean_reply,
-                        "reasoning": f"Stage {turn_index + 1} official Google Gemini 3.5 Flash-Lite live probe.",
+                        "reasoning": f"Stage {turn_index + 1} official Google Gemini live probe.",
                         "turn_index": turn_index + 1,
                         "is_concluded": (turn_index >= max_turns or "conclude" in clean_reply.lower() or "evaluation" in clean_reply.lower()),
-                        "source": "gemini_3.5_flash_lite"
+                        "source": "gemini"
                     }
             except Exception as e:
                 logger.warning(f"Gemini official turn failed, engaging semantic dialogue engine: {e}")
 
-        # Tier 3: Adaptive Semantic Dialogue Engine (High-Fidelity Context-Aware NLP)
-        turn_res = self._synthesize_semantic_interview_turn(
+        # Tier 2: Adaptive Semantic Dialogue Engine (High-Fidelity Context-Aware NLP Offline Fallback)
+        return self._synthesize_semantic_interview_turn(
             conversation_history=conversation_history,
             user_message=user_message,
             candidate_name=candidate_name,
@@ -1821,8 +1494,6 @@ Every time you respond:
             cv_text=cv_text,
             job_description=job_description
         )
-        turn_res["openrouter_status"] = self.last_openrouter_status
-        return turn_res
 
     def _clean_llm_reply(self, text: str) -> str:
         """Helper to extract clean dialogue from LLM replies, stripping markdown fences or nested JSON."""
@@ -2315,9 +1986,8 @@ Every time you respond:
         """
         Evaluates a candidate's answer against the STAR rubric.
         Priority:
-        1. OpenRouter (NVIDIA Nemotron 3.5 Super VL)
-        2. Gemini 1.5 Flash
-        3. Deterministic STAR Rubric Evaluator
+        1. Google Gemini
+        2. Deterministic STAR Rubric Evaluator
         """
         base_eval = self.evaluate_answer(question_text, answer_text, job_role, attempt_number)
         if len(answer_text.strip().split()) < 15:
@@ -2333,98 +2003,22 @@ Every time you respond:
                 pass
             return base_eval
 
-        openrouter_success = False
-        api_key = self.get_openrouter_api_key()
-        if api_key:
-            cand_profile_str = f"Candidate: {candidate_name}, Role: {job_role}"
-            if target_company:
-                cand_profile_str += f", Target Company: {target_company}"
-            if experience_level:
-                cand_profile_str += f", Level: {experience_level}"
-            if cv_text:
-                cand_profile_str += f"\nResume context: {cv_text[:300]}"
-
-            system_prompt = (
-                f"You are a master interview coach and evaluator reviewing answers for the role: '{job_role}'. "
-                f"Tailor feedback to the candidate's target company and seniority expectations."
-            )
-            user_prompt = f"""Candidate Profile:
-{cand_profile_str}
-
-Question asked:
-"{question_text}"
-
-Candidate's spoken answer:
-"{answer_text}"
-
-Baseline automated rubric scores:
-- Relevance: {base_eval.relevance.score}/10
-- Specificity: {base_eval.specificity.score}/10
-- Evidence & Outcome: {base_eval.evidence_outcome.score}/10
-- Structure & Clarity: {base_eval.structure_clarity.score}/10
-
-Please provide expert, constructive evaluation in JSON format:
-1. 2 distinct strengths
-2. 2 distinct areas for improvement
-3. 1 concrete actionable recommendation following the STAR method
-4. An improved model response demonstrating how to include measurable outcomes and concrete details tailored to this profile.
-
-Respond ONLY with a JSON object in this format:
-{{
-  "strengths": ["...", "..."],
-  "needs_improvement": ["...", "..."],
-  "actionable_suggestions": ["..."],
-  "example_improved_answer": "..."
-}}
-"""
-            messages = [
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt}
-            ]
+        gemini_key = self.get_gemini_api_key()
+        if gemini_key:
             try:
-                content = await self.call_openrouter(messages, temperature=0.5, max_tokens=2500)
-                if content:
-                    parsed = self._clean_json_output(content)
-                    if isinstance(parsed, dict):
-                        strengths = parsed.get("strengths") or []
-                        if isinstance(strengths, list) and strengths:
-                            base_eval.strengths = [str(s) for s in strengths]
-
-                        needs_imp = parsed.get("needs_improvement") or parsed.get("areas_for_improvement") or []
-                        if isinstance(needs_imp, list) and needs_imp:
-                            base_eval.needs_improvement = [str(n) for n in needs_imp]
-
-                        actionable = parsed.get("actionable_suggestions") or parsed.get("recommendations") or []
-                        if isinstance(actionable, list) and actionable:
-                            base_eval.actionable_suggestions = [str(a) for a in actionable]
-
-                        improved = parsed.get("example_improved_answer") or parsed.get("improved_answer") or parsed.get("sample_answer")
-                        if improved:
-                            base_eval.example_improved_answer = str(improved)
-
-                        base_eval.why_feedback_summary["evaluator_engine"] = "openrouter_nemotron"
-                        openrouter_success = True
+                base_eval = await self.evaluate_answer_gemini(
+                    question_text,
+                    answer_text,
+                    job_role,
+                    attempt_number,
+                    api_key=gemini_key,
+                    candidate_name=candidate_name,
+                    target_company=target_company,
+                    experience_level=experience_level,
+                    cv_text=cv_text
+                )
             except Exception as e:
-                logger.warning(f"OpenRouter answer evaluation failed, falling back: {e}")
-
-        # Fallback to Gemini if OpenRouter did not evaluate
-        if not openrouter_success:
-            gemini_key = self.get_gemini_api_key()
-            if gemini_key:
-                try:
-                    base_eval = await self.evaluate_answer_gemini(
-                        question_text,
-                        answer_text,
-                        job_role,
-                        attempt_number,
-                        api_key=gemini_key,
-                        candidate_name=candidate_name,
-                        target_company=target_company,
-                        experience_level=experience_level,
-                        cv_text=cv_text
-                    )
-                except Exception as e:
-                    logger.warning(f"Gemini answer evaluation failed, retaining deterministic base: {e}")
+                logger.warning(f"Gemini answer evaluation failed, retaining deterministic base: {e}")
 
         # Always attach contextually grounded adaptive AI follow-up probe for next round / revision
         try:
@@ -3058,12 +2652,10 @@ Respond ONLY with a JSON object in this format:
             job_description=job_description
         )
 
-        openrouter_key = self.get_openrouter_api_key()
         gemini_key = self.get_gemini_api_key()
-        is_openrouter_dummy = not openrouter_key or "testkey" in openrouter_key.lower()
         has_gemini = bool(gemini_key and not gemini_key.startswith("test_mock") and len(gemini_key) > 10)
 
-        if not openrouter_key and not has_gemini:
+        if not has_gemini:
             return base_eval
 
         # Build prompt for AI Committee Evaluation
@@ -3157,60 +2749,7 @@ Return a valid JSON object with EXACTLY this structure:
             {"role": "user", "content": user_prompt}
         ]
 
-        # Tier 1 AI: Try OpenRouter (NVIDIA Nemotron 3.5 Super VL)
-        if openrouter_key and not is_openrouter_dummy:
-            try:
-                content = await self.call_openrouter(messages, temperature=0.3, max_tokens=3200)
-                if content:
-                    parsed = self._clean_json_output(content)
-                    if isinstance(parsed, dict) and "overall_score" in parsed and "competency_matrix" in parsed:
-                        parsed["evaluator_engine"] = "openrouter_nemotron"
-                        parsed["ambiguity_detected"] = base_eval.get("ambiguity_detected", False)
-                        parsed["ambiguity_notice"] = base_eval.get("ambiguity_notice")
-                        if base_eval.get("ambiguity_detected"):
-                            parsed["confidence_rating"] = base_eval["confidence_rating"]
-                            if len(turns) <= 2:
-                                parsed["hiring_recommendation"] = base_eval["hiring_recommendation"]
-                                parsed["recommendation_summary"] = base_eval["recommendation_summary"]
-
-                        # Validate and enrich turn_evaluations
-                        if "turn_evaluations" not in parsed or not parsed["turn_evaluations"]:
-                            parsed["turn_evaluations"] = base_eval["turn_evaluations"]
-                        if "job_description_alignment" not in parsed or not parsed["job_description_alignment"]:
-                            parsed["job_description_alignment"] = base_eval["job_description_alignment"]
-
-                        # Enrich competency_matrix with definitions and rubric anchors
-                        comp_by_id = {c["id"]: c for c in competencies}
-                        comp_by_name = {c["name"].lower(): c for c in competencies}
-                        
-                        enriched_matrix = []
-                        existing_ids = set()
-                        for item in parsed.get("competency_matrix", []):
-                            c_id = item.get("id") or ""
-                            c_name = item.get("name") or ""
-                            match = comp_by_id.get(c_id) or comp_by_name.get(c_name.lower())
-                            if match:
-                                existing_ids.add(match["id"])
-                                item["id"] = match["id"]
-                                item["definition"] = match.get("definition", match["focus"])
-                                item["high_anchor"] = match.get("high_anchor", "")
-                                item["mid_anchor"] = match.get("mid_anchor", "")
-                                item["low_anchor"] = match.get("low_anchor", "")
-                                item["focus"] = match.get("focus", "")
-                                if "weight" not in item or not item["weight"]:
-                                    item["weight"] = match.get("weight", 0.2)
-                            enriched_matrix.append(item)
-                        
-                        for base_c in base_eval.get("competency_matrix", []):
-                            if base_c.get("id") not in existing_ids and not any(base_c.get("name", "").lower() in item.get("name", "").lower() for item in enriched_matrix):
-                                enriched_matrix.append(base_c)
-                        
-                        parsed["competency_matrix"] = enriched_matrix
-                        return parsed
-            except Exception as e:
-                logger.warning(f"Nemotron simulation evaluation failed, attempting secondary provider: {e}")
-
-        # Tier 2 AI: Try Google Gemini (gemini-3.5-flash)
+        # Primary AI Provider: Google Gemini
         if has_gemini:
             try:
                 print(f"[Gemini Simulation Evaluation] Engaging Google Gemini for official hiring committee evaluation...", flush=True)
