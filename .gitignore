@@ -69,9 +69,6 @@ app/*.db
 app/interview_practice.db
 interview_practice.db
 
-# --- Offline Speech Models & Big Assets ---
-vosk_model/
-vosk-model*/
 
 # --- Python Bytecode & Compilation Artifacts ---
 __pycache__/
