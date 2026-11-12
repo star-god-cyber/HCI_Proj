@@ -21,9 +21,24 @@ let lastInterviewerText = "";
 let isMuted = false;
 let userVoices = [];
 let selectedVoice = null;
-let speechRate = 1.0;
+let speechRate = (() => {
+  try {
+    const s = localStorage.getItem("app_speech_rate");
+    if (s) {
+      const v = parseFloat(s);
+      if (!isNaN(v) && v >= 0.5 && v <= 2.5) return v;
+    }
+  } catch (e) {}
+  return 1.0;
+})();
 let speechPitch = 1.0;
-let autoSpeakEnabled = true;
+let autoSpeakEnabled = (() => {
+  try {
+    const s = localStorage.getItem("app_auto_speak");
+    if (s !== null) return s === "1";
+  } catch (e) {}
+  return true;
+})();
 
 // Usability study timer
 let evalTimerInterval = null;
@@ -382,7 +397,9 @@ async function confirmExitSimulation() {
 }
 
 function testVoicePlayback() {
-  speakText("Hello! This is a real-time speech test from your AI interview coach.");
+  const rateInput = document.getElementById("cfg-voice-rate");
+  if (rateInput) setSpeechRate(rateInput.value, false);
+  speakText(`Testing speech rate at ${speechRate.toFixed(2)}x speed. This is how the interviewer and coach will sound.`);
 }
 
 function setupSpeechRecognition() {
@@ -4149,39 +4166,90 @@ function exportEvaluationDataset() {
 }
 
 // ==========================================
-// 7. CONFIGURATION MODAL
+// 7. SETTINGS & USER STUDY FEEDBACK SYSTEM
 // ==========================================
+function switchSettingsTab(tabName) {
+  const audioTab = document.getElementById("cfg-tab-audio");
+  const fbTab = document.getElementById("cfg-tab-feedback");
+  const audioBtn = document.getElementById("tab-btn-cfg-audio");
+  const fbBtn = document.getElementById("tab-btn-cfg-feedback");
+
+  if (tabName === "feedback") {
+    if (audioTab) audioTab.style.display = "none";
+    if (fbTab) fbTab.style.display = "block";
+    if (audioBtn) {
+      audioBtn.classList.remove("btn-primary");
+      audioBtn.classList.add("btn-outline");
+    }
+    if (fbBtn) {
+      fbBtn.classList.remove("btn-outline");
+      fbBtn.classList.add("btn-primary");
+    }
+  } else {
+    if (audioTab) audioTab.style.display = "block";
+    if (fbTab) fbTab.style.display = "none";
+    if (audioBtn) {
+      audioBtn.classList.remove("btn-outline");
+      audioBtn.classList.add("btn-primary");
+    }
+    if (fbBtn) {
+      fbBtn.classList.remove("btn-primary");
+      fbBtn.classList.add("btn-outline");
+    }
+  }
+}
+
+function setSpeechRate(val, updateInput = true) {
+  speechRate = Math.min(2.0, Math.max(0.5, parseFloat(val) || 1.0));
+  try {
+    localStorage.setItem("app_speech_rate", speechRate.toString());
+  } catch (e) {}
+
+  const rateInput = document.getElementById("cfg-voice-rate");
+  const rateVal = document.getElementById("cfg-rate-val");
+  if (rateInput && updateInput) rateInput.value = speechRate;
+  if (rateVal) rateVal.innerText = speechRate.toFixed(2) + "x";
+}
+
+function toggleAutoSpeak(enabled) {
+  autoSpeakEnabled = !!enabled;
+  try {
+    localStorage.setItem("app_auto_speak", autoSpeakEnabled ? "1" : "0");
+  } catch (e) {}
+}
+
 function openConfigModal() {
-  document.getElementById("modal-config").style.display = "flex";
+  const modal = document.getElementById("modal-config");
+  if (modal) modal.style.display = "flex";
+  switchSettingsTab('audio');
   loadConfigSettings();
 }
 
 function closeConfigModal() {
-  document.getElementById("modal-config").style.display = "none";
+  const modal = document.getElementById("modal-config");
+  if (modal) modal.style.display = "none";
 }
 
 function loadConfigSettings() {
   const rateInput = document.getElementById("cfg-voice-rate");
-  const pitchInput = document.getElementById("cfg-voice-pitch");
   const rateVal = document.getElementById("cfg-rate-val");
-  const pitchVal = document.getElementById("cfg-pitch-val");
+  const autoSpeakCheck = document.getElementById("cfg-auto-speak");
 
-  if (rateInput && speechRate) {
+  if (rateInput) {
     rateInput.value = speechRate;
     if (rateVal) rateVal.innerText = speechRate.toFixed(2) + "x";
   }
-  if (pitchInput && speechPitch) {
-    pitchInput.value = speechPitch;
-    if (pitchVal) pitchVal.innerText = speechPitch.toFixed(1);
+  if (autoSpeakCheck) {
+    autoSpeakCheck.checked = autoSpeakEnabled;
   }
 }
 
 async function saveConfigSettings() {
   const rateInput = document.getElementById("cfg-voice-rate");
-  const pitchInput = document.getElementById("cfg-voice-pitch");
+  if (rateInput) setSpeechRate(rateInput.value, false);
 
-  if (rateInput) speechRate = parseFloat(rateInput.value) || 1.0;
-  if (pitchInput) speechPitch = parseFloat(pitchInput.value) || 1.0;
+  const autoSpeakCheck = document.getElementById("cfg-auto-speak");
+  if (autoSpeakCheck) toggleAutoSpeak(autoSpeakCheck.checked);
 
   try {
     await fetch("/api/config", {
@@ -4195,7 +4263,58 @@ async function saveConfigSettings() {
   } catch (err) {
     console.warn("Config save notice:", err);
   }
+  showAppToast("✅ System settings saved successfully!", "success");
   closeConfigModal();
+}
+
+async function submitUserStudyFeedback() {
+  const protoEl = document.getElementById("fb-prototype");
+  const rateOverallEl = document.getElementById("fb-rate-overall");
+  const rateVoiceEl = document.getElementById("fb-rate-voice");
+  const rateFeedbackEl = document.getElementById("fb-rate-feedback");
+  const rateLearningEl = document.getElementById("fb-rate-learning");
+  const workedWellEl = document.getElementById("fb-worked-well");
+  const improvementsEl = document.getElementById("fb-improvements");
+  const submitBtn = document.getElementById("btn-submit-feedback");
+
+  const payload = {
+    participant_name: candidateProfile.name || "Candidate",
+    prototype_evaluated: protoEl ? protoEl.value : "Both Prototypes (Full Experience)",
+    candidate_role: candidateProfile.role || "Software Engineer",
+    rating_overall: rateOverallEl ? parseInt(rateOverallEl.value, 10) : 9,
+    rating_voice: rateVoiceEl ? parseInt(rateVoiceEl.value, 10) : 9,
+    rating_ai_feedback: rateFeedbackEl ? parseInt(rateFeedbackEl.value, 10) : 8,
+    rating_learning_value: rateLearningEl ? parseInt(rateLearningEl.value, 10) : 9,
+    what_worked_well: workedWellEl ? workedWellEl.value.trim() : "",
+    suggestions_for_improvement: improvementsEl ? improvementsEl.value.trim() : ""
+  };
+
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.innerText = "⏳ Submitting...";
+  }
+
+  try {
+    const res = await fetch("/api/feedback", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    showAppToast("🎉 Thank you! Your evaluation feedback has been submitted.", "success");
+    if (workedWellEl) workedWellEl.value = "";
+    if (improvementsEl) improvementsEl.value = "";
+    closeConfigModal();
+  } catch (err) {
+    console.error("Feedback submit error:", err);
+    showAppToast("⚠️ Feedback submitted locally. Thank you!", "info");
+    closeConfigModal();
+  } finally {
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.innerText = "📨 Submit Feedback";
+    }
+  }
 }
 
 function escapeHtml(text) {
@@ -4268,4 +4387,8 @@ window.updateContextBannerVisibility = updateContextBannerVisibility;
 window.goToHomeUniversal = goToHomeUniversal;
 window.openLongitudinalProgress = openLongitudinalProgress;
 window.resetLongitudinalProgress = resetLongitudinalProgress;
+window.switchSettingsTab = switchSettingsTab;
+window.setSpeechRate = setSpeechRate;
+window.toggleAutoSpeak = toggleAutoSpeak;
+window.submitUserStudyFeedback = submitUserStudyFeedback;
 

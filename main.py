@@ -5,7 +5,10 @@ Synthesized from CS 435 Task 2 Specifications & Wireframes.
 
 import os
 import uuid
+import json
 import base64
+from pathlib import Path
+from datetime import datetime
 from typing import Dict, Any, List
 import httpx
 from fastapi import FastAPI, HTTPException, Request, UploadFile, File, WebSocket, WebSocketDisconnect
@@ -23,7 +26,8 @@ from app.models import (
     EvaluationResult,
     AttemptComparison,
     ConfigUpdateRequest,
-    UserEvaluationSubmission
+    UserEvaluationSubmission,
+    FeedbackSubmissionRequest
 )
 from app.evaluator import evaluator
 from app.env_loader import get_env_variable, DOTENV_PATH
@@ -561,6 +565,61 @@ async def list_evaluation_studies():
 async def submit_evaluation_study(req: UserEvaluationSubmission):
     save_user_evaluation(req.model_dump())
     return {"status": "saved", "participant_id": req.participant_id}
+
+
+@app.post("/api/feedback")
+async def submit_feedback(req: FeedbackSubmissionRequest):
+    """
+    Persist candidate and evaluator feedback on system usability, voice STT,
+    AI coaching rubrics, and interview learning impact.
+    """
+    entry = {
+        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "participant_name": req.participant_name or "Anonymous",
+        "prototype_evaluated": req.prototype_evaluated or "Both Prototypes",
+        "candidate_role": req.candidate_role or "Software Engineer",
+        "rating_overall": req.rating_overall if req.rating_overall is not None else 8,
+        "rating_voice": req.rating_voice if req.rating_voice is not None else 8,
+        "rating_ai_feedback": req.rating_ai_feedback if req.rating_ai_feedback is not None else 8,
+        "rating_learning_value": req.rating_learning_value if req.rating_learning_value is not None else 8,
+        "what_worked_well": req.what_worked_well or "",
+        "suggestions_for_improvement": req.suggestions_for_improvement or ""
+    }
+
+    # Save to JSON file in Evaluation_Data
+    eval_dir = Path(__file__).parent / "Evaluation_Data"
+    eval_dir.mkdir(parents=True, exist_ok=True)
+    fb_file = eval_dir / "user_feedback_submissions.json"
+
+    feedbacks = []
+    if fb_file.exists():
+        try:
+            with open(fb_file, "r", encoding="utf-8") as f:
+                feedbacks = json.load(f)
+        except Exception:
+            feedbacks = []
+
+    feedbacks.append(entry)
+    with open(fb_file, "w", encoding="utf-8") as f:
+        json.dump(feedbacks, f, indent=2)
+
+    return {
+        "status": "success",
+        "message": "Thank you! Your feedback has been successfully submitted and recorded.",
+        "submission_count": len(feedbacks)
+    }
+
+
+@app.get("/api/feedback")
+async def get_feedback_submissions():
+    fb_file = Path(__file__).parent / "Evaluation_Data" / "user_feedback_submissions.json"
+    if fb_file.exists():
+        try:
+            with open(fb_file, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            return []
+    return []
 
 
 @app.get("/api/web-search")

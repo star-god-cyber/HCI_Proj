@@ -316,6 +316,31 @@ class TestAPIEndpoints(unittest.TestCase):
         from app.database import init_db
         init_db()
 
+    def test_user_study_feedback_submission(self):
+        feedback_payload = {
+            "participant_name": "Test User P05",
+            "prototype_evaluated": "Both Prototypes (Full Experience)",
+            "candidate_role": "Staff Distributed Systems Engineer",
+            "rating_overall": 9,
+            "rating_voice": 10,
+            "rating_ai_feedback": 9,
+            "rating_learning_value": 9,
+            "what_worked_well": "Real-time speech-to-text transcript was fast and accurate. Speed slider works great.",
+            "suggestions_for_improvement": "Add more question domains."
+        }
+        res = self.client.post("/api/feedback", json=feedback_payload)
+        self.assertEqual(res.status_code, 200)
+        data = res.json()
+        self.assertEqual(data["status"], "success")
+        self.assertIn("submission_count", data)
+
+        # Verify retrieval via GET /api/feedback
+        get_res = self.client.get("/api/feedback")
+        self.assertEqual(get_res.status_code, 200)
+        items = get_res.json()
+        self.assertIsInstance(items, list)
+        self.assertTrue(any(item.get("participant_name") == "Test User P05" for item in items))
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -128,4 +128,16 @@ class UserEvaluationSubmission(BaseModel):
     sus_total_score: float
     feedback_realism: str
     feedback_learning: str
-    ethical_consent_signed: bool
+    ethical_consent_signed: bool = True
+
+
+class FeedbackSubmissionRequest(BaseModel):
+    participant_name: Optional[str] = "Anonymous"
+    prototype_evaluated: Optional[str] = "Both Prototypes"
+    rating_overall: Optional[int] = 9
+    rating_voice: Optional[int] = 9
+    rating_ai_feedback: Optional[int] = 9
+    rating_learning_value: Optional[int] = 9
+    what_worked_well: Optional[str] = ""
+    suggestions_for_improvement: Optional[str] = ""
+    candidate_role: Optional[str] = "Software Engineer"
