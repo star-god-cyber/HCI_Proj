@@ -220,7 +220,13 @@ function setAvatarSpeaking(isSpeaking) {
   const b3Equalizer = document.getElementById("b3-equalizer");
   const b3Status = document.getElementById("b3-voice-status");
 
-  if (avatarWrapper) avatarWrapper.classList.toggle("speaking", isSpeaking);
+  if (avatarWrapper) {
+    avatarWrapper.classList.toggle("speaking", isSpeaking);
+    if (isSpeaking) {
+      avatarWrapper.classList.remove("listening");
+      avatarWrapper.classList.remove("thinking");
+    }
+  }
   if (b3Equalizer) b3Equalizer.classList.toggle("active", isSpeaking);
   if (b3Status) {
     if (isSpeaking) {
@@ -567,9 +573,19 @@ async function toggleVoiceInputUniversal(textareaId, btnId, panelId, statusId, m
   const status = document.getElementById(statusId);
   const preview = document.getElementById(previewId);
 
-  // If already recording, stop & finalize!
+  // If already recording, stop recording AND simultaneously submit to the interviewer!
   if (isUniversalRecording) {
+    const targetId = textareaId;
     await stopUniversalRecordingAndTranscribe();
+    if (targetId === "b-answer") {
+      submitSimulationAnswer();
+    } else if (targetId === "a-answer") {
+      submitAnswerA(1);
+    } else if (targetId === "a-change") {
+      saveReflectionA();
+    } else if (targetId === "a-retry-answer") {
+      submitAnswerA(2);
+    }
     return;
   }
 
@@ -593,7 +609,23 @@ async function toggleVoiceInputUniversal(textareaId, btnId, panelId, statusId, m
   universalPCMChunks = [];
   isUniversalRecording = true;
 
-  // 1. Update UI IMMEDIATELY so button is visibly functional
+  // Set avatar to active listening state
+  const b3Avatar = document.getElementById("b3-avatar-wrapper");
+  if (b3Avatar) {
+    b3Avatar.classList.add("listening");
+    b3Avatar.classList.remove("speaking");
+    b3Avatar.classList.remove("thinking");
+  }
+  ["a3", "a4", "a6", "a7", "a8"].forEach(prefix => {
+    const av = document.getElementById(`${prefix}-avatar-wrapper`);
+    if (av) {
+      av.classList.add("listening");
+      av.classList.remove("speaking");
+      av.classList.remove("thinking");
+    }
+  });
+
+  // 1. Update UI IMMEDIATELY so button is visibly functional as a single stop & send action
   if (btn) {
     if (btn.classList.contains("hero-mic-btn") || btnId === "hero-mic-b" || btnId === "btn-speech-a" || btnId === "btn-speech-a7" || btnId === "btn-speech-a6") {
       const glyph = btn.querySelector(".mic-glyph") || document.getElementById("hero-mic-glyph");
@@ -601,27 +633,27 @@ async function toggleVoiceInputUniversal(textareaId, btnId, panelId, statusId, m
       const sub = btn.querySelector(".mic-sub-label") || document.getElementById("hero-mic-sub");
       if (glyph) glyph.innerText = "⏹️";
       if (btnId === "hero-mic-b") {
-        if (label) label.innerText = "⏹️ Done Speaking (Stop Recording)";
-        if (sub) sub.innerText = "Recording live... Click here when done speaking";
+        if (label) label.innerText = "⏹️ Stop Recording & Send to Dr. Vance ↵";
+        if (sub) sub.innerText = "Click to finish speaking and immediately submit your response";
       } else if (btnId === "btn-speech-a") {
-        if (label) label.innerText = "⏹️ Done Speaking (Stop Recording)";
-        if (sub) sub.innerText = "Recording live... Click here when done speaking";
+        if (label) label.innerText = "⏹️ Stop Recording & Submit for Evaluation ↵";
+        if (sub) sub.innerText = "Click to finish speaking and immediately evaluate your response";
       } else if (btnId === "btn-speech-a7") {
-        if (label) label.innerText = "⏹️ Done Speaking (Stop Recording)";
-        if (sub) sub.innerText = "Recording live... Click here when done speaking";
+        if (label) label.innerText = "⏹️ Stop Recording & Submit Revision ↵";
+        if (sub) sub.innerText = "Click to finish speaking and immediately compare revision";
       } else if (btnId === "btn-speech-a6") {
-        if (label) label.innerText = "⏹️ Done Speaking (Stop Recording)";
-        if (sub) sub.innerText = "Recording live... Click here when done speaking";
+        if (label) label.innerText = "⏹️ Stop Recording & Save Reflection ↵";
+        if (sub) sub.innerText = "Click to finish speaking and proceed to revision";
       } else {
-        if (label) label.innerText = "⏹️ Done Speaking (Stop Recording)";
-        if (sub) sub.innerText = "Recording live... Click here when done speaking";
+        if (label) label.innerText = "⏹️ Stop Recording & Submit ↵";
+        if (sub) sub.innerText = "Click to finish speaking and submit response";
       }
       btn.classList.add("recording");
     } else if (btnId === "btn-speech-b") {
-      btn.innerText = "⏹️ Done Speaking (Stop Recording)";
+      btn.innerText = "⏹️ Stop & Send ↵";
       btn.className = "btn btn-danger btn-sm";
     } else {
-      btn.innerText = "⏹️ Done Speaking (Stop Recording)";
+      btn.innerText = "⏹️ Stop & Send ↵";
       btn.className = "btn btn-danger btn-sm";
     }
   }
@@ -1166,16 +1198,16 @@ function resetUniversalUI() {
         if (glyph) glyph.innerText = "🎙️";
         if (universalBtnId === "hero-mic-b") {
           if (label) label.innerText = "Click to Speak to Dr. Vance";
-          if (sub) sub.innerText = "Transcribes in real time • Click when done speaking";
+          if (sub) sub.innerText = "Transcribes live • Click again when done to send";
         } else if (universalBtnId === "btn-speech-a7") {
           if (label) label.innerText = "Click to Dictate Attempt 2 Revision";
-          if (sub) sub.innerText = "Transcribes in real time • Click when done speaking";
+          if (sub) sub.innerText = "Transcribes live • Click again when done to submit";
         } else if (universalBtnId === "btn-speech-a6") {
           if (label) label.innerText = "Click to Speak Your Reflection";
-          if (sub) sub.innerText = "Transcribes in real time • Click when done speaking";
+          if (sub) sub.innerText = "Transcribes live • Click again when done to save";
         } else {
           if (label) label.innerText = "Click to Speak Your Answer";
-          if (sub) sub.innerText = "Transcribes in real time • Click when done speaking";
+          if (sub) sub.innerText = "Transcribes live • Click again when done to submit";
         }
         btn.classList.remove("recording");
       } else if (universalBtnId === "btn-speech-b") {
@@ -1187,6 +1219,13 @@ function resetUniversalUI() {
       }
     }
   }
+
+  const b3Avatar = document.getElementById("b3-avatar-wrapper");
+  if (b3Avatar) b3Avatar.classList.remove("listening");
+  ["a3", "a4", "a6", "a7", "a8"].forEach(prefix => {
+    const av = document.getElementById(`${prefix}-avatar-wrapper`);
+    if (av) av.classList.remove("listening");
+  });
   if (universalPanelId) {
     const panel = document.getElementById(universalPanelId);
     if (panel) panel.classList.remove("recording");
@@ -3288,6 +3327,12 @@ async function submitSimulationAnswer() {
   }
 
   // Set hero status to thinking
+  const b3Avatar = document.getElementById("b3-avatar-wrapper");
+  if (b3Avatar) {
+    b3Avatar.classList.add("thinking");
+    b3Avatar.classList.remove("speaking");
+    b3Avatar.classList.remove("listening");
+  }
   const b3Status = document.getElementById("b3-voice-status");
   if (b3Status) {
     b3Status.className = "voice-status-pill thinking";

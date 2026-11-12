@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>AI Interview Practice System</title>
-  <link rel="stylesheet" href="/static/style.css?v=20261112_v32">
+  <link rel="stylesheet" href="/static/style.css?v=20261112_v33">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Comic+Sans+MS&display=swap" rel="stylesheet">
@@ -225,7 +225,69 @@
         <div class="interviewer-hero" id="a3-interviewer-card">
           <div class="avatar-wrapper" id="a3-avatar-wrapper">
             <div class="avatar-halo"></div>
-            <div class="interviewer-avatar">💼</div>
+            <div class="interviewer-avatar" title="Dr. Marcus Vance • Official AI Interviewer">
+              <svg viewBox="0 0 100 100" class="dr-vance-avatar-svg" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                  <radialGradient id="vance-bg" cx="50%" cy="40%" r="60%">
+                    <stop offset="0%" stop-color="#3b82f6"/>
+                    <stop offset="60%" stop-color="#1d4ed8"/>
+                    <stop offset="100%" stop-color="#0f172a"/>
+                  </radialGradient>
+                  <linearGradient id="vance-skin" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#f2be9b"/>
+                    <stop offset="60%" stop-color="#e09f75"/>
+                    <stop offset="100%" stop-color="#c98257"/>
+                  </linearGradient>
+                  <linearGradient id="vance-suit" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#1e293b"/>
+                    <stop offset="100%" stop-color="#090d16"/>
+                  </linearGradient>
+                  <linearGradient id="vance-tie" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#2563eb"/>
+                    <stop offset="100%" stop-color="#1d4ed8"/>
+                  </linearGradient>
+                  <linearGradient id="vance-hair" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#475569"/>
+                    <stop offset="50%" stop-color="#334155"/>
+                    <stop offset="100%" stop-color="#1e293b"/>
+                  </linearGradient>
+                </defs>
+                <circle cx="50" cy="50" r="50" fill="url(#vance-bg)"/>
+                <circle cx="50" cy="50" r="48" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="1.5"/>
+                <path d="M12 100 C15 76, 28 72, 38 71 L62 71 C72 72, 85 76, 88 100 Z" fill="url(#vance-suit)"/>
+                <polygon points="38,71 62,71 50,91" fill="#f8fafc"/>
+                <polygon points="47,73 53,73 55,90 50,98 45,90" fill="url(#vance-tie)"/>
+                <polygon points="32,72 43,87 36,98 22,85" fill="#0f172a"/>
+                <polygon points="68,72 57,87 64,98 78,85" fill="#0f172a"/>
+                <path d="M42 59 L42 73 L58 73 L58 59 Z" fill="url(#vance-skin)"/>
+                <path d="M42 59 L58 59 L50 66 Z" fill="#b87b54" opacity="0.35"/>
+                <path d="M30 38 C30 22, 70 22, 70 38 C70 54, 63 65, 50 65 C37 65, 30 54, 30 38 Z" fill="url(#vance-skin)"/>
+                <circle cx="29" cy="41" r="4.5" fill="#dca078"/>
+                <circle cx="71" cy="41" r="4.5" fill="#dca078"/>
+                <path d="M28 34 C27 18, 38 10, 50 10 C62 10, 73 18, 72 34 C69 23, 60 17, 50 18 C40 17, 31 23, 28 34 Z" fill="url(#vance-hair)"/>
+                <path d="M30 30 C35 20, 46 16, 56 17 C63 18, 69 22, 72 29 C69 23, 62 19, 54 19 C44 19, 36 23, 30 30 Z" fill="#64748b" opacity="0.55"/>
+                <path d="M34 32 Q40 30 46 32" stroke="#1e293b" stroke-width="2.2" stroke-linecap="round" fill="none"/>
+                <path d="M54 32 Q60 30 66 32" stroke="#1e293b" stroke-width="2.2" stroke-linecap="round" fill="none"/>
+                <ellipse cx="40" cy="38" rx="4.2" ry="2.8" fill="#ffffff"/>
+                <circle cx="40.5" cy="38" r="2" fill="#2563eb" class="avatar-iris"/>
+                <circle cx="40.5" cy="38" r="1.1" fill="#0f172a" class="avatar-pupil"/>
+                <circle cx="41.2" cy="37.3" r="0.6" fill="#ffffff"/>
+                <ellipse cx="60" cy="38" rx="4.2" ry="2.8" fill="#ffffff"/>
+                <circle cx="59.5" cy="38" r="2" fill="#2563eb" class="avatar-iris"/>
+                <circle cx="59.5" cy="38" r="1.1" fill="#0f172a" class="avatar-pupil"/>
+                <circle cx="60.2" cy="37.3" r="0.6" fill="#ffffff"/>
+                <rect x="35" y="34.5" width="10" height="7" fill="url(#vance-skin)" class="avatar-eyelid avatar-eyelid-l"/>
+                <rect x="55" y="34.5" width="10" height="7" fill="url(#vance-skin)" class="avatar-eyelid avatar-eyelid-r"/>
+                <rect x="33" y="33" width="14" height="10" rx="3" fill="rgba(255,255,255,0.12)" stroke="#0f172a" stroke-width="1.8"/>
+                <rect x="53" y="33" width="14" height="10" rx="3" fill="rgba(255,255,255,0.12)" stroke="#0f172a" stroke-width="1.8"/>
+                <path d="M47 37 Q50 35.5 53 37" stroke="#0f172a" stroke-width="1.8" fill="none"/>
+                <line x1="35" y1="35" x2="39" y2="35" stroke="rgba(255,255,255,0.7)" stroke-width="1.2" stroke-linecap="round"/>
+                <line x1="55" y1="35" x2="59" y2="35" stroke="rgba(255,255,255,0.7)" stroke-width="1.2" stroke-linecap="round"/>
+                <path d="M50 36 L49 46 Q50 48 52 47" stroke="#b87b54" stroke-width="1.5" stroke-linecap="round" fill="none"/>
+                <path d="M43 54 Q50 57 57 54" stroke="#883c27" stroke-width="2.2" stroke-linecap="round" fill="none" class="avatar-mouth-resting"/>
+                <ellipse cx="50" cy="55" rx="4.5" ry="2.6" fill="#601e12" stroke="#883c27" stroke-width="1.6" class="avatar-mouth-speaking"/>
+              </svg>
+            </div>
           </div>
           <div class="interviewer-info">
             <h3 id="a3-interviewer-name">Dr. Marcus Vance</h3>
@@ -337,7 +399,69 @@
         <div class="interviewer-hero" id="a4-interviewer-card" style="margin-bottom: 1.25rem;">
           <div class="avatar-wrapper" id="a4-avatar-wrapper">
             <div class="avatar-halo"></div>
-            <div class="interviewer-avatar">💼</div>
+            <div class="interviewer-avatar" title="Dr. Marcus Vance • Official AI Interviewer">
+              <svg viewBox="0 0 100 100" class="dr-vance-avatar-svg" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                  <radialGradient id="vance-bg" cx="50%" cy="40%" r="60%">
+                    <stop offset="0%" stop-color="#3b82f6"/>
+                    <stop offset="60%" stop-color="#1d4ed8"/>
+                    <stop offset="100%" stop-color="#0f172a"/>
+                  </radialGradient>
+                  <linearGradient id="vance-skin" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#f2be9b"/>
+                    <stop offset="60%" stop-color="#e09f75"/>
+                    <stop offset="100%" stop-color="#c98257"/>
+                  </linearGradient>
+                  <linearGradient id="vance-suit" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#1e293b"/>
+                    <stop offset="100%" stop-color="#090d16"/>
+                  </linearGradient>
+                  <linearGradient id="vance-tie" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#2563eb"/>
+                    <stop offset="100%" stop-color="#1d4ed8"/>
+                  </linearGradient>
+                  <linearGradient id="vance-hair" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#475569"/>
+                    <stop offset="50%" stop-color="#334155"/>
+                    <stop offset="100%" stop-color="#1e293b"/>
+                  </linearGradient>
+                </defs>
+                <circle cx="50" cy="50" r="50" fill="url(#vance-bg)"/>
+                <circle cx="50" cy="50" r="48" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="1.5"/>
+                <path d="M12 100 C15 76, 28 72, 38 71 L62 71 C72 72, 85 76, 88 100 Z" fill="url(#vance-suit)"/>
+                <polygon points="38,71 62,71 50,91" fill="#f8fafc"/>
+                <polygon points="47,73 53,73 55,90 50,98 45,90" fill="url(#vance-tie)"/>
+                <polygon points="32,72 43,87 36,98 22,85" fill="#0f172a"/>
+                <polygon points="68,72 57,87 64,98 78,85" fill="#0f172a"/>
+                <path d="M42 59 L42 73 L58 73 L58 59 Z" fill="url(#vance-skin)"/>
+                <path d="M42 59 L58 59 L50 66 Z" fill="#b87b54" opacity="0.35"/>
+                <path d="M30 38 C30 22, 70 22, 70 38 C70 54, 63 65, 50 65 C37 65, 30 54, 30 38 Z" fill="url(#vance-skin)"/>
+                <circle cx="29" cy="41" r="4.5" fill="#dca078"/>
+                <circle cx="71" cy="41" r="4.5" fill="#dca078"/>
+                <path d="M28 34 C27 18, 38 10, 50 10 C62 10, 73 18, 72 34 C69 23, 60 17, 50 18 C40 17, 31 23, 28 34 Z" fill="url(#vance-hair)"/>
+                <path d="M30 30 C35 20, 46 16, 56 17 C63 18, 69 22, 72 29 C69 23, 62 19, 54 19 C44 19, 36 23, 30 30 Z" fill="#64748b" opacity="0.55"/>
+                <path d="M34 32 Q40 30 46 32" stroke="#1e293b" stroke-width="2.2" stroke-linecap="round" fill="none"/>
+                <path d="M54 32 Q60 30 66 32" stroke="#1e293b" stroke-width="2.2" stroke-linecap="round" fill="none"/>
+                <ellipse cx="40" cy="38" rx="4.2" ry="2.8" fill="#ffffff"/>
+                <circle cx="40.5" cy="38" r="2" fill="#2563eb" class="avatar-iris"/>
+                <circle cx="40.5" cy="38" r="1.1" fill="#0f172a" class="avatar-pupil"/>
+                <circle cx="41.2" cy="37.3" r="0.6" fill="#ffffff"/>
+                <ellipse cx="60" cy="38" rx="4.2" ry="2.8" fill="#ffffff"/>
+                <circle cx="59.5" cy="38" r="2" fill="#2563eb" class="avatar-iris"/>
+                <circle cx="59.5" cy="38" r="1.1" fill="#0f172a" class="avatar-pupil"/>
+                <circle cx="60.2" cy="37.3" r="0.6" fill="#ffffff"/>
+                <rect x="35" y="34.5" width="10" height="7" fill="url(#vance-skin)" class="avatar-eyelid avatar-eyelid-l"/>
+                <rect x="55" y="34.5" width="10" height="7" fill="url(#vance-skin)" class="avatar-eyelid avatar-eyelid-r"/>
+                <rect x="33" y="33" width="14" height="10" rx="3" fill="rgba(255,255,255,0.12)" stroke="#0f172a" stroke-width="1.8"/>
+                <rect x="53" y="33" width="14" height="10" rx="3" fill="rgba(255,255,255,0.12)" stroke="#0f172a" stroke-width="1.8"/>
+                <path d="M47 37 Q50 35.5 53 37" stroke="#0f172a" stroke-width="1.8" fill="none"/>
+                <line x1="35" y1="35" x2="39" y2="35" stroke="rgba(255,255,255,0.7)" stroke-width="1.2" stroke-linecap="round"/>
+                <line x1="55" y1="35" x2="59" y2="35" stroke="rgba(255,255,255,0.7)" stroke-width="1.2" stroke-linecap="round"/>
+                <path d="M50 36 L49 46 Q50 48 52 47" stroke="#b87b54" stroke-width="1.5" stroke-linecap="round" fill="none"/>
+                <path d="M43 54 Q50 57 57 54" stroke="#883c27" stroke-width="2.2" stroke-linecap="round" fill="none" class="avatar-mouth-resting"/>
+                <ellipse cx="50" cy="55" rx="4.5" ry="2.6" fill="#601e12" stroke="#883c27" stroke-width="1.6" class="avatar-mouth-speaking"/>
+              </svg>
+            </div>
           </div>
           <div class="interviewer-info">
             <h3 id="a4-interviewer-name">Dr. Marcus Vance</h3>
@@ -610,7 +734,69 @@
         <div class="interviewer-hero" id="a6-interviewer-card">
           <div class="avatar-wrapper" id="a6-avatar-wrapper">
             <div class="avatar-halo"></div>
-            <div class="interviewer-avatar">💼</div>
+            <div class="interviewer-avatar" title="Dr. Marcus Vance • Official AI Interviewer">
+              <svg viewBox="0 0 100 100" class="dr-vance-avatar-svg" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                  <radialGradient id="vance-bg" cx="50%" cy="40%" r="60%">
+                    <stop offset="0%" stop-color="#3b82f6"/>
+                    <stop offset="60%" stop-color="#1d4ed8"/>
+                    <stop offset="100%" stop-color="#0f172a"/>
+                  </radialGradient>
+                  <linearGradient id="vance-skin" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#f2be9b"/>
+                    <stop offset="60%" stop-color="#e09f75"/>
+                    <stop offset="100%" stop-color="#c98257"/>
+                  </linearGradient>
+                  <linearGradient id="vance-suit" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#1e293b"/>
+                    <stop offset="100%" stop-color="#090d16"/>
+                  </linearGradient>
+                  <linearGradient id="vance-tie" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#2563eb"/>
+                    <stop offset="100%" stop-color="#1d4ed8"/>
+                  </linearGradient>
+                  <linearGradient id="vance-hair" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#475569"/>
+                    <stop offset="50%" stop-color="#334155"/>
+                    <stop offset="100%" stop-color="#1e293b"/>
+                  </linearGradient>
+                </defs>
+                <circle cx="50" cy="50" r="50" fill="url(#vance-bg)"/>
+                <circle cx="50" cy="50" r="48" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="1.5"/>
+                <path d="M12 100 C15 76, 28 72, 38 71 L62 71 C72 72, 85 76, 88 100 Z" fill="url(#vance-suit)"/>
+                <polygon points="38,71 62,71 50,91" fill="#f8fafc"/>
+                <polygon points="47,73 53,73 55,90 50,98 45,90" fill="url(#vance-tie)"/>
+                <polygon points="32,72 43,87 36,98 22,85" fill="#0f172a"/>
+                <polygon points="68,72 57,87 64,98 78,85" fill="#0f172a"/>
+                <path d="M42 59 L42 73 L58 73 L58 59 Z" fill="url(#vance-skin)"/>
+                <path d="M42 59 L58 59 L50 66 Z" fill="#b87b54" opacity="0.35"/>
+                <path d="M30 38 C30 22, 70 22, 70 38 C70 54, 63 65, 50 65 C37 65, 30 54, 30 38 Z" fill="url(#vance-skin)"/>
+                <circle cx="29" cy="41" r="4.5" fill="#dca078"/>
+                <circle cx="71" cy="41" r="4.5" fill="#dca078"/>
+                <path d="M28 34 C27 18, 38 10, 50 10 C62 10, 73 18, 72 34 C69 23, 60 17, 50 18 C40 17, 31 23, 28 34 Z" fill="url(#vance-hair)"/>
+                <path d="M30 30 C35 20, 46 16, 56 17 C63 18, 69 22, 72 29 C69 23, 62 19, 54 19 C44 19, 36 23, 30 30 Z" fill="#64748b" opacity="0.55"/>
+                <path d="M34 32 Q40 30 46 32" stroke="#1e293b" stroke-width="2.2" stroke-linecap="round" fill="none"/>
+                <path d="M54 32 Q60 30 66 32" stroke="#1e293b" stroke-width="2.2" stroke-linecap="round" fill="none"/>
+                <ellipse cx="40" cy="38" rx="4.2" ry="2.8" fill="#ffffff"/>
+                <circle cx="40.5" cy="38" r="2" fill="#2563eb" class="avatar-iris"/>
+                <circle cx="40.5" cy="38" r="1.1" fill="#0f172a" class="avatar-pupil"/>
+                <circle cx="41.2" cy="37.3" r="0.6" fill="#ffffff"/>
+                <ellipse cx="60" cy="38" rx="4.2" ry="2.8" fill="#ffffff"/>
+                <circle cx="59.5" cy="38" r="2" fill="#2563eb" class="avatar-iris"/>
+                <circle cx="59.5" cy="38" r="1.1" fill="#0f172a" class="avatar-pupil"/>
+                <circle cx="60.2" cy="37.3" r="0.6" fill="#ffffff"/>
+                <rect x="35" y="34.5" width="10" height="7" fill="url(#vance-skin)" class="avatar-eyelid avatar-eyelid-l"/>
+                <rect x="55" y="34.5" width="10" height="7" fill="url(#vance-skin)" class="avatar-eyelid avatar-eyelid-r"/>
+                <rect x="33" y="33" width="14" height="10" rx="3" fill="rgba(255,255,255,0.12)" stroke="#0f172a" stroke-width="1.8"/>
+                <rect x="53" y="33" width="14" height="10" rx="3" fill="rgba(255,255,255,0.12)" stroke="#0f172a" stroke-width="1.8"/>
+                <path d="M47 37 Q50 35.5 53 37" stroke="#0f172a" stroke-width="1.8" fill="none"/>
+                <line x1="35" y1="35" x2="39" y2="35" stroke="rgba(255,255,255,0.7)" stroke-width="1.2" stroke-linecap="round"/>
+                <line x1="55" y1="35" x2="59" y2="35" stroke="rgba(255,255,255,0.7)" stroke-width="1.2" stroke-linecap="round"/>
+                <path d="M50 36 L49 46 Q50 48 52 47" stroke="#b87b54" stroke-width="1.5" stroke-linecap="round" fill="none"/>
+                <path d="M43 54 Q50 57 57 54" stroke="#883c27" stroke-width="2.2" stroke-linecap="round" fill="none" class="avatar-mouth-resting"/>
+                <ellipse cx="50" cy="55" rx="4.5" ry="2.6" fill="#601e12" stroke="#883c27" stroke-width="1.6" class="avatar-mouth-speaking"/>
+              </svg>
+            </div>
           </div>
           <div class="interviewer-info">
             <h3 id="a6-interviewer-name">Dr. Marcus Vance</h3>
@@ -725,7 +911,69 @@
         <div class="interviewer-hero" id="a7-interviewer-card">
           <div class="avatar-wrapper" id="a7-avatar-wrapper">
             <div class="avatar-halo"></div>
-            <div class="interviewer-avatar">💼</div>
+            <div class="interviewer-avatar" title="Dr. Marcus Vance • Official AI Interviewer">
+              <svg viewBox="0 0 100 100" class="dr-vance-avatar-svg" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                  <radialGradient id="vance-bg" cx="50%" cy="40%" r="60%">
+                    <stop offset="0%" stop-color="#3b82f6"/>
+                    <stop offset="60%" stop-color="#1d4ed8"/>
+                    <stop offset="100%" stop-color="#0f172a"/>
+                  </radialGradient>
+                  <linearGradient id="vance-skin" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#f2be9b"/>
+                    <stop offset="60%" stop-color="#e09f75"/>
+                    <stop offset="100%" stop-color="#c98257"/>
+                  </linearGradient>
+                  <linearGradient id="vance-suit" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#1e293b"/>
+                    <stop offset="100%" stop-color="#090d16"/>
+                  </linearGradient>
+                  <linearGradient id="vance-tie" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#2563eb"/>
+                    <stop offset="100%" stop-color="#1d4ed8"/>
+                  </linearGradient>
+                  <linearGradient id="vance-hair" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#475569"/>
+                    <stop offset="50%" stop-color="#334155"/>
+                    <stop offset="100%" stop-color="#1e293b"/>
+                  </linearGradient>
+                </defs>
+                <circle cx="50" cy="50" r="50" fill="url(#vance-bg)"/>
+                <circle cx="50" cy="50" r="48" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="1.5"/>
+                <path d="M12 100 C15 76, 28 72, 38 71 L62 71 C72 72, 85 76, 88 100 Z" fill="url(#vance-suit)"/>
+                <polygon points="38,71 62,71 50,91" fill="#f8fafc"/>
+                <polygon points="47,73 53,73 55,90 50,98 45,90" fill="url(#vance-tie)"/>
+                <polygon points="32,72 43,87 36,98 22,85" fill="#0f172a"/>
+                <polygon points="68,72 57,87 64,98 78,85" fill="#0f172a"/>
+                <path d="M42 59 L42 73 L58 73 L58 59 Z" fill="url(#vance-skin)"/>
+                <path d="M42 59 L58 59 L50 66 Z" fill="#b87b54" opacity="0.35"/>
+                <path d="M30 38 C30 22, 70 22, 70 38 C70 54, 63 65, 50 65 C37 65, 30 54, 30 38 Z" fill="url(#vance-skin)"/>
+                <circle cx="29" cy="41" r="4.5" fill="#dca078"/>
+                <circle cx="71" cy="41" r="4.5" fill="#dca078"/>
+                <path d="M28 34 C27 18, 38 10, 50 10 C62 10, 73 18, 72 34 C69 23, 60 17, 50 18 C40 17, 31 23, 28 34 Z" fill="url(#vance-hair)"/>
+                <path d="M30 30 C35 20, 46 16, 56 17 C63 18, 69 22, 72 29 C69 23, 62 19, 54 19 C44 19, 36 23, 30 30 Z" fill="#64748b" opacity="0.55"/>
+                <path d="M34 32 Q40 30 46 32" stroke="#1e293b" stroke-width="2.2" stroke-linecap="round" fill="none"/>
+                <path d="M54 32 Q60 30 66 32" stroke="#1e293b" stroke-width="2.2" stroke-linecap="round" fill="none"/>
+                <ellipse cx="40" cy="38" rx="4.2" ry="2.8" fill="#ffffff"/>
+                <circle cx="40.5" cy="38" r="2" fill="#2563eb" class="avatar-iris"/>
+                <circle cx="40.5" cy="38" r="1.1" fill="#0f172a" class="avatar-pupil"/>
+                <circle cx="41.2" cy="37.3" r="0.6" fill="#ffffff"/>
+                <ellipse cx="60" cy="38" rx="4.2" ry="2.8" fill="#ffffff"/>
+                <circle cx="59.5" cy="38" r="2" fill="#2563eb" class="avatar-iris"/>
+                <circle cx="59.5" cy="38" r="1.1" fill="#0f172a" class="avatar-pupil"/>
+                <circle cx="60.2" cy="37.3" r="0.6" fill="#ffffff"/>
+                <rect x="35" y="34.5" width="10" height="7" fill="url(#vance-skin)" class="avatar-eyelid avatar-eyelid-l"/>
+                <rect x="55" y="34.5" width="10" height="7" fill="url(#vance-skin)" class="avatar-eyelid avatar-eyelid-r"/>
+                <rect x="33" y="33" width="14" height="10" rx="3" fill="rgba(255,255,255,0.12)" stroke="#0f172a" stroke-width="1.8"/>
+                <rect x="53" y="33" width="14" height="10" rx="3" fill="rgba(255,255,255,0.12)" stroke="#0f172a" stroke-width="1.8"/>
+                <path d="M47 37 Q50 35.5 53 37" stroke="#0f172a" stroke-width="1.8" fill="none"/>
+                <line x1="35" y1="35" x2="39" y2="35" stroke="rgba(255,255,255,0.7)" stroke-width="1.2" stroke-linecap="round"/>
+                <line x1="55" y1="35" x2="59" y2="35" stroke="rgba(255,255,255,0.7)" stroke-width="1.2" stroke-linecap="round"/>
+                <path d="M50 36 L49 46 Q50 48 52 47" stroke="#b87b54" stroke-width="1.5" stroke-linecap="round" fill="none"/>
+                <path d="M43 54 Q50 57 57 54" stroke="#883c27" stroke-width="2.2" stroke-linecap="round" fill="none" class="avatar-mouth-resting"/>
+                <ellipse cx="50" cy="55" rx="4.5" ry="2.6" fill="#601e12" stroke="#883c27" stroke-width="1.6" class="avatar-mouth-speaking"/>
+              </svg>
+            </div>
           </div>
           <div class="interviewer-info">
             <h3 id="a7-interviewer-name">Dr. Marcus Vance</h3>
@@ -846,7 +1094,69 @@
         <div class="interviewer-hero" id="a8-interviewer-card" style="margin-bottom: 1.25rem;">
           <div class="avatar-wrapper" id="a8-avatar-wrapper">
             <div class="avatar-halo"></div>
-            <div class="interviewer-avatar">💼</div>
+            <div class="interviewer-avatar" title="Dr. Marcus Vance • Official AI Interviewer">
+              <svg viewBox="0 0 100 100" class="dr-vance-avatar-svg" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                  <radialGradient id="vance-bg" cx="50%" cy="40%" r="60%">
+                    <stop offset="0%" stop-color="#3b82f6"/>
+                    <stop offset="60%" stop-color="#1d4ed8"/>
+                    <stop offset="100%" stop-color="#0f172a"/>
+                  </radialGradient>
+                  <linearGradient id="vance-skin" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#f2be9b"/>
+                    <stop offset="60%" stop-color="#e09f75"/>
+                    <stop offset="100%" stop-color="#c98257"/>
+                  </linearGradient>
+                  <linearGradient id="vance-suit" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#1e293b"/>
+                    <stop offset="100%" stop-color="#090d16"/>
+                  </linearGradient>
+                  <linearGradient id="vance-tie" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#2563eb"/>
+                    <stop offset="100%" stop-color="#1d4ed8"/>
+                  </linearGradient>
+                  <linearGradient id="vance-hair" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#475569"/>
+                    <stop offset="50%" stop-color="#334155"/>
+                    <stop offset="100%" stop-color="#1e293b"/>
+                  </linearGradient>
+                </defs>
+                <circle cx="50" cy="50" r="50" fill="url(#vance-bg)"/>
+                <circle cx="50" cy="50" r="48" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="1.5"/>
+                <path d="M12 100 C15 76, 28 72, 38 71 L62 71 C72 72, 85 76, 88 100 Z" fill="url(#vance-suit)"/>
+                <polygon points="38,71 62,71 50,91" fill="#f8fafc"/>
+                <polygon points="47,73 53,73 55,90 50,98 45,90" fill="url(#vance-tie)"/>
+                <polygon points="32,72 43,87 36,98 22,85" fill="#0f172a"/>
+                <polygon points="68,72 57,87 64,98 78,85" fill="#0f172a"/>
+                <path d="M42 59 L42 73 L58 73 L58 59 Z" fill="url(#vance-skin)"/>
+                <path d="M42 59 L58 59 L50 66 Z" fill="#b87b54" opacity="0.35"/>
+                <path d="M30 38 C30 22, 70 22, 70 38 C70 54, 63 65, 50 65 C37 65, 30 54, 30 38 Z" fill="url(#vance-skin)"/>
+                <circle cx="29" cy="41" r="4.5" fill="#dca078"/>
+                <circle cx="71" cy="41" r="4.5" fill="#dca078"/>
+                <path d="M28 34 C27 18, 38 10, 50 10 C62 10, 73 18, 72 34 C69 23, 60 17, 50 18 C40 17, 31 23, 28 34 Z" fill="url(#vance-hair)"/>
+                <path d="M30 30 C35 20, 46 16, 56 17 C63 18, 69 22, 72 29 C69 23, 62 19, 54 19 C44 19, 36 23, 30 30 Z" fill="#64748b" opacity="0.55"/>
+                <path d="M34 32 Q40 30 46 32" stroke="#1e293b" stroke-width="2.2" stroke-linecap="round" fill="none"/>
+                <path d="M54 32 Q60 30 66 32" stroke="#1e293b" stroke-width="2.2" stroke-linecap="round" fill="none"/>
+                <ellipse cx="40" cy="38" rx="4.2" ry="2.8" fill="#ffffff"/>
+                <circle cx="40.5" cy="38" r="2" fill="#2563eb" class="avatar-iris"/>
+                <circle cx="40.5" cy="38" r="1.1" fill="#0f172a" class="avatar-pupil"/>
+                <circle cx="41.2" cy="37.3" r="0.6" fill="#ffffff"/>
+                <ellipse cx="60" cy="38" rx="4.2" ry="2.8" fill="#ffffff"/>
+                <circle cx="59.5" cy="38" r="2" fill="#2563eb" class="avatar-iris"/>
+                <circle cx="59.5" cy="38" r="1.1" fill="#0f172a" class="avatar-pupil"/>
+                <circle cx="60.2" cy="37.3" r="0.6" fill="#ffffff"/>
+                <rect x="35" y="34.5" width="10" height="7" fill="url(#vance-skin)" class="avatar-eyelid avatar-eyelid-l"/>
+                <rect x="55" y="34.5" width="10" height="7" fill="url(#vance-skin)" class="avatar-eyelid avatar-eyelid-r"/>
+                <rect x="33" y="33" width="14" height="10" rx="3" fill="rgba(255,255,255,0.12)" stroke="#0f172a" stroke-width="1.8"/>
+                <rect x="53" y="33" width="14" height="10" rx="3" fill="rgba(255,255,255,0.12)" stroke="#0f172a" stroke-width="1.8"/>
+                <path d="M47 37 Q50 35.5 53 37" stroke="#0f172a" stroke-width="1.8" fill="none"/>
+                <line x1="35" y1="35" x2="39" y2="35" stroke="rgba(255,255,255,0.7)" stroke-width="1.2" stroke-linecap="round"/>
+                <line x1="55" y1="35" x2="59" y2="35" stroke="rgba(255,255,255,0.7)" stroke-width="1.2" stroke-linecap="round"/>
+                <path d="M50 36 L49 46 Q50 48 52 47" stroke="#b87b54" stroke-width="1.5" stroke-linecap="round" fill="none"/>
+                <path d="M43 54 Q50 57 57 54" stroke="#883c27" stroke-width="2.2" stroke-linecap="round" fill="none" class="avatar-mouth-resting"/>
+                <ellipse cx="50" cy="55" rx="4.5" ry="2.6" fill="#601e12" stroke="#883c27" stroke-width="1.6" class="avatar-mouth-speaking"/>
+              </svg>
+            </div>
           </div>
           <div class="interviewer-info">
             <h3 id="a8-interviewer-name">Dr. Marcus Vance</h3>
@@ -1132,7 +1442,69 @@
         <div class="interviewer-hero" id="b3-interviewer-card">
           <div class="avatar-wrapper" id="b3-avatar-wrapper">
             <div class="avatar-halo"></div>
-            <div class="interviewer-avatar">💼</div>
+            <div class="interviewer-avatar" title="Dr. Marcus Vance • Official AI Interviewer">
+              <svg viewBox="0 0 100 100" class="dr-vance-avatar-svg" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                  <radialGradient id="vance-bg" cx="50%" cy="40%" r="60%">
+                    <stop offset="0%" stop-color="#3b82f6"/>
+                    <stop offset="60%" stop-color="#1d4ed8"/>
+                    <stop offset="100%" stop-color="#0f172a"/>
+                  </radialGradient>
+                  <linearGradient id="vance-skin" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#f2be9b"/>
+                    <stop offset="60%" stop-color="#e09f75"/>
+                    <stop offset="100%" stop-color="#c98257"/>
+                  </linearGradient>
+                  <linearGradient id="vance-suit" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#1e293b"/>
+                    <stop offset="100%" stop-color="#090d16"/>
+                  </linearGradient>
+                  <linearGradient id="vance-tie" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#2563eb"/>
+                    <stop offset="100%" stop-color="#1d4ed8"/>
+                  </linearGradient>
+                  <linearGradient id="vance-hair" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#475569"/>
+                    <stop offset="50%" stop-color="#334155"/>
+                    <stop offset="100%" stop-color="#1e293b"/>
+                  </linearGradient>
+                </defs>
+                <circle cx="50" cy="50" r="50" fill="url(#vance-bg)"/>
+                <circle cx="50" cy="50" r="48" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="1.5"/>
+                <path d="M12 100 C15 76, 28 72, 38 71 L62 71 C72 72, 85 76, 88 100 Z" fill="url(#vance-suit)"/>
+                <polygon points="38,71 62,71 50,91" fill="#f8fafc"/>
+                <polygon points="47,73 53,73 55,90 50,98 45,90" fill="url(#vance-tie)"/>
+                <polygon points="32,72 43,87 36,98 22,85" fill="#0f172a"/>
+                <polygon points="68,72 57,87 64,98 78,85" fill="#0f172a"/>
+                <path d="M42 59 L42 73 L58 73 L58 59 Z" fill="url(#vance-skin)"/>
+                <path d="M42 59 L58 59 L50 66 Z" fill="#b87b54" opacity="0.35"/>
+                <path d="M30 38 C30 22, 70 22, 70 38 C70 54, 63 65, 50 65 C37 65, 30 54, 30 38 Z" fill="url(#vance-skin)"/>
+                <circle cx="29" cy="41" r="4.5" fill="#dca078"/>
+                <circle cx="71" cy="41" r="4.5" fill="#dca078"/>
+                <path d="M28 34 C27 18, 38 10, 50 10 C62 10, 73 18, 72 34 C69 23, 60 17, 50 18 C40 17, 31 23, 28 34 Z" fill="url(#vance-hair)"/>
+                <path d="M30 30 C35 20, 46 16, 56 17 C63 18, 69 22, 72 29 C69 23, 62 19, 54 19 C44 19, 36 23, 30 30 Z" fill="#64748b" opacity="0.55"/>
+                <path d="M34 32 Q40 30 46 32" stroke="#1e293b" stroke-width="2.2" stroke-linecap="round" fill="none"/>
+                <path d="M54 32 Q60 30 66 32" stroke="#1e293b" stroke-width="2.2" stroke-linecap="round" fill="none"/>
+                <ellipse cx="40" cy="38" rx="4.2" ry="2.8" fill="#ffffff"/>
+                <circle cx="40.5" cy="38" r="2" fill="#2563eb" class="avatar-iris"/>
+                <circle cx="40.5" cy="38" r="1.1" fill="#0f172a" class="avatar-pupil"/>
+                <circle cx="41.2" cy="37.3" r="0.6" fill="#ffffff"/>
+                <ellipse cx="60" cy="38" rx="4.2" ry="2.8" fill="#ffffff"/>
+                <circle cx="59.5" cy="38" r="2" fill="#2563eb" class="avatar-iris"/>
+                <circle cx="59.5" cy="38" r="1.1" fill="#0f172a" class="avatar-pupil"/>
+                <circle cx="60.2" cy="37.3" r="0.6" fill="#ffffff"/>
+                <rect x="35" y="34.5" width="10" height="7" fill="url(#vance-skin)" class="avatar-eyelid avatar-eyelid-l"/>
+                <rect x="55" y="34.5" width="10" height="7" fill="url(#vance-skin)" class="avatar-eyelid avatar-eyelid-r"/>
+                <rect x="33" y="33" width="14" height="10" rx="3" fill="rgba(255,255,255,0.12)" stroke="#0f172a" stroke-width="1.8"/>
+                <rect x="53" y="33" width="14" height="10" rx="3" fill="rgba(255,255,255,0.12)" stroke="#0f172a" stroke-width="1.8"/>
+                <path d="M47 37 Q50 35.5 53 37" stroke="#0f172a" stroke-width="1.8" fill="none"/>
+                <line x1="35" y1="35" x2="39" y2="35" stroke="rgba(255,255,255,0.7)" stroke-width="1.2" stroke-linecap="round"/>
+                <line x1="55" y1="35" x2="59" y2="35" stroke="rgba(255,255,255,0.7)" stroke-width="1.2" stroke-linecap="round"/>
+                <path d="M50 36 L49 46 Q50 48 52 47" stroke="#b87b54" stroke-width="1.5" stroke-linecap="round" fill="none"/>
+                <path d="M43 54 Q50 57 57 54" stroke="#883c27" stroke-width="2.2" stroke-linecap="round" fill="none" class="avatar-mouth-resting"/>
+                <ellipse cx="50" cy="55" rx="4.5" ry="2.6" fill="#601e12" stroke="#883c27" stroke-width="1.6" class="avatar-mouth-speaking"/>
+              </svg>
+            </div>
           </div>
           <div class="interviewer-info">
             <h3 id="b3-interviewer-name">Dr. Marcus Vance</h3>
@@ -1189,7 +1561,7 @@
                 </span>
                 <span class="mic-label-group">
                   <strong class="mic-primary-label" id="hero-mic-label">Click to Speak to Dr. Vance</strong>
-                  <span class="mic-sub-label" id="hero-mic-sub">Transcribes in real time • Click when done speaking</span>
+                  <span class="mic-sub-label" id="hero-mic-sub">Transcribes in real time • Click again when done to send</span>
                 </span>
               </button>
             </div>
@@ -1201,7 +1573,7 @@
             </div>
 
             <!-- Voice Mode Submit Action Button -->
-            <div id="b3-voice-submit-bar" style="margin-top: 1rem; display: flex; justify-content: center; gap: 0.75rem;">
+            <div id="b3-voice-submit-bar" style="margin-top: 1rem; display: none; justify-content: center; gap: 0.75rem;">
               <button class="btn btn-primary" id="btn-submit-voice-b" onclick="submitSimulationAnswer()" style="min-width: 260px; font-weight: 700; padding: 0.75rem 1.5rem; font-size: 0.95rem; box-shadow: 0 4px 14px rgba(37,99,235,0.25);">Send Response to Dr. Vance ↵</button>
             </div>
           </div>
@@ -1219,7 +1591,7 @@
           <!-- Cockpit Bottom Utility Bar -->
           <div class="cockpit-bottom-bar">
             <div class="dock-hint-text">
-              <span id="b-silence-hint">💡 <strong>Live Interview Simulator:</strong> Speak into the mic to transcribe live. Click 'Done Speaking' to stop recording, then click 'Send Response to Dr. Vance'.</span>
+              <span id="b-silence-hint">💡 <strong>Live Interview Simulator:</strong> Speak into the mic to transcribe in real time. Click the button to stop and immediately send your response to Dr. Vance.</span>
             </div>
             <div class="dock-controls-group">
               <button class="btn btn-outline btn-sm" onclick="confirmExitSimulation()">⬅️ Back to Setup</button>
@@ -1482,6 +1854,6 @@
   <!-- Toast Notification Container -->
   <div id="app-toast-container" style="position: fixed; bottom: 1.5rem; right: 1.5rem; z-index: 3000; display: flex; flex-direction: column; gap: 0.6rem; pointer-events: none;"></div>
 
-  <script src="/static/app.js?v=20261112_v32"></script>
+  <script src="/static/app.js?v=20261112_v33"></script>
 </body>
 </html>

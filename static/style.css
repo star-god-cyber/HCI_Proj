@@ -1115,24 +1115,115 @@ textarea.form-control {
 
 .avatar-wrapper {
   position: relative;
-  width: 64px;
-  height: 64px;
+  width: 76px;
+  height: 76px;
   flex-shrink: 0;
+  transition: all 0.3s ease;
 }
 
 .interviewer-avatar {
-  width: 64px;
-  height: 64px;
+  width: 76px;
+  height: 76px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+  overflow: hidden;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.75rem;
-  border: 3px solid rgba(255, 255, 255, 0.8);
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+  border: 3px solid rgba(255, 255, 255, 0.9);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
   z-index: 2;
   position: relative;
+  background: #0f172a;
+}
+
+.dr-vance-avatar-svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+  transform-origin: 50% 65%;
+  animation: avatar-breathe 4.5s infinite ease-in-out;
+}
+
+/* Eye Blinking Keyframes */
+@keyframes avatar-blink {
+  0%, 93%, 100% {
+    transform: scaleY(0);
+    opacity: 0;
+  }
+  95%, 97% {
+    transform: scaleY(1);
+    opacity: 1;
+  }
+}
+
+.avatar-eyelid {
+  transform-origin: 50% 34.5px;
+  animation: avatar-blink 4.2s infinite ease-in-out;
+}
+
+/* Subtle Breathing Animation */
+@keyframes avatar-breathe {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-1.5px);
+  }
+}
+
+/* Speaking State: Lip-Sync Talking Motion */
+.avatar-mouth-speaking {
+  display: none;
+  transform-origin: 50px 55px;
+}
+
+.avatar-wrapper.speaking .avatar-mouth-resting {
+  display: none;
+}
+
+.avatar-wrapper.speaking .avatar-mouth-speaking {
+  display: block;
+  animation: avatar-talk 0.28s infinite alternate ease-in-out;
+}
+
+@keyframes avatar-talk {
+  0% {
+    transform: scaleY(0.75) scaleX(0.9);
+  }
+  50% {
+    transform: scaleY(1.35) scaleX(1.1);
+  }
+  100% {
+    transform: scaleY(0.85) scaleX(0.95);
+  }
+}
+
+/* Listening State: Attentive Subtle Nod */
+.avatar-wrapper.listening .dr-vance-avatar-svg {
+  animation: avatar-listen-nod 3.5s infinite ease-in-out;
+}
+
+@keyframes avatar-listen-nod {
+  0%, 100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  40% {
+    transform: translateY(1.5px) rotate(1.2deg);
+  }
+  75% {
+    transform: translateY(0.5px) rotate(-0.8deg);
+  }
+}
+
+/* Thinking State: Slight Head Shift */
+.avatar-wrapper.thinking .dr-vance-avatar-svg {
+  transform: translateY(-1px) rotate(-1.5deg);
+  transition: transform 0.4s ease;
+}
+
+.avatar-wrapper.thinking .avatar-pupil {
+  transform: translateY(-0.8px);
+  transition: transform 0.4s ease;
 }
 
 .avatar-halo {
@@ -1142,11 +1233,25 @@ textarea.form-control {
   border: 2px solid #60a5fa;
   opacity: 0;
   transition: all 0.3s ease;
+  pointer-events: none;
 }
 
 .avatar-wrapper.speaking .avatar-halo {
   opacity: 1;
-  animation: ripple 1.2s cubic-bezier(0, 0.2, 0.8, 1) infinite;
+  border-color: #38bdf8;
+  animation: ripple 1.1s cubic-bezier(0, 0.2, 0.8, 1) infinite;
+}
+
+.avatar-wrapper.listening .avatar-halo {
+  opacity: 0.85;
+  border-color: #34d399;
+  box-shadow: 0 0 12px rgba(52, 211, 153, 0.4);
+}
+
+.avatar-wrapper.thinking .avatar-halo {
+  opacity: 0.85;
+  border-color: #fbbf24;
+  box-shadow: 0 0 12px rgba(251, 191, 36, 0.4);
 }
 
 @keyframes ripple {
