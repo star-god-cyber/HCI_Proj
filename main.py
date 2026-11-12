@@ -500,7 +500,7 @@ async def get_config():
     masked = f"{gemini_key[:7]}...{gemini_key[-4:]}" if has_gemini and len(gemini_key) > 11 else ("Configured" if has_gemini else "")
     return {
         "gemini_active": has_gemini,
-        "gemini_model": "gemini-1.5-flash",
+        "gemini_model": "gemini-3.5-flash-lite",
         "gemini_key_masked": masked,
         "mode": mode,
         "stt_engine": "web_speech_api",
@@ -709,7 +709,7 @@ async def _transcribe_audio_bytes(audio_bytes: bytes, interim: bool = False) -> 
         try:
             b64 = base64.b64encode(audio_bytes).decode("utf-8")
             prompt = "Transcribe the candidate's spoken interview response verbatim. Return ONLY the transcribed text without extra commentary or timestamps."
-            for m in ["gemini-3.5-flash-lite"]:
+            for m in ["gemini-3.5-flash-lite", "gemini-3.5-flashlite"]:
                 async with httpx.AsyncClient(timeout=12.0) as client:
                     resp = await client.post(
                         f"https://generativelanguage.googleapis.com/v1beta/models/{m}:generateContent?key={key}",

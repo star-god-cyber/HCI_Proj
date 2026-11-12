@@ -3421,7 +3421,7 @@ async function submitSimulationAnswer() {
     }
 
     let engineLabel = (data.source === "gemini")
-      ? '<span style="color: #10b981; font-weight: 700;">🟢 Gemini 1.5 Flash (Live AI)</span>'
+      ? '<span style="color: #10b981; font-weight: 700;">🟢 Gemini 3.5 Flash-Lite (Live AI)</span>'
       : '<span style="color: #f59e0b; font-weight: 700;">⚡ Deterministic NLP Fallback</span>';
 
     const currentTurnAssistantIdx = simConversationHistory.filter(m => m.role === "assistant").length - 1;
@@ -4311,7 +4311,7 @@ function updateEngineUIState(cfg) {
   if (dot && text) {
     if (isGemini) {
       dot.innerText = "🟢";
-      text.innerText = "Gemini 1.5 Flash";
+      text.innerText = "Gemini 3.5 Flash-Lite";
       if (pill) { pill.className = "badge badge-success"; pill.title = "Google Gemini Live AI Active"; }
     } else {
       dot.innerText = "⚡";
@@ -4327,7 +4327,7 @@ function updateEngineUIState(cfg) {
       if (statusTitle) statusTitle.innerText = "Live Cloud AI Active";
       statusBadge.className = "badge badge-success";
       statusBadge.innerText = "Google Gemini Active";
-      if (statusDesc) statusDesc.innerHTML = `Connected to Google Gemini (<code>${cfg.gemini_model || 'gemini-1.5-flash'}</code>). Real-time AI interview questioning and committee evaluations are live!`;
+      if (statusDesc) statusDesc.innerHTML = `Connected to Google Gemini (<code>${cfg.gemini_model || 'gemini-3.5-flash-lite'}</code>). Real-time AI interview questioning and committee evaluations are live!`;
     } else {
       statusCard.style.background = "#fffbeb";
       statusCard.style.borderColor = "#fde68a";
@@ -4386,7 +4386,7 @@ async function testGeminiConnectionUI() {
         resultBox.style.background = "#f0fdf4";
         resultBox.style.border = "1.5px solid #86efac";
         resultBox.style.color = "#14532d";
-        resultBox.innerHTML = `<strong>✅ Gemini Connection Verified!</strong><br>${data.message || 'API responded successfully.'} Model: <code>${data.model_tested || 'gemini-1.5-flash'}</code>. Live response: "<em>${escapeHtml(data.test_reply || 'CONNECTED')}</em>"`;
+        resultBox.innerHTML = `<strong>✅ Gemini Connection Verified!</strong><br>${data.message || 'API responded successfully.'} Model: <code>${data.model_tested || 'gemini-3.5-flash-lite'}</code>. Live response: "<em>${escapeHtml(data.test_reply || 'CONNECTED')}</em>"`;
       }
       showAppToast("✅ Google Gemini API key validated successfully!", "success");
       loadConfigSettings();

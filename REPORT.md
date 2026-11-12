@@ -53,7 +53,7 @@ The system architecture decouples conversational interaction, speech signal proc
    - Uses real-time CSS/Canvas waveform equalizers and animated halo rings to reflect live conversational turn states: `Listening...`, `Speaking...`, and `Thinking...`.
 2. **Dual-Mode AI Reasoning & Evaluation Engine**:
    - Engineered to operate at guaranteed **₹0.00 / $0.00 cost**.
-   - Supports Google Gemini Free Tier API (`gemini-1.5-flash` / `gemini-2.0-flash`) via asynchronous HTTPX requests for contextual follow-up generation and qualitative feedback.
+   - Supports Google Gemini Free Tier API (`gemini-3.5-flash-lite` / `gemini-3.5-flashlite`) via asynchronous HTTPX requests for contextual follow-up generation and qualitative feedback.
    - Seamlessly backed by a local deterministic, rule-based rubric evaluation engine (`InterviewEvaluator`) that executes locally with 0ms latency and 100% offline reliability.
 3. **Persistence & Analytics Layer**:
    - SQLite relational database (`interview_practice.db`) maintaining transactional session histories, audio transcripts, multi-attempt rubric scores across 4 dimensions, metacognitive reflection responses, longitudinal progress trajectories, and empirical usability study datasets.

@@ -13,7 +13,9 @@ class TestGeminiAndAIConfiguration(unittest.TestCase):
 
     def test_gemini_models_configured(self):
         self.assertIsInstance(GEMINI_MODELS, list)
-        self.assertIn("gemini-1.5-flash", GEMINI_MODELS)
+        self.assertIn("gemini-3.5-flash-lite", GEMINI_MODELS)
+        self.assertNotIn("gemini-1.5-flash", GEMINI_MODELS)
+        self.assertNotIn("gemini-2.0-flash", GEMINI_MODELS)
 
     def test_fallback_custom_questions_when_key_empty(self):
         # Empty API keys should seamlessly return curated profile-grounded questions
@@ -40,7 +42,7 @@ class TestGeminiAndAIConfiguration(unittest.TestCase):
         ))
         self.assertIn("followup_question", res)
         self.assertIn("reasoning", res)
-        self.assertIn(res.get("source"), ["deterministic_engine", "gemini_1.5_flash", "adaptive_ai_dialogue_engine"])
+        self.assertIn(res.get("source"), ["deterministic_engine", "gemini_3.5_flash_lite", "adaptive_ai_dialogue_engine"])
 
     def test_fallback_evaluate_answer_when_key_empty(self):
         self.evaluator.get_gemini_api_key = lambda: ""

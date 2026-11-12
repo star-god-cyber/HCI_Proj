@@ -18,8 +18,8 @@ from app.env_loader import get_env_variable
 
 logger = logging.getLogger(__name__)
 
-GEMINI_MODELS = ["gemini-1.5-flash", "gemini-2.0-flash", "gemini-1.5-pro", "gemini-2.5-flash", "gemini-flash-latest"]
-DEFAULT_GEMINI_MODEL = "gemini-1.5-flash"
+GEMINI_MODELS = ["gemini-3.5-flash-lite", "gemini-3.5-flashlite"]
+DEFAULT_GEMINI_MODEL = "gemini-3.5-flash-lite"
 GEMINI_API_URL = f"https://generativelanguage.googleapis.com/v1beta/models/{DEFAULT_GEMINI_MODEL}:generateContent"
 
 

@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>AI Interview Practice System</title>
-  <link rel="stylesheet" href="/static/style.css?v=20261112_v35">
+  <link rel="stylesheet" href="/static/style.css?v=20261112_v36">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Comic+Sans+MS&display=swap" rel="stylesheet">
@@ -36,7 +36,7 @@
     </div>
     <div class="header-right">
       <span class="badge badge-success" id="global-engine-pill" onclick="openConfigModal()" style="cursor: pointer; font-size: 0.8rem; font-weight: 700; padding: 0.45rem 0.85rem; border-radius: 20px; display: inline-flex; align-items: center; gap: 0.4rem; box-shadow: 0 2px 8px rgba(0,0,0,0.1);" title="Click to view/configure AI engine">
-        <span id="global-engine-dot">🟢</span> <span id="global-engine-text">Gemini 1.5 Flash</span>
+        <span id="global-engine-dot">🟢</span> <span id="global-engine-text">Gemini 3.5 Flash-Lite</span>
       </span>
       <button class="btn btn-secondary btn-sm" onclick="openConfigModal()" title="Settings" style="box-shadow: 0 2px 8px rgba(0,0,0,0.12); border-radius: 20px; padding: 0.45rem 0.9rem; font-weight: 600;">
         ⚙️ Settings
@@ -1812,7 +1812,7 @@
             <span class="badge badge-success" id="cfg-ai-status-badge">Checking...</span>
           </div>
           <p style="font-size: 0.8rem; color: #14532d; margin-top: 0.35rem; line-height: 1.4;" id="cfg-ai-status-desc">
-            Google Gemini (<code>gemini-1.5-flash</code>) generates live conversational questions, multi-turn adaptive follow-ups, and hiring committee rubric audits.
+            Google Gemini (<code>gemini-3.5-flash-lite</code>) generates live conversational questions, multi-turn adaptive follow-ups, and hiring committee rubric audits.
           </p>
         </div>
 
@@ -1993,6 +1993,6 @@
   <!-- Toast Notification Container -->
   <div id="app-toast-container" style="position: fixed; bottom: 1.5rem; right: 1.5rem; z-index: 3000; display: flex; flex-direction: column; gap: 0.6rem; pointer-events: none;"></div>
 
-  <script src="/static/app.js?v=20261112_v35"></script>
+  <script src="/static/app.js?v=20261112_v36"></script>
 </body>
 </html>

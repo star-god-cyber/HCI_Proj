@@ -70,5 +70,17 @@
     "rating_learning_value": 9,
     "what_worked_well": "Real-time speech-to-text transcript was fast and accurate. Speed slider works great.",
     "suggestions_for_improvement": "Add more question domains."
+  },
+  {
+    "timestamp": "2026-11-12 16:23:12",
+    "participant_name": "Test User P05",
+    "prototype_evaluated": "Both Prototypes (Full Experience)",
+    "candidate_role": "Staff Distributed Systems Engineer",
+    "rating_overall": 9,
+    "rating_voice": 10,
+    "rating_ai_feedback": 9,
+    "rating_learning_value": 9,
+    "what_worked_well": "Real-time speech-to-text transcript was fast and accurate. Speed slider works great.",
+    "suggestions_for_improvement": "Add more question domains."
   }
 ]
