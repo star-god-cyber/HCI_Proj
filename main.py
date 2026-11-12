@@ -6,6 +6,7 @@ Synthesized from CS 435 Task 2 Specifications & Wireframes.
 import os
 import uuid
 import json
+import csv
 import base64
 from pathlib import Path
 from datetime import datetime
@@ -563,6 +564,7 @@ async def submit_feedback(req: FeedbackSubmissionRequest):
         "q6_in_control_at_own_pace": req.q6_in_control_pace if req.q6_in_control_pace is not None else 5,
         "q7_aili_improved_interview_answers": req.q7_aili_improvement if req.q7_aili_improvement is not None else 5,
         "additional_comments": req.additional_comments or req.suggestions_for_improvement or "",
+        "decoy_clicked": req.decoy_clicked if req.decoy_clicked is not None else False,
         "rating_overall": req.rating_overall,
         "rating_voice": req.rating_voice,
         "rating_ai_feedback": req.rating_ai_feedback,
@@ -587,6 +589,18 @@ async def submit_feedback(req: FeedbackSubmissionRequest):
     feedbacks.append(entry)
     with open(fb_file, "w", encoding="utf-8") as f:
         json.dump(feedbacks, f, indent=2)
+
+    # Keep CSV file synchronized with JSON submissions
+    fb_csv = eval_dir / "user_feedback_submissions.csv"
+    try:
+        keys = list(entry.keys())
+        with open(fb_csv, "w", newline="", encoding="utf-8") as f:
+            writer = csv.DictWriter(f, fieldnames=keys)
+            writer.writeheader()
+            for fb in feedbacks:
+                writer.writerow(fb)
+    except Exception as e:
+        print("[Notice: Feedback CSV sync error]:", e)
 
     return {
         "status": "success",

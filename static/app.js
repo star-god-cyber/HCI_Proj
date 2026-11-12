@@ -4123,6 +4123,7 @@ function openConfigModal() {
 function closeConfigModal() {
   const modal = document.getElementById("modal-config");
   if (modal) modal.style.display = "none";
+  decoyFeedbackClicked = false;
 }
 
 async function loadConfigSettings() {
@@ -4308,6 +4309,14 @@ const LIKERT_5_LABELS = {
   "5": "5 / 5 (Strongly Agree)"
 };
 
+let decoyFeedbackClicked = false;
+
+function handleDecoyFeedbackSubmit() {
+  decoyFeedbackClicked = true;
+  console.warn("[HCI Telemetry] Decoy submit button triggered.");
+  showAppToast("⚠️ Attention check: This is a decoy button. Please click '📨 Submit Feedback' to submit.", "warning");
+}
+
 function updateFbLikertDisplay(qNum, val) {
   const el = document.getElementById(`fb-val-${qNum}`);
   if (el) {
@@ -4348,6 +4357,7 @@ async function submitUserStudyFeedback() {
     q7_aili_improvement: v7,
     additional_comments: comments,
     suggestions_for_improvement: comments,
+    decoy_clicked: decoyFeedbackClicked,
     rating_overall: Math.round((v1 + v2 + v3 + v4 + v5 + v6 + v7) / 7 * 2),
     rating_voice: v2 * 2,
     rating_ai_feedback: v4 * 2,
@@ -4455,6 +4465,7 @@ window.switchSettingsTab = switchSettingsTab;
 window.setSpeechRate = setSpeechRate;
 window.toggleAutoSpeak = toggleAutoSpeak;
 window.updateFbLikertDisplay = updateFbLikertDisplay;
+window.handleDecoyFeedbackSubmit = handleDecoyFeedbackSubmit;
 window.submitUserStudyFeedback = submitUserStudyFeedback;
 window.toggleGeminiKeyVisibility = toggleGeminiKeyVisibility;
 window.testGeminiConnectionUI = testGeminiConnectionUI;

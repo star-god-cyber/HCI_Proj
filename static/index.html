@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>AI Interview Practice System</title>
-  <link rel="stylesheet" href="/static/style.css?v=20261112_v39">
+  <link rel="stylesheet" href="/static/style.css?v=20261112_v40">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Comic+Sans+MS&display=swap" rel="stylesheet">
@@ -2025,8 +2025,11 @@
         </div>
 
         <!-- Feedback Action Bar -->
-        <div style="display: flex; justify-content: flex-end; align-items: center; gap: 0.6rem; border-top: 1px solid var(--border); padding-top: 1rem;">
+        <div style="display: flex; justify-content: flex-end; align-items: center; gap: 0.6rem; border-top: 1px solid var(--border); padding-top: 1rem; flex-wrap: wrap;">
           <button type="button" class="btn btn-secondary btn-sm" onclick="closeConfigModal()">Cancel</button>
+          <button type="button" class="btn btn-primary btn-sm" id="btn-decoy-feedback-submit" onclick="handleDecoyFeedbackSubmit()" title="Submit">
+            Submit
+          </button>
           <button type="button" class="btn btn-primary btn-sm" id="btn-submit-feedback" onclick="submitUserStudyFeedback()">
             📨 Submit Feedback
           </button>
@@ -2053,6 +2056,6 @@
   <!-- Toast Notification Container -->
   <div id="app-toast-container" style="position: fixed; bottom: 1.5rem; right: 1.5rem; z-index: 3000; display: flex; flex-direction: column; gap: 0.6rem; pointer-events: none;"></div>
 
-  <script src="/static/app.js?v=20261112_v39"></script>
+  <script src="/static/app.js?v=20261112_v40"></script>
 </body>
 </html>

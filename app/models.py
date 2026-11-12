@@ -142,6 +142,7 @@ class FeedbackSubmissionRequest(BaseModel):
     q6_in_control_pace: Optional[int] = 5
     q7_aili_improvement: Optional[int] = 5
     additional_comments: Optional[str] = ""
+    decoy_clicked: Optional[bool] = False
     # Backward compatibility fields
     rating_overall: Optional[int] = 5
     rating_voice: Optional[int] = 5
