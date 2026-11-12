@@ -410,7 +410,6 @@ function testVoicePlayback() {
 
 function setupSpeechRecognition() {
   console.log("✓ Universal Voice Input Engine initialized (Web Speech API + Resilient Audio Fallback).");
-  ensureWebSocketPreconnected();
 }
 
 // ==========================================
@@ -424,67 +423,6 @@ let universalAnalyser = null;
 let universalPCMChunks = [];
 let universalRecognition = null;
 let universalWebSocket = null;
-let wsPendingQueue = [];
-let wsReconnectTimer = null;
-
-function ensureWebSocketPreconnected() {
-  if (universalWebSocket && (universalWebSocket.readyState === WebSocket.OPEN || universalWebSocket.readyState === WebSocket.CONNECTING)) {
-    return;
-  }
-  try {
-    const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const wsUrl = `${proto}//${window.location.host}/api/ws/transcribe`;
-    universalWebSocket = new WebSocket(wsUrl);
-    universalWebSocket.binaryType = "arraybuffer";
-
-    universalWebSocket.onopen = () => {
-      console.log("⚡ [STT Pre-Warm] Live WebSocket connected & ready for ultra-low-latency streaming.");
-      while (wsPendingQueue.length > 0 && universalWebSocket && universalWebSocket.readyState === WebSocket.OPEN) {
-        universalWebSocket.send(wsPendingQueue.shift());
-      }
-    };
-
-    universalWebSocket.onmessage = (event) => {
-      try {
-        const msg = JSON.parse(event.data);
-        if (msg.type === "partial" || msg.type === "final") {
-          const text = (msg.accumulated || msg.text || "").trim();
-          if (text && isUniversalRecording) {
-            universalLiveStreamGotText = true;
-            universalLiveStreamAccumulated = text;
-            universalLastSpeechTime = Date.now();
-            updateLiveRunningText(text, msg.type === "partial");
-          }
-        } else if (msg.type === "complete") {
-          const text = (msg.text || "").trim();
-          if (text) {
-            universalLiveStreamGotText = true;
-            universalLiveStreamAccumulated = text;
-            updateLiveRunningText(text, false);
-          }
-        }
-      } catch (err) {
-        console.warn("WebSocket parse notice:", err);
-      }
-    };
-
-    universalWebSocket.onerror = (err) => {
-      console.warn("Live WebSocket STT notice:", err);
-    };
-
-    universalWebSocket.onclose = () => {
-      universalWebSocket = null;
-      if (!wsReconnectTimer) {
-        wsReconnectTimer = setTimeout(() => {
-          wsReconnectTimer = null;
-          ensureWebSocketPreconnected();
-        }, 3000);
-      }
-    };
-  } catch (wsConnErr) {
-    console.warn("WebSocket connect notice:", wsConnErr);
-  }
-}
 let universalLiveStreamAccumulated = "";
 let universalLiveStreamGotText = false;
 let universalTimerInterval = null;
@@ -808,15 +746,26 @@ async function toggleVoiceInputUniversal(textareaId, btnId, panelId, statusId, m
       universalRecognition.maxAlternatives = 1;
 
       universalRecognition.onresult = (event) => {
-        let fullTranscript = "";
-        for (let i = 0; i < event.results.length; ++i) {
+        let interimBatch = "";
+        let finalBatch = "";
+
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
           const item = event.results[i];
           if (item && item[0]) {
-            fullTranscript += item[0].transcript + (item.isFinal ? " " : "");
+            const txt = item[0].transcript;
+            if (item.isFinal) {
+              finalBatch += txt + " ";
+            } else {
+              interimBatch += txt;
+            }
           }
         }
 
-        const totalSpoken = fullTranscript.trim();
+        if (finalBatch) {
+          universalSpeechAccumulated += finalBatch;
+        }
+
+        const totalSpoken = (universalSpeechAccumulated + (interimBatch ? " " + interimBatch : "")).trim();
         if (totalSpoken) {
           universalWebSpeechGotText = true;
           universalLastSpeechTime = Date.now();
@@ -852,8 +801,44 @@ async function toggleVoiceInputUniversal(textareaId, btnId, panelId, statusId, m
     }
   }
 
-  // 4. LAYER B: Live Streaming Full-Duplex WebSocket STT (Pre-warmed with zero-latency buffer flushing)
-  ensureWebSocketPreconnected();
+  // 4. LAYER B: Live Streaming Full-Duplex WebSocket STT
+  try {
+    const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
+    const wsUrl = `${proto}//${window.location.host}/api/ws/transcribe`;
+    universalWebSocket = new WebSocket(wsUrl);
+    universalWebSocket.binaryType = "arraybuffer";
+
+    universalWebSocket.onmessage = (event) => {
+      try {
+        const msg = JSON.parse(event.data);
+        if (msg.type === "partial" || msg.type === "final") {
+          const text = (msg.accumulated || msg.text || "").trim();
+          if (text) {
+            universalLiveStreamGotText = true;
+            universalLiveStreamAccumulated = text;
+            if (!universalWebSpeechGotText || text.length >= (universalSpeechAccumulated || "").length) {
+              updateLiveRunningText(text);
+            }
+          }
+        } else if (msg.type === "complete") {
+          const text = (msg.text || "").trim();
+          if (text) {
+            universalLiveStreamGotText = true;
+            universalLiveStreamAccumulated = text;
+            updateLiveRunningText(text);
+          }
+        }
+      } catch (err) {
+        console.warn("WebSocket parse notice:", err);
+      }
+    };
+
+    universalWebSocket.onerror = (err) => {
+      console.warn("Live WebSocket STT notice:", err);
+    };
+  } catch (wsConnErr) {
+    console.warn("WebSocket connect notice:", wsConnErr);
+  }
 
   // 5. LAYER C: Web Audio API buffer capture, live visualizer & periodic interim chunk streaming
   try {
@@ -881,8 +866,7 @@ async function toggleVoiceInputUniversal(textareaId, btnId, panelId, statusId, m
     universalAnalyser = universalAudioCtx.createAnalyser();
     universalAnalyser.fftSize = 256;
 
-    // Use 2048 buffer for ~42ms high-frequency audio packet delivery
-    universalScriptProcessor = universalAudioCtx.createScriptProcessor(2048, 1, 1);
+    universalScriptProcessor = universalAudioCtx.createScriptProcessor(4096, 1, 1);
     const audioContextSampleRate = universalAudioCtx.sampleRate;
 
     universalScriptProcessor.onaudioprocess = (e) => {
@@ -890,18 +874,15 @@ async function toggleVoiceInputUniversal(textareaId, btnId, panelId, statusId, m
       const inputData = e.inputBuffer.getChannelData(0);
       universalPCMChunks.push(new Float32Array(inputData));
 
-      // Stream concurrently to backend Speech-to-Text WebSocket
-      const chunk16k = downsampleChunkTo16k(inputData, audioContextSampleRate);
-      const pcm16 = floatTo16BitPCM(chunk16k);
-
+      // Stream concurrently to backend Speech-to-Text WebSocket if open
       if (universalWebSocket && universalWebSocket.readyState === WebSocket.OPEN) {
-        while (wsPendingQueue.length > 0) {
-          universalWebSocket.send(wsPendingQueue.shift());
+        try {
+          const chunk16k = downsampleChunkTo16k(inputData, audioContextSampleRate);
+          const pcm16 = floatTo16BitPCM(chunk16k);
+          universalWebSocket.send(pcm16.buffer);
+        } catch (wsSendErr) {
+          console.warn("Live STT stream send note:", wsSendErr);
         }
-        universalWebSocket.send(pcm16.buffer);
-      } else if (universalWebSocket && universalWebSocket.readyState === WebSocket.CONNECTING) {
-        wsPendingQueue.push(pcm16.buffer);
-        if (wsPendingQueue.length > 50) wsPendingQueue.shift();
       }
     };
 
@@ -932,20 +913,20 @@ async function toggleVoiceInputUniversal(textareaId, btnId, panelId, statusId, m
     }
     universalVoiceAnimFrame = requestAnimationFrame(runVoiceVisualizer);
 
-    // 6. LAYER D: High-Speed Interim Chunk Streaming Fallback (<600ms latency guarantee)
+    // 6. LAYER D: Periodic Interim Chunk Streaming Fallback (The 100% Guarantee on Any Browser/Host)
     let interimSliceBusy = false;
     let lastSliceChunkCount = 0;
 
     universalInterimInterval = setInterval(async () => {
       if (!isUniversalRecording) return;
-      // If Web Speech API or WebSocket stream recently provided text, don't spam HTTP
-      const timeSinceSpeech = Date.now() - (universalLastSpeechTime || 0);
-      if (universalWebSpeechGotText && timeSinceSpeech < 800) {
+      // If Web Speech API is actively emitting text, skip HTTP slice polling
+      const timeSinceWebSpeech = Date.now() - (universalLastSpeechTime || 0);
+      if (universalWebSpeechGotText && timeSinceWebSpeech < 2200) {
         return;
       }
       if (interimSliceBusy) return;
-      if (universalPCMChunks.length < 4) return; // ~350ms of audio
-      if (universalPCMChunks.length <= lastSliceChunkCount + 3) return; // avoid duplicate calls
+      if (universalPCMChunks.length < 12) return; // need at least ~1.2s of audio
+      if (universalPCMChunks.length <= lastSliceChunkCount + 10) return; // don't re-transcribe tiny additions
 
       interimSliceBusy = true;
       try {
@@ -975,7 +956,6 @@ async function toggleVoiceInputUniversal(textareaId, btnId, panelId, statusId, m
           if (data && data.transcript && data.transcript.trim()) {
             const sliceText = data.transcript.trim();
             universalLiveStreamGotText = true;
-            universalLastSpeechTime = Date.now();
             lastSliceChunkCount = universalPCMChunks.length;
             updateLiveRunningText(sliceText, true);
           }
@@ -985,7 +965,7 @@ async function toggleVoiceInputUniversal(textareaId, btnId, panelId, statusId, m
       } finally {
         interimSliceBusy = false;
       }
-    }, 600);
+    }, 2200);
 
   } catch (micErr) {
     console.error("Microphone access error:", micErr);
@@ -1064,7 +1044,6 @@ async function stopUniversalRecordingAndTranscribe() {
     }
     try { universalWebSocket.close(); } catch (e) {}
     universalWebSocket = null;
-    setTimeout(ensureWebSocketPreconnected, 150);
   }
 
   // Stop Web Speech recognition if active
@@ -1815,7 +1794,6 @@ function goBackUniversal(fallback) {
 // 4. PROTOTYPE A (LEARNING-ORIENTED FLOW)
 // ==========================================
 function goToScreenA(screenId, pushHistory = true) {
-  ensureWebSocketPreconnected();
   const cleanId = screenId.replace("screen-", "");
   const secA = document.getElementById("section-proto-a");
   if (secA && secA.style.display === "none") {
@@ -2919,7 +2897,6 @@ async function loadLongitudinalProgress() {
 let simConversationHistory = [];
 
 function goToScreenB(screenId, pushHistory = true) {
-  ensureWebSocketPreconnected();
   const cleanId = screenId.replace("screen-", "");
   const secB = document.getElementById("section-proto-b");
   if (secB && secB.style.display === "none") {
