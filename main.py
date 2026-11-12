@@ -703,58 +703,56 @@ async def _transcribe_audio_bytes(audio_bytes: bytes, interim: bool = False) -> 
         except Exception as v_err:
             print("[Vosk Transcription Notice]:", v_err)
 
-    # 2. Secondary: Gemini Free Tier if API key available (Final submission only, not interim slices to guarantee sub-second latency)
-    if not interim:
-        key = evaluator.get_gemini_api_key()
-        if key:
-            try:
-                b64 = base64.b64encode(audio_bytes).decode("utf-8")
-                prompt = "Transcribe the candidate's spoken interview response verbatim. Return ONLY the transcribed text without extra commentary or timestamps."
-                for m in ["gemini-3.5-flash-lite", "gemini-3.5-flashlite"]:
-                    async with httpx.AsyncClient(timeout=12.0) as client:
-                        resp = await client.post(
-                            f"https://generativelanguage.googleapis.com/v1beta/models/{m}:generateContent?key={key}",
-                            json={
-                                "contents": [{
-                                    "parts": [
-                                        {"inline_data": {"mime_type": "audio/wav", "data": b64}},
-                                        {"text": prompt}
-                                    ]
-                                }]
-                            }
-                        )
-                        if resp.status_code == 200:
-                            data = resp.json()
-                            candidates = data.get("candidates", [])
-                            if candidates:
-                                text = candidates[0].get("content", {}).get("parts", [{}])[0].get("text", "").strip()
-                                if text:
-                                    clean_text = text if interim else (text[0].upper() + text[1:].rstrip(".") + ".")
-                                    return {
-                                        "transcript": clean_text,
-                                        "source": f"gemini_{m}_audio",
-                                        "words_count": len(clean_text.split())
-                                    }
-            except Exception as g_err:
-                pass
-
-    # 3. Tertiary: SpeechRecognition Google fallback (if unblocked, final submission only)
-    if not interim:
+    # 2. Secondary: Gemini Free Tier if API key available
+    key = evaluator.get_gemini_api_key()
+    if key:
         try:
-            import speech_recognition as sr
-            r = sr.Recognizer()
-            with sr.AudioFile(io.BytesIO(audio_bytes)) as source:
-                audio_data = r.record(source)
-                transcript = r.recognize_google(audio_data)
-                if transcript and transcript.strip():
-                    clean_text = transcript.strip() if interim else (transcript.strip()[0].upper() + transcript.strip()[1:].rstrip(".") + ".")
-                    return {
-                        "transcript": clean_text,
-                        "source": "speech_recognition_google",
-                        "words_count": len(clean_text.split())
-                    }
-        except Exception:
+            b64 = base64.b64encode(audio_bytes).decode("utf-8")
+            prompt = "Transcribe the candidate's spoken interview response verbatim. Return ONLY the transcribed text without extra commentary or timestamps."
+            for m in ["gemini-3.5-flash-lite", "gemini-3.5-flashlite"]:
+                async with httpx.AsyncClient(timeout=12.0) as client:
+                    resp = await client.post(
+                        f"https://generativelanguage.googleapis.com/v1beta/models/{m}:generateContent?key={key}",
+                        json={
+                            "contents": [{
+                                "parts": [
+                                    {"inline_data": {"mime_type": "audio/wav", "data": b64}},
+                                    {"text": prompt}
+                                ]
+                            }]
+                        }
+                    )
+                    if resp.status_code == 200:
+                        data = resp.json()
+                        candidates = data.get("candidates", [])
+                        if candidates:
+                            text = candidates[0].get("content", {}).get("parts", [{}])[0].get("text", "").strip()
+                            if text:
+                                clean_text = text if interim else (text[0].upper() + text[1:].rstrip(".") + ".")
+                                return {
+                                    "transcript": clean_text,
+                                    "source": f"gemini_{m}_audio",
+                                    "words_count": len(clean_text.split())
+                                }
+        except Exception as g_err:
             pass
+
+    # 3. Tertiary: SpeechRecognition Google fallback (if unblocked)
+    try:
+        import speech_recognition as sr
+        r = sr.Recognizer()
+        with sr.AudioFile(io.BytesIO(audio_bytes)) as source:
+            audio_data = r.record(source)
+            transcript = r.recognize_google(audio_data)
+            if transcript and transcript.strip():
+                clean_text = transcript.strip() if interim else (transcript.strip()[0].upper() + transcript.strip()[1:].rstrip(".") + ".")
+                return {
+                    "transcript": clean_text,
+                    "source": "speech_recognition_google",
+                    "words_count": len(clean_text.split())
+                }
+    except Exception:
+        pass
 
     return {
         "transcript": "",
