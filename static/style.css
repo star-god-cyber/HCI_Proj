@@ -17,6 +17,7 @@
   --border: #cbd5e1;
   --card-bg: #ffffff;
   --card-bg-subtle: #f8fafc;
+  --bg-surface: #f8fafc;
   --body-bg: #f8fafc;
   --header-bg: #ffffff;
   --input-bg: #ffffff;
@@ -50,6 +51,7 @@ body.dark-mode {
   --border: #334155;
   --card-bg: #111827;
   --card-bg-subtle: #1a2234;
+  --bg-surface: #1a2234;
   --body-bg: #090d16;
   --header-bg: #111827;
   --input-bg: #1a2234;
@@ -3496,6 +3498,171 @@ body:not(.dark-mode) .app-toast {
   text-align: center;
   padding: 2.5rem 1.5rem;
 }
+
+/* ==========================================================================
+   SETTINGS MODAL & USER EVALUATION FEEDBACK (DARK & LIGHT THEME)
+   ========================================================================== */
+.feedback-prompt-card {
+  background: var(--card-bg-subtle, #f8fafc);
+  border: 1px solid var(--border, #cbd5e1);
+  border-radius: 8px;
+  padding: 0.85rem 1rem;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+body.dark-mode .feedback-prompt-card {
+  background: #1a2234 !important;
+  border-color: #334155 !important;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+}
+
+.feedback-prompt-title {
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: var(--text-main, #0f172a);
+  line-height: 1.45;
+}
+
+body.dark-mode .feedback-prompt-title {
+  color: #f8fafc !important;
+}
+
+.feedback-prompt-score {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--primary, #2563eb);
+  white-space: nowrap;
+}
+
+body.dark-mode .feedback-prompt-score {
+  color: #60a5fa !important;
+}
+
+.feedback-scale-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.72rem;
+  color: var(--text-muted, #64748b);
+  margin-top: 0.25rem;
+  font-weight: 500;
+}
+
+body.dark-mode .feedback-scale-labels {
+  color: #94a3b8 !important;
+}
+
+.feedback-intro-banner {
+  background: rgba(37, 99, 235, 0.08);
+  border: 1.5px solid var(--primary-border, #bfdbfe);
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1rem;
+}
+
+body.dark-mode .feedback-intro-banner {
+  background: rgba(59, 130, 246, 0.15) !important;
+  border-color: rgba(59, 130, 246, 0.4) !important;
+}
+
+.feedback-intro-title {
+  color: var(--primary, #1e40af);
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+body.dark-mode .feedback-intro-title {
+  color: #93c5fd !important;
+}
+
+.feedback-intro-text {
+  font-size: 0.8rem;
+  color: var(--text-muted, #1e3a8a);
+  margin: 0.25rem 0 0 0;
+  line-height: 1.45;
+}
+
+body.dark-mode .feedback-intro-text {
+  color: #e2e8f0 !important;
+}
+
+/* Custom Feedback Range Sliders (Light & Dark Mode) */
+input[type="range"].feedback-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 6px;
+  background: #cbd5e1;
+  border-radius: 4px;
+  outline: none;
+  border: none;
+  padding: 0;
+  margin: 0.5rem 0 0.2rem 0;
+  cursor: pointer;
+}
+
+input[type="range"].feedback-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #2563eb;
+  cursor: pointer;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+  transition: transform 0.1s ease, background 0.15s ease;
+}
+
+input[type="range"].feedback-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.15);
+  background: #1d4ed8;
+}
+
+input[type="range"].feedback-slider::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #2563eb;
+  cursor: pointer;
+  border: none;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+}
+
+body.dark-mode input[type="range"].feedback-slider {
+  background: #334155;
+}
+
+body.dark-mode input[type="range"].feedback-slider::-webkit-slider-thumb {
+  background: #3b82f6;
+  box-shadow: 0 0 0 2px #1e293b, 0 2px 6px rgba(0,0,0,0.5);
+}
+
+body.dark-mode input[type="range"].feedback-slider::-webkit-slider-thumb:hover {
+  background: #60a5fa;
+}
+
+body.dark-mode input[type="range"].feedback-slider::-moz-range-thumb {
+  background: #3b82f6;
+}
+
+/* Dark mode for AI Engine Status Card in Settings */
+body.dark-mode #cfg-ai-status-card {
+  background: rgba(16, 185, 129, 0.14) !important;
+  border-color: rgba(16, 185, 129, 0.4) !important;
+}
+body.dark-mode #cfg-ai-status-title {
+  color: #86efac !important;
+}
+body.dark-mode #cfg-ai-status-desc {
+  color: #d1fae5 !important;
+}
+
+/* Dark mode for Audio Auto-Speak box */
+body.dark-mode #cfg-tab-audio .form-group[style*="background"] {
+  background: #1a2234 !important;
+  border-color: #334155 !important;
+  color: #f8fafc !important;
+}
+
 
 
 
