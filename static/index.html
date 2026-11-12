@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>AI Interview Practice System</title>
-  <link rel="stylesheet" href="/static/style.css?v=20261112_v26">
+  <link rel="stylesheet" href="/static/style.css?v=20261112_v27">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Comic+Sans+MS&display=swap" rel="stylesheet">
@@ -595,17 +595,11 @@
           <div id="a4-adaptive-reasoning" style="font-size: 0.82rem; color: var(--text-muted); font-style: italic;"></div>
         </div>
 
-        <!-- Consistent Action & Dossier Export Bar -->
-        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem; margin-top: 1.5rem; padding-top: 1.25rem; border-top: 1px solid var(--border);">
-          <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
-            <a class="btn btn-outline btn-sm" id="btn-dl-docx-a4" href="#" target="_blank">📄 Export Dossier (.DOCX)</a>
-            <a class="btn btn-outline btn-sm" id="btn-dl-pptx-a4" href="#" target="_blank">📊 Export Slides (.PPTX)</a>
-          </div>
-          <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
-            <button class="btn btn-outline" onclick="goBackUniversal('a3')">← Back to Question</button>
-            <button class="btn btn-outline" onclick="openWhyFeedbackModal()">🔍 Why This Feedback? (Audit Details)</button>
-            <button class="btn btn-primary" onclick="goToScreenA('a6')">📝 Reflect & Try Again (Attempt 2) →</button>
-          </div>
+        <!-- Evaluation Action Bar -->
+        <div style="display: flex; justify-content: flex-end; align-items: center; flex-wrap: wrap; gap: 0.75rem; margin-top: 1.5rem; padding-top: 1.25rem; border-top: 1px solid var(--border);">
+          <button class="btn btn-outline" onclick="goBackUniversal('a3')">← Back to Question</button>
+          <button class="btn btn-outline" onclick="openWhyFeedbackModal()">🔍 Why This Feedback? (Audit Details)</button>
+          <button class="btn btn-primary" onclick="goToScreenA('a6')">📝 Reflect &amp; Try Again (Attempt 2) →</button>
         </div>
         </div>
       </div>
@@ -903,15 +897,9 @@
           <ul id="compare-improvements" class="feedback-list-success"></ul>
         </div>
 
-        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem; margin-top: 1.5rem; padding-top: 1.25rem; border-top: 1px solid var(--border);">
-          <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
-            <a class="btn btn-outline btn-sm" id="btn-dl-docx-a8" href="#" target="_blank">📄 Export Dossier (.DOCX)</a>
-            <a class="btn btn-outline btn-sm" id="btn-dl-pptx-a8" href="#" target="_blank">📊 Export Slides (.PPTX)</a>
-          </div>
-          <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center;">
-            <button class="btn btn-outline" onclick="goBackUniversal('a7')">← Back to Revision</button>
-            <button class="btn btn-primary" id="btn-next-question-a8" onclick="nextQuestionA()">Next Question →</button>
-          </div>
+        <div style="display: flex; justify-content: flex-end; align-items: center; flex-wrap: wrap; gap: 0.75rem; margin-top: 1.5rem; padding-top: 1.25rem; border-top: 1px solid var(--border);">
+          <button class="btn btn-outline" onclick="goBackUniversal('a7')">← Back to Revision</button>
+          <button class="btn btn-primary" id="btn-next-question-a8" onclick="nextQuestionA()">Next Question →</button>
         </div>
         </div>
       </div>
@@ -1251,13 +1239,8 @@
         </div>
 
         <!-- Bottom Action Bar -->
-        <div style="margin-top: 2rem; padding-top: 1.25rem; border-top: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
-          <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
-            <a class="btn btn-outline" id="btn-dl-sim-docx" href="#">📄 Export Official Interview Dossier (.DOCX)</a>
-            <a class="btn btn-outline" id="btn-dl-sim-pptx" href="#">📊 Export Evaluation Slide Deck (.PPTX)</a>
-          </div>
+        <div style="margin-top: 2rem; padding-top: 1.25rem; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; align-items: center; flex-wrap: wrap; gap: 1rem;">
           <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center;">
-            <button class="btn btn-outline" onclick="goToHomeUniversal()">🏠 Return to Home</button>
             <button class="btn btn-secondary" onclick="openLongitudinalProgress()">📈 Longitudinal Progress</button>
             <button class="btn btn-outline btn-danger" onclick="resetLongitudinalProgress()">🗑️ Reset Progress (Forget All Data)</button>
             <button class="btn btn-primary" onclick="goToScreenB('b1')">🔄 New Simulation Session</button>
@@ -1375,6 +1358,6 @@
   <!-- Toast Notification Container -->
   <div id="app-toast-container" style="position: fixed; bottom: 1.5rem; right: 1.5rem; z-index: 3000; display: flex; flex-direction: column; gap: 0.6rem; pointer-events: none;"></div>
 
-  <script src="/static/app.js?v=20261112_v26"></script>
+  <script src="/static/app.js?v=20261112_v27"></script>
 </body>
 </html>
