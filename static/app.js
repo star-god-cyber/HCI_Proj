@@ -29,6 +29,77 @@ let autoSpeakEnabled = true;
 let evalTimerInterval = null;
 let evalTimerSeconds = 0;
 
+// ==========================================
+// CUSTOM GLASSMORPHIC CONFIRMATION & TOAST SYSTEM
+// ==========================================
+function showAppConfirm(title, message, { confirmText = "Confirm", cancelText = "Cancel", isDestructive = false } = {}) {
+  return new Promise((resolve) => {
+    const modal = document.getElementById("modal-app-confirm");
+    const titleEl = document.getElementById("confirm-modal-title");
+    const msgEl = document.getElementById("confirm-modal-message");
+    const iconEl = document.getElementById("confirm-modal-icon");
+    const okBtn = document.getElementById("confirm-modal-ok-btn");
+    const cancelBtn = document.getElementById("confirm-modal-cancel-btn");
+
+    if (!modal || !okBtn || !cancelBtn) {
+      resolve(window.confirm(message));
+      return;
+    }
+
+    if (titleEl) titleEl.innerText = title;
+    if (msgEl) msgEl.innerText = message;
+    if (iconEl) iconEl.innerText = isDestructive ? "🗑️" : "⚠️";
+    okBtn.innerText = confirmText;
+    cancelBtn.innerText = cancelText;
+
+    if (isDestructive) {
+      okBtn.className = "btn btn-danger";
+    } else {
+      okBtn.className = "btn btn-primary";
+    }
+
+    modal.style.display = "flex";
+
+    const cleanup = (result) => {
+      modal.style.display = "none";
+      okBtn.onclick = null;
+      cancelBtn.onclick = null;
+      modal.onclick = null;
+      resolve(result);
+    };
+
+    okBtn.onclick = () => cleanup(true);
+    cancelBtn.onclick = () => cleanup(false);
+    modal.onclick = (e) => {
+      if (e.target === modal) cleanup(false);
+    };
+  });
+}
+
+function showAppToast(message, type = "info") {
+  const container = document.getElementById("app-toast-container");
+  if (!container) {
+    console.log(`[Toast ${type}]:`, message);
+    return;
+  }
+  const toast = document.createElement("div");
+  toast.className = `app-toast toast-${type}`;
+  const icon = type === "success" ? "✓" : (type === "danger" ? "✕" : "ℹ️");
+  toast.innerHTML = `<span style="font-weight: 700;">${icon}</span> <span>${message}</span>`;
+  container.appendChild(toast);
+  
+  requestAnimationFrame(() => {
+    toast.classList.add("show");
+  });
+
+  setTimeout(() => {
+    toast.classList.remove("show");
+    setTimeout(() => {
+      if (toast.parentNode) toast.parentNode.removeChild(toast);
+    }, 300);
+  }, 3500);
+}
+
 // Initialization
 document.addEventListener("DOMContentLoaded", () => {
   initTheme();
@@ -171,6 +242,11 @@ function setAvatarSpeaking(isSpeaking) {
       }
     }
   });
+
+  // Toggle active visual audio pulse on all TTS audio buttons
+  document.querySelectorAll("#btn-listen-q, #btn-listen-a3, #btn-listen-retry, .tts-play-btn, .btn-listen").forEach(btn => {
+    btn.classList.toggle("tts-playing", isSpeaking);
+  });
 }
 
 function stopAllAudio() {
@@ -276,9 +352,14 @@ function clearCockpitAnswer() {
   }
 }
 
-function confirmExitSimulation() {
+async function confirmExitSimulation() {
   if (simConversationHistory && simConversationHistory.length > 1) {
-    if (confirm("Are you sure you want to return to configuration? Your ongoing mock interview progress will be reset.")) {
+    const confirmed = await showAppConfirm(
+      "Return to Setup?",
+      "Are you sure you want to return to configuration? Your ongoing mock interview progress will be reset.",
+      { confirmText: "Return to Setup", isDestructive: true }
+    );
+    if (confirmed) {
       stopAllAudio();
       goToScreenB("b2");
     }
@@ -1505,6 +1586,17 @@ function goBackUniversal(fallback) {
   }
 
   let prev = screenHistoryStack.pop();
+
+  // Prevent returning to the completed simulation room from debrief
+  if (currentActiveScreen === "b6" && (!prev || prev === "b3" || prev === "b6")) {
+    prev = "b1";
+  }
+
+  // Prevent back loops to the same screen
+  while (screenHistoryStack.length > 0 && prev === currentActiveScreen) {
+    prev = screenHistoryStack.pop();
+  }
+
   if (!prev) {
     prev = fallback ? fallback.replace("screen-", "") : "b1";
   }
@@ -2355,7 +2447,11 @@ function openLongitudinalProgress() {
 
 // Reset all longitudinal progress data (forget all data)
 async function resetLongitudinalProgress() {
-  const confirmed = confirm("Are you sure you want to forget all evaluation data and reset your progress graph? This cannot be undone.");
+  const confirmed = await showAppConfirm(
+    "Reset Progress Data?",
+    "Are you sure you want to forget all evaluation data and reset your progress graph? This cannot be undone.",
+    { confirmText: "Reset All Data", isDestructive: true }
+  );
   if (!confirmed) return;
 
   try {
@@ -2367,10 +2463,10 @@ async function resetLongitudinalProgress() {
     console.log("Progress reset response:", result);
 
     await loadLongitudinalProgress();
-    alert("Evaluation progress data has been successfully reset.");
+    showAppToast("Evaluation progress data has been successfully reset.", "success");
   } catch (err) {
     console.error("Failed to reset progress:", err);
-    alert("Error resetting progress data. Please try again.");
+    showAppToast("Error resetting progress data. Please try again.", "danger");
   }
 }
 
@@ -2576,7 +2672,7 @@ function handleHomeModeSelectChange(mode) {
   }
 }
 
-function goToHomeUniversal() {
+async function goToHomeUniversal() {
   stopAllAudio();
   if (typeof stopActiveRecognition === "function") {
     try { stopActiveRecognition(); } catch (e) {}
@@ -2584,7 +2680,11 @@ function goToHomeUniversal() {
 
   // If inside an active simulation interview session, prompt user before navigating away
   if (currentActiveScreen === "b3") {
-    const confirmExit = confirm("Are you sure you want to pause/exit the current interview and return to Home?");
+    const confirmExit = await showAppConfirm(
+      "Exit Interview Room?",
+      "Are you sure you want to pause/exit the current interview and return to Home?",
+      { confirmText: "Exit to Home", isDestructive: true }
+    );
     if (!confirmExit) return;
   }
 

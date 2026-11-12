@@ -579,17 +579,52 @@ header {
 /* Main Container */
 main {
   max-width: 1200px;
-  margin: 3.25rem auto 1.5rem;
+  margin: 4.8rem auto 1.5rem;
   padding: 0 1.25rem 3rem;
 }
 
-.top-floating-left-controls {
+/* Persistent Modern Top Navigation Header */
+.app-global-header {
   position: fixed;
-  top: 1rem;
-  left: 1rem;
-  z-index: 1000;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3.6rem;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
   display: flex;
   align-items: center;
+  justify-content: space-between;
+  padding: 0 1.25rem;
+  z-index: 1000;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+}
+
+body.dark-mode .app-global-header {
+  background: rgba(15, 23, 42, 0.88);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 1px 6px rgba(0,0,0,0.3);
+}
+
+.header-left, .header-right {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.app-header-title {
+  font-weight: 700;
+  font-size: 1.05rem;
+  color: var(--text-main);
+  letter-spacing: -0.01em;
+}
+
+@media (max-width: 640px) {
+  .app-header-title {
+    display: none;
+  }
 }
 
 .card {
@@ -3167,6 +3202,89 @@ body.dark-mode .evidence-ambiguous {
   animation: blinkCursor 0.8s infinite;
   margin-left: 3px;
 }
+
+/* ==========================================================================
+   HCI Research Context Badges & Polish Styles
+   ========================================================================== */
+.research-context-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: rgba(37, 99, 235, 0.08);
+  border: 1px solid rgba(37, 99, 235, 0.22);
+  color: var(--primary);
+  padding: 0.35rem 0.85rem;
+  border-radius: 9999px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  margin-bottom: 0.85rem;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+.research-context-chip:hover {
+  background: rgba(37, 99, 235, 0.15);
+  border-color: var(--primary);
+  transform: translateY(-1px);
+}
+body.dark-mode .research-context-chip {
+  background: rgba(56, 189, 248, 0.1);
+  border-color: rgba(56, 189, 248, 0.25);
+  color: #38bdf8;
+}
+
+/* Audio Playing Visualizer on TTS Buttons */
+.tts-playing {
+  animation: pulse-audio-btn 1.2s infinite alternate !important;
+  border-color: #38bdf8 !important;
+  color: #38bdf8 !important;
+}
+@keyframes pulse-audio-btn {
+  0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(56, 189, 248, 0.4); }
+  100% { transform: scale(1.03); box-shadow: 0 0 0 8px rgba(56, 189, 248, 0); }
+}
+
+/* Toast Notifications */
+.app-toast {
+  background: #1e293b;
+  color: #f8fafc;
+  padding: 0.75rem 1.25rem;
+  border-radius: 8px;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.25);
+  font-size: 0.9rem;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  pointer-events: auto;
+  opacity: 0;
+  transform: translateY(10px);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  border-left: 4px solid var(--primary);
+}
+.app-toast.show {
+  opacity: 1;
+  transform: translateY(0);
+}
+.app-toast.toast-success { border-left-color: #22c55e; }
+.app-toast.toast-danger { border-left-color: #ef4444; }
+.app-toast.toast-info { border-left-color: #38bdf8; }
+body:not(.dark-mode) .app-toast {
+  background: #ffffff;
+  color: #0f172a;
+  box-shadow: 0 4px 18px rgba(0,0,0,0.15);
+}
+
+/* Longitudinal Chart Centered Empty State */
+.longitudinal-chart-empty-state {
+  min-height: 280px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  padding: 2.5rem 1.5rem;
+}
+
 
 
 
