@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>AI Interview Practice System</title>
-  <link rel="stylesheet" href="/static/style.css?v=20261112_v28">
+  <link rel="stylesheet" href="/static/style.css?v=20261112_v29">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Comic+Sans+MS&display=swap" rel="stylesheet">
@@ -284,7 +284,7 @@
                 </span>
                 <span class="mic-label-group">
                   <strong class="mic-primary-label" id="hero-mic-label-a">Click to Speak Your Answer</strong>
-                  <span class="mic-sub-label" id="hero-mic-sub-a">Transcribes in real time • Auto-sends on 3.5s pause or click</span>
+                  <span class="mic-sub-label" id="hero-mic-sub-a">Transcribes in real time • Click when done speaking</span>
                 </span>
               </button>
             </div>
@@ -675,7 +675,7 @@
                 </span>
                 <span class="mic-label-group">
                   <strong class="mic-primary-label" id="hero-mic-label-a6">Click to Speak Your Reflection</strong>
-                  <span class="mic-sub-label" id="hero-mic-sub-a6">Transcribes in real time • Auto-sends on 3.5s pause or click</span>
+                  <span class="mic-sub-label" id="hero-mic-sub-a6">Transcribes in real time • Click when done speaking</span>
                 </span>
               </button>
             </div>
@@ -703,7 +703,7 @@
             <div class="dock-hint-text">
               <span id="a6-word-count">0 words</span>
               <span class="pill-divider" style="margin: 0 0.5rem;">•</span>
-              <span style="color: var(--text-muted); font-size: 0.8rem;">Auto-forwards to Attempt 2 on pause, or click save</span>
+              <span style="color: var(--text-muted); font-size: 0.8rem;">Click 'Done Speaking', then save to proceed</span>
             </div>
             <div class="dock-controls-group" style="display: flex; gap: 0.5rem;">
               <button class="btn btn-outline" onclick="goBackUniversal('a4')">← Back to Feedback</button>
@@ -793,7 +793,7 @@
                 </span>
                 <span class="mic-label-group">
                   <strong class="mic-primary-label" id="hero-mic-label-a7">Click to Dictate Attempt 2 Revision</strong>
-                  <span class="mic-sub-label" id="hero-mic-sub-a7">Transcribes in real time • Auto-sends on 3.5s pause or click</span>
+                  <span class="mic-sub-label" id="hero-mic-sub-a7">Transcribes in real time • Click when done speaking</span>
                 </span>
               </button>
             </div>
@@ -1189,7 +1189,7 @@
                 </span>
                 <span class="mic-label-group">
                   <strong class="mic-primary-label" id="hero-mic-label">Click to Speak to Dr. Vance</strong>
-                  <span class="mic-sub-label" id="hero-mic-sub">Transcribes in real time • Auto-sends on 3.5s pause or click</span>
+                  <span class="mic-sub-label" id="hero-mic-sub">Transcribes in real time • Click when done speaking</span>
                 </span>
               </button>
             </div>
@@ -1198,6 +1198,11 @@
             <div class="cockpit-caption-strip" id="b3-stt-panel">
               <div class="caption-status" id="b3-stt-status">🎙️ Ready for your response. Click the button above to speak.</div>
               <div class="caption-preview" id="b3-live-preview"></div>
+            </div>
+
+            <!-- Voice Mode Submit Action Button -->
+            <div id="b3-voice-submit-bar" style="margin-top: 1rem; display: flex; justify-content: center; gap: 0.75rem;">
+              <button class="btn btn-primary" id="btn-submit-voice-b" onclick="submitSimulationAnswer()" style="min-width: 260px; font-weight: 700; padding: 0.75rem 1.5rem; font-size: 0.95rem; box-shadow: 0 4px 14px rgba(37,99,235,0.25);">Send Response to Dr. Vance ↵</button>
             </div>
           </div>
 
@@ -1214,7 +1219,7 @@
           <!-- Cockpit Bottom Utility Bar -->
           <div class="cockpit-bottom-bar">
             <div class="dock-hint-text">
-              <span id="b-silence-hint">💡 <strong>Live Interview Simulator:</strong> Your response auto-forwards to Dr. Vance after a 3.5s pause, or click 'Done Speaking'.</span>
+              <span id="b-silence-hint">💡 <strong>Live Interview Simulator:</strong> Speak into the mic to transcribe live. Click 'Done Speaking' to stop recording, then click 'Send Response to Dr. Vance'.</span>
             </div>
             <div class="dock-controls-group">
               <button class="btn btn-outline btn-sm" onclick="confirmExitSimulation()">⬅️ Back to Setup</button>
@@ -1358,6 +1363,6 @@
   <!-- Toast Notification Container -->
   <div id="app-toast-container" style="position: fixed; bottom: 1.5rem; right: 1.5rem; z-index: 3000; display: flex; flex-direction: column; gap: 0.6rem; pointer-events: none;"></div>
 
-  <script src="/static/app.js?v=20261112_v28"></script>
+  <script src="/static/app.js?v=20261112_v29"></script>
 </body>
 </html>

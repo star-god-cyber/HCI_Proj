@@ -457,47 +457,15 @@ function downsampleChunkTo16k(buffer, inputSampleRate) {
 }
 
 function checkSimSilenceAutoForward(totalSpoken, targetId, statusEl) {
-  const allowed = ["b-answer", "a-answer", "a-retry-answer", "a-change"];
-  if (!allowed.includes(targetId)) return;
-  const words = (totalSpoken || "").trim().split(/\s+/).filter(Boolean);
-  if (words.length < 3) return; // Trigger after at least 3 words
-
-  if (simSilenceTimer) clearTimeout(simSilenceTimer);
+  // Auto-send removed: response will only be sent when the user explicitly clicks the send/submit button.
+  if (simSilenceTimer) {
+    clearTimeout(simSilenceTimer);
+    simSilenceTimer = null;
+  }
   if (simSilenceCountdownTimer) {
     clearInterval(simSilenceCountdownTimer);
     simSilenceCountdownTimer = null;
   }
-
-  let remainingSec = 3.5;
-  simSilenceCountdownTimer = setInterval(() => {
-    remainingSec -= 0.5;
-    if (remainingSec <= 2.5 && isUniversalRecording && allowed.includes(universalTextareaId)) {
-      if (statusEl) {
-        let dest = "Dr. Marcus Vance";
-        if (universalTextareaId === "a-answer") dest = "Evaluator (Attempt 1)";
-        else if (universalTextareaId === "a-retry-answer") dest = "Evaluator (Attempt 2)";
-        else if (universalTextareaId === "a-change") dest = "Revision Plan";
-        statusEl.innerHTML = `⏸️ <strong>Pause detected:</strong> Auto-submitting to ${dest} in <strong>${remainingSec.toFixed(1)}s</strong> (keep speaking to cancel)...`;
-      }
-    }
-    if (remainingSec <= 0) {
-      if (simSilenceCountdownTimer) {
-        clearInterval(simSilenceCountdownTimer);
-        simSilenceCountdownTimer = null;
-      }
-    }
-  }, 500);
-
-  simSilenceTimer = setTimeout(() => {
-    if (simSilenceCountdownTimer) {
-      clearInterval(simSilenceCountdownTimer);
-      simSilenceCountdownTimer = null;
-    }
-    if (isUniversalRecording && allowed.includes(universalTextareaId)) {
-      console.log(`Natural conversational pause detected for ${universalTextareaId} -> auto-forwarding response to AI`);
-      stopUniversalRecordingAndTranscribe();
-    }
-  }, 3500);
 }
 
 // Convert Float32 buffer to 16kHz mono 16-bit PCM WAV Blob
@@ -598,27 +566,27 @@ async function toggleVoiceInputUniversal(textareaId, btnId, panelId, statusId, m
       const sub = btn.querySelector(".mic-sub-label") || document.getElementById("hero-mic-sub");
       if (glyph) glyph.innerText = "⏹️";
       if (btnId === "hero-mic-b") {
-        if (label) label.innerText = "Done Speaking — Send Response ↵";
-        if (sub) sub.innerText = "Listening live... Auto-sends on 3.5s pause or click now";
+        if (label) label.innerText = "⏹️ Done Speaking (Stop Recording)";
+        if (sub) sub.innerText = "Recording live... Click here when done speaking";
       } else if (btnId === "btn-speech-a") {
-        if (label) label.innerText = "Done Speaking — Submit for Evaluation ↵";
-        if (sub) sub.innerText = "Listening live... Auto-sends on 3.5s pause or click now";
+        if (label) label.innerText = "⏹️ Done Speaking (Stop Recording)";
+        if (sub) sub.innerText = "Recording live... Click here when done speaking";
       } else if (btnId === "btn-speech-a7") {
-        if (label) label.innerText = "Done Speaking — Submit Revision ↵";
-        if (sub) sub.innerText = "Listening live... Auto-sends on 3.5s pause or click now";
+        if (label) label.innerText = "⏹️ Done Speaking (Stop Recording)";
+        if (sub) sub.innerText = "Recording live... Click here when done speaking";
       } else if (btnId === "btn-speech-a6") {
-        if (label) label.innerText = "Done Speaking — Save Reflection ↵";
-        if (sub) sub.innerText = "Listening live... Auto-sends on 3.5s pause or click now";
+        if (label) label.innerText = "⏹️ Done Speaking (Stop Recording)";
+        if (sub) sub.innerText = "Recording live... Click here when done speaking";
       } else {
-        if (label) label.innerText = "Done Speaking (Auto-Sends on Pause)";
-        if (sub) sub.innerText = "Listening live... Auto-sends on 3.5s pause or click now";
+        if (label) label.innerText = "⏹️ Done Speaking (Stop Recording)";
+        if (sub) sub.innerText = "Recording live... Click here when done speaking";
       }
       btn.classList.add("recording");
     } else if (btnId === "btn-speech-b") {
-      btn.innerText = "⏹️ Finish Speaking (Auto-Sends to AI)";
+      btn.innerText = "⏹️ Done Speaking (Stop Recording)";
       btn.className = "btn btn-danger btn-sm";
     } else {
-      btn.innerText = "⏹️ Done Speaking (Auto-Sends on Pause)";
+      btn.innerText = "⏹️ Done Speaking (Stop Recording)";
       btn.className = "btn btn-danger btn-sm";
     }
   }
@@ -1047,11 +1015,9 @@ async function stopUniversalRecordingAndTranscribe() {
       preview.classList.add("active");
     }
     if (status) {
-      status.innerHTML = "✓ <strong>Voice Converted in Real-Time:</strong> Answer captured live with zero wait time!";
+      status.innerHTML = "✓ <strong>Voice Recording Saved:</strong> Your response is transcribed below. Review and click the submit button to send.";
     }
     resetUniversalUI();
-    // Auto-forwarding directly to AI
-    triggerAutoForwardDestination(targetTextareaId, status);
     return;
   }
 
@@ -1119,11 +1085,9 @@ async function stopUniversalRecordingAndTranscribe() {
         preview.classList.add("active");
       }
       if (status) {
-        status.innerHTML = `✓ <strong>Spoken Answer Transcribed:</strong> “${escapeHtml(text.slice(0, 70))}${text.length > 70 ? '...' : ''}”`;
+        status.innerHTML = `✓ <strong>Spoken Answer Transcribed:</strong> “${escapeHtml(text.slice(0, 70))}${text.length > 70 ? '...' : ''}” — Review and click the submit button to send.`;
       }
       resetUniversalUI();
-      // Auto-forwarding directly to AI
-      triggerAutoForwardDestination(targetTextareaId, status);
       return;
     } else {
       if (status) {
@@ -1167,23 +1131,23 @@ function resetUniversalUI() {
         if (glyph) glyph.innerText = "🎙️";
         if (universalBtnId === "hero-mic-b") {
           if (label) label.innerText = "Click to Speak to Dr. Vance";
-          if (sub) sub.innerText = "Transcribes in real time • Auto-sends on 3.5s pause or click";
+          if (sub) sub.innerText = "Transcribes in real time • Click when done speaking";
         } else if (universalBtnId === "btn-speech-a7") {
           if (label) label.innerText = "Click to Dictate Attempt 2 Revision";
-          if (sub) sub.innerText = "Transcribes in real time • Auto-sends on 3.5s pause or click";
+          if (sub) sub.innerText = "Transcribes in real time • Click when done speaking";
         } else if (universalBtnId === "btn-speech-a6") {
           if (label) label.innerText = "Click to Speak Your Reflection";
-          if (sub) sub.innerText = "Transcribes in real time • Auto-sends on 3.5s pause or click";
+          if (sub) sub.innerText = "Transcribes in real time • Click when done speaking";
         } else {
           if (label) label.innerText = "Click to Speak Your Answer";
-          if (sub) sub.innerText = "Transcribes in real time • Auto-sends on 3.5s pause or click";
+          if (sub) sub.innerText = "Transcribes in real time • Click when done speaking";
         }
         btn.classList.remove("recording");
       } else if (universalBtnId === "btn-speech-b") {
-        btn.innerText = "🎙️ Speak to Interviewer (Auto-Forwards)";
+        btn.innerText = "🎙️ Speak Response (Click to Record)";
         btn.className = "btn btn-primary btn-sm";
       } else {
-        btn.innerText = "🎙️ Start Voice Input (Click to Speak)";
+        btn.innerText = "🎙️ Start Voice Input (Click to Record)";
         btn.className = "btn btn-primary btn-sm";
       }
     }
@@ -2963,7 +2927,7 @@ async function startSessionB() {
   }
   const heroSub = document.getElementById("hero-mic-sub");
   if (heroSub) {
-    heroSub.innerText = "Transcribes in real time • Auto-sends on 3.5s pause or click";
+    heroSub.innerText = "Transcribes in real time • Click when done speaking";
   }
   const typedBtn = document.getElementById("btn-b-submit");
   if (typedBtn) {
