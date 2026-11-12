@@ -356,7 +356,7 @@
                 </span>
                 <span class="mic-label-group">
                   <strong class="mic-primary-label" id="hero-mic-label-a">Click to Speak Your Answer</strong>
-                  <span class="mic-sub-label" id="hero-mic-sub-a">Transcribes in real time • Click when done speaking</span>
+                  <span class="mic-sub-label" id="hero-mic-sub-a">Transcribes in real time • Auto-sends on 3.5s pause or click</span>
                 </span>
               </button>
             </div>
@@ -907,7 +907,7 @@
                 </span>
                 <span class="mic-label-group">
                   <strong class="mic-primary-label" id="hero-mic-label-a6">Click to Speak Your Reflection</strong>
-                  <span class="mic-sub-label" id="hero-mic-sub-a6">Transcribes in real time • Click when done speaking</span>
+                  <span class="mic-sub-label" id="hero-mic-sub-a6">Transcribes in real time • Auto-sends on 3.5s pause or click</span>
                 </span>
               </button>
             </div>
@@ -935,7 +935,7 @@
             <div class="dock-hint-text">
               <span id="a6-word-count">0 words</span>
               <span class="pill-divider" style="margin: 0 0.5rem;">•</span>
-              <span style="color: var(--text-muted); font-size: 0.8rem;">Click 'Done Speaking', then save to proceed</span>
+              <span style="color: var(--text-muted); font-size: 0.8rem;">Auto-forwards to Attempt 2 on pause, or click save</span>
             </div>
             <div class="dock-controls-group" style="display: flex; gap: 0.5rem;">
               <button class="btn btn-outline" onclick="goBackUniversal('a4')">← Back to Feedback</button>
@@ -1105,7 +1105,7 @@
                 </span>
                 <span class="mic-label-group">
                   <strong class="mic-primary-label" id="hero-mic-label-a7">Click to Dictate Attempt 2 Revision</strong>
-                  <span class="mic-sub-label" id="hero-mic-sub-a7">Transcribes in real time • Click when done speaking</span>
+                  <span class="mic-sub-label" id="hero-mic-sub-a7">Transcribes in real time • Auto-sends on 3.5s pause or click</span>
                 </span>
               </button>
             </div>
@@ -1651,7 +1651,7 @@
                 </span>
                 <span class="mic-label-group">
                   <strong class="mic-primary-label" id="hero-mic-label">Click to Speak to Dr. Vance</strong>
-                  <span class="mic-sub-label" id="hero-mic-sub">Transcribes in real time • Click again when done to send</span>
+                  <span class="mic-sub-label" id="hero-mic-sub">Transcribes in real time • Auto-sends on 3.5s pause or click</span>
                 </span>
               </button>
             </div>
@@ -1662,10 +1662,7 @@
               <div class="caption-preview" id="b3-live-preview"></div>
             </div>
 
-            <!-- Voice Mode Submit Action Button -->
-            <div id="b3-voice-submit-bar" style="margin-top: 1rem; display: none; justify-content: center; gap: 0.75rem;">
-              <button class="btn btn-primary" id="btn-submit-voice-b" onclick="submitSimulationAnswer()" style="min-width: 260px; font-weight: 700; padding: 0.75rem 1.5rem; font-size: 0.95rem; box-shadow: 0 4px 14px rgba(37,99,235,0.25);">Send Response to Dr. Vance ↵</button>
-            </div>
+
           </div>
 
           <!-- KEYBOARD / TYPED MODE STAGE -->
@@ -1681,7 +1678,7 @@
           <!-- Cockpit Bottom Utility Bar -->
           <div class="cockpit-bottom-bar">
             <div class="dock-hint-text">
-              <span id="b-silence-hint">💡 <strong>Live Interview Simulator:</strong> Speak into the mic to transcribe in real time. Click the button to stop and immediately send your response to Dr. Vance.</span>
+              <span id="b-silence-hint">💡 <strong>Live Interview Simulator:</strong> Your response auto-forwards to Dr. Vance after a 3.5s pause, or click 'Done Speaking'.</span>
             </div>
             <div class="dock-controls-group">
               <button class="btn btn-outline btn-sm" onclick="confirmExitSimulation()">⬅️ Back to Setup</button>

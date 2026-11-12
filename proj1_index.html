@@ -1,0 +1,1998 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Interview Practice System</title>
+  <link rel="stylesheet" href="/static/style.css?v=20261112_v36">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Comic+Sans+MS&display=swap" rel="stylesheet">
+  <!-- Chart.js for Longitudinal Analytics -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script>
+    // Early theme initialization to prevent flash of wrong theme
+    (function() {
+      const saved = localStorage.getItem('theme');
+      const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+      if (saved === 'dark' || (!saved && prefersDark)) {
+        document.documentElement.setAttribute('data-theme', 'dark');
+        document.documentElement.classList.add('dark-mode');
+      } else {
+        document.documentElement.setAttribute('data-theme', 'light');
+      }
+    })();
+  </script>
+</head>
+<body>
+
+  <!-- Persistent Modern Top Navigation Header -->
+  <header class="app-global-header">
+    <div class="header-left">
+      <button class="btn btn-secondary btn-sm" id="btn-global-home" onclick="goToHomeUniversal()" title="Return to Home" style="box-shadow: 0 2px 8px rgba(0,0,0,0.12); border-radius: 20px; padding: 0.45rem 1rem; font-weight: 700; display: inline-flex; align-items: center; gap: 0.4rem; cursor: pointer;">
+        🏠 Home
+      </button>
+      <span class="app-header-title">AI Interview Practice System</span>
+    </div>
+    <div class="header-right">
+      <span class="badge badge-success" id="global-engine-pill" onclick="openConfigModal()" style="cursor: pointer; font-size: 0.8rem; font-weight: 700; padding: 0.45rem 0.85rem; border-radius: 20px; display: inline-flex; align-items: center; gap: 0.4rem; box-shadow: 0 2px 8px rgba(0,0,0,0.1);" title="Click to view/configure AI engine">
+        <span id="global-engine-dot">🟢</span> <span id="global-engine-text">Gemini 3.5 Flash-Lite</span>
+      </span>
+      <button class="btn btn-secondary btn-sm" onclick="openConfigModal()" title="Settings" style="box-shadow: 0 2px 8px rgba(0,0,0,0.12); border-radius: 20px; padding: 0.45rem 0.9rem; font-weight: 600;">
+        ⚙️ Settings
+      </button>
+      <button class="theme-toggle-btn" id="theme-toggle" onclick="toggleTheme()" title="Toggle Dark / Light Mode" aria-label="Toggle Theme" style="position: static;">
+        <span class="theme-toggle-icon" id="theme-icon">🌙</span>
+        <span class="theme-toggle-label" id="theme-label">Dark</span>
+      </button>
+    </div>
+  </header>
+
+  <main>
+    <!-- Dynamic Real Interview Context Cockpit Bar (Hidden on Home Screen) -->
+    <div class="interview-context-bar" id="interview-context-banner" style="display: none;">
+      <div class="context-main">
+        <span class="context-pill">👤 Candidate: <strong id="ctx-name">Candidate</strong></span>
+        <span class="context-pill">🎯 Role: <strong id="ctx-role">Software Engineer</strong></span>
+        <span class="context-pill" id="ctx-company-pill" style="display: none;">🏢 Company: <strong id="ctx-company"></strong></span>
+        <span class="context-pill">📊 Level: <strong id="ctx-level">Mid-Level</strong></span>
+      </div>
+      <div class="context-mode">
+        <span class="badge badge-primary" id="ctx-mode-badge">⚡ Real-Time Practice Mode</span>
+      </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- SECTION 1: PROTOTYPE A (LEARNING-ORIENTED) -->
+    <!-- ========================================== -->
+    <div id="section-proto-a" style="display: none;">
+      <!-- A1: Home -->
+      <div class="card" id="screen-a1">
+        <div class="research-context-chip" title="HCI Research Mapping">
+          <span>ℹ️ HCI Research Context: Formative Deliberate Practice &amp; Transparent Rubric Feedback (RQ1, UR2)</span>
+        </div>
+        <div class="card-header">
+          <h2 class="card-title">Feedback-Based Interview Practice</h2>
+          <p class="card-subtitle">Practice interviews independently with personalized, rubric-grounded AI feedback.</p>
+        </div>
+        <div class="welcome-banner">
+          <h4 id="a1-welcome-title">👋 Welcome to AI Interview Practice</h4>
+          <p id="a1-welcome-sub">Configure your target job role, company, and experience level to practice tailored interview questions with transparent rubric evaluations.</p>
+          <div style="display: flex; gap: 0.5rem; margin-top: 0.85rem; flex-wrap: wrap; align-items: center;">
+            <span class="preset-label">Quick Role Presets:</span>
+            <div class="quick-chips-group" style="margin-top: 0;">
+              <span class="role-chip" onclick="applyRolePresetA('Software Engineer', 'Tech / AI', 'Mid-Level', 'Full Mixed Mock (Behavioral + Technical Architecture)')">💻 Software Engineer</span>
+              <span class="role-chip" onclick="applyRolePresetA('Product Manager', 'SaaS / Enterprise', 'Mid-Level', 'Situational Problem Solving & Strategy (Execution)')">📦 Product Manager</span>
+              <span class="role-chip" onclick="applyRolePresetA('Data Scientist', 'AI / FinTech', 'Mid-Level', 'Technical & System Architecture (Deep Dive)')">📊 Data Scientist</span>
+              <span class="role-chip" onclick="applyRolePresetA('UX Research Intern', 'Design / Research', 'Student / Intern', 'Behavioral & Culture Fit (STAR Method Focus)')">🎨 UX Research Intern</span>
+              <span class="role-chip" onclick="applyRolePresetA('General / Leadership', 'Corporate / Consulting', 'Senior', 'Leadership & Team Dynamics (Cross-Functional)')">💼 Leadership</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Practice Mode Dropdown Selector -->
+        <div class="form-group" style="margin-top: 1.25rem; margin-bottom: 1.25rem; max-width: 620px;">
+          <label class="form-label" style="font-weight: 700; font-size: 0.95rem; color: var(--text-main);">
+            🎯 Select Practice Mode:
+          </label>
+          <select class="form-control" id="home-mode-select-a" style="font-weight: 600; padding: 0.65rem 0.85rem; border: 2px solid var(--primary);" onchange="handleHomeModeSelectChange(this.value)">
+            <option value="B">Interview Simulation</option>
+            <option value="A" selected>Feedback-Based Interview Practice</option>
+          </select>
+          <p style="font-size: 0.82rem; color: var(--text-muted); margin-top: 0.35rem;" id="home-mode-desc-a">
+            Deliberate practice loop with instant rubric feedback, transparent criteria score breakdown, and structured Attempt 2 retry.
+          </p>
+        </div>
+
+        <div style="display: flex; gap: 1rem; flex-wrap: wrap; align-items: center;">
+          <button class="btn btn-primary" onclick="goToScreenA('a2')">🚀 Start Practice Setup</button>
+          <button class="btn btn-secondary" onclick="cycleDemoPortfolioAndOpen('A')">🎲 Auto-Fill Sample & Setup</button>
+        </div>
+      </div>
+
+      <!-- A2: Setup (User Defined Fields) -->
+      <div class="card" id="screen-a2" style="display: none;">
+        <div class="card-header">
+          <h2 class="card-title">Practice Configuration</h2>
+          <p class="card-subtitle">Define your candidate profile, target position, and interview parameters.</p>
+        </div>
+
+        <!-- Demonstration Mode Auto-Fill & Portfolio Rotating Controller (Prototype A) -->
+        <div class="demo-banner-a" id="demo-banner-a">
+          <div style="display: flex; align-items: center; gap: 0.65rem;">
+            <span style="font-size: 1.4rem;">⚡</span>
+            <div>
+              <div class="demo-title demo-title-a">
+                Frictionless Demonstration Mode
+              </div>
+              <div class="demo-badge-text demo-badge-text-a" id="a-demo-badge">
+                Auto-fill fields & options with realistic candidate portfolios. Clicking again rotates to the next portfolio.
+              </div>
+            </div>
+          </div>
+          <button class="btn btn-primary btn-sm btn-demo-a" id="btn-demo-cycle-a" onclick="cycleDemoPortfolio('A')">
+            🎲 Insert Sample Portfolio (Click to Cycle)
+          </button>
+        </div>
+
+        <div class="form-group" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+          <div>
+            <label class="form-label">Candidate Name</label>
+            <input type="text" class="form-control" id="a-name" placeholder="Enter your name or alias..." oninput="syncCandidateName(this.value)">
+          </div>
+          <div>
+            <label class="form-label">Target Company / Domain (Optional)</label>
+            <input type="text" class="form-control" id="a-company" placeholder="e.g. Google, Amazon, Startup, Healthcare..." oninput="syncCandidateCompany(this.value)">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Target Job Role</label>
+          <input type="text" class="form-control" id="a-role" value="Software Engineer" placeholder="e.g. Software Engineer, Product Manager, Data Scientist..." oninput="syncCandidateRole(this.value)">
+          <div class="quick-chips-group">
+            <span style="font-size: 0.78rem; color: var(--text-muted); align-self: center;">Popular:</span>
+            <span class="role-chip" onclick="setRoleFieldA('Software Engineer')">Software Engineer</span>
+            <span class="role-chip" onclick="setRoleFieldA('Associate Product Manager')">Associate Product Manager</span>
+            <span class="role-chip" onclick="setRoleFieldA('Data Scientist')">Data Scientist</span>
+            <span class="role-chip" onclick="setRoleFieldA('UX Research Intern')">UX Research Intern</span>
+            <span class="role-chip" onclick="setRoleFieldA('Business Analyst')">Business Analyst</span>
+          </div>
+        </div>
+
+        <div class="form-group" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 0.75rem;">
+          <div>
+            <label class="form-label">Experience Level</label>
+            <select class="form-control" id="a-level" onchange="syncCandidateLevel(this.value)">
+              <option value="Student / Intern">Student / Intern (Campus / New Grad)</option>
+              <option value="Entry-Level">Entry-Level (0-2 yrs)</option>
+              <option value="Mid-Level" selected>Mid-Level (3-5 yrs)</option>
+              <option value="Senior">Senior / Lead (5+ yrs)</option>
+            </select>
+          </div>
+          <div>
+            <label class="form-label">Interview Track / Focus Area</label>
+            <select class="form-control" id="a-type">
+              <option value="Full Mixed Mock (Behavioral + Technical Architecture)" selected>Full Mixed Mock (Behavioral + Technical Architecture)</option>
+              <option value="Behavioral & Culture Fit (STAR Method Focus)">Behavioral & Culture Fit (STAR Method Focus)</option>
+              <option value="Technical & System Architecture (Deep Dive)">Technical & System Architecture (Deep Dive)</option>
+              <option value="Situational Problem Solving & Strategy (Execution)">Situational Problem Solving & Strategy (Execution)</option>
+              <option value="Leadership & Team Dynamics (Cross-Functional)">Leadership & Team Dynamics (Cross-Functional)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Interviewer Persona & Evaluation Rigor</label>
+          <select class="form-control" id="a-difficulty">
+            <option value="Supportive & Conversational (Mentorship / Low Stress)">Supportive & Conversational (Mentorship / Low Stress)</option>
+            <option value="Neutral Corporate (Standard Hiring Bar / Objective)" selected>Neutral Corporate (Standard Hiring Bar / Objective)</option>
+            <option value="Challenging & Probing (Technical Bar Raiser / Stress Test)">Challenging & Probing (Technical Bar Raiser / Stress Test)</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Resume / CV Highlights (Optional)</label>
+          <textarea class="form-control" style="min-height: 70px;" id="a-cv" placeholder="Paste your key experiences, past projects, leadership highlights, or tech stack..."></textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Target Job Description / Requirements (Optional)</label>
+          <textarea class="form-control" style="min-height: 70px;" id="a-jd" placeholder="Paste specific responsibilities, required competencies, or target job post bullets..."></textarea>
+        </div>
+
+        <!-- Prototype A Setup Loading Notice Box (Exactly matching Prototype B) -->
+        <div id="a2-loading-notice" class="loading-notice-box" style="display: none;">
+          <div class="typing-dots"><span></span><span></span><span></span></div>
+          <span>Connecting to Practice Coach & formulating your tailored interview questions (approx 5-10s)...</span>
+        </div>
+
+        <div style="display: flex; gap: 1rem; flex-wrap: wrap; align-items: center;">
+          <button class="btn btn-primary" id="btn-start-a" onclick="startSessionA()">🚀 Begin Practice Interview</button>
+          <button class="btn btn-secondary" onclick="cycleDemoPortfolio('A')">🎲 Cycle Sample Portfolio</button>
+          <button class="btn btn-outline" onclick="goBackUniversal('a1')">← Back</button>
+        </div>
+      </div>
+
+      <!-- A3: Question -->
+      <div class="card" id="screen-a3" style="display: none;">
+        <!-- High-Fidelity Animated Deliberate Practice Coach Card (Consistent with Prototype B) -->
+        <div class="interviewer-hero" id="a3-interviewer-card">
+          <div class="avatar-wrapper" id="a3-avatar-wrapper">
+            <div class="avatar-halo"></div>
+            <div class="interviewer-avatar" title="Dr. Marcus Vance • Official AI Interviewer">
+              <svg viewBox="0 0 100 100" class="dr-vance-avatar-svg" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                  <radialGradient id="vance-bg" cx="50%" cy="32%" r="68%">
+                    <stop offset="0%" stop-color="#2563eb"/>
+                    <stop offset="55%" stop-color="#1e3a8a"/>
+                    <stop offset="100%" stop-color="#090d16"/>
+                  </radialGradient>
+                  <linearGradient id="vance-skin" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#f8cbb0"/>
+                    <stop offset="50%" stop-color="#e3a782"/>
+                    <stop offset="100%" stop-color="#c9855b"/>
+                  </linearGradient>
+                  <linearGradient id="vance-suit" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#1e293b"/>
+                    <stop offset="60%" stop-color="#111827"/>
+                    <stop offset="100%" stop-color="#090d16"/>
+                  </linearGradient>
+                  <linearGradient id="vance-tie" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#3b82f6"/>
+                    <stop offset="100%" stop-color="#1d4ed8"/>
+                  </linearGradient>
+                  <linearGradient id="vance-hair" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#475569"/>
+                    <stop offset="50%" stop-color="#334155"/>
+                    <stop offset="100%" stop-color="#1e293b"/>
+                  </linearGradient>
+                  <linearGradient id="vance-glasses" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#cbd5e1"/>
+                    <stop offset="100%" stop-color="#64748b"/>
+                  </linearGradient>
+                  <filter id="soft-shadow" x="-10%" y="-10%" width="120%" height="120%">
+                    <feDropShadow dx="0" dy="1.5" stdDeviation="1.2" flood-color="#000000" flood-opacity="0.35"/>
+                  </filter>
+                </defs>
+                <circle cx="50" cy="50" r="50" fill="url(#vance-bg)"/>
+                <circle cx="50" cy="50" r="48" fill="none" stroke="rgba(255,255,255,0.18)" stroke-width="1.2"/>
+                <path d="M10 100 C14 74, 26 71, 38 70 L62 70 C74 71, 86 74, 90 100 Z" fill="url(#vance-suit)"/>
+                <polygon points="38,70 62,70 50,92" fill="#ffffff"/>
+                <polygon points="46.5,72 53.5,72 55.5,91 50,99 44.5,91" fill="url(#vance-tie)"/>
+                <polygon points="30,71 42,88 35,99 20,86" fill="#111827"/>
+                <polygon points="70,71 58,88 65,99 80,86" fill="#111827"/>
+                <line x1="47.5" y1="83" x2="52.5" y2="83" stroke="#e2e8f0" stroke-width="0.8" stroke-linecap="round"/>
+                <path d="M42 58 L42 72 L58 72 L58 58 Z" fill="url(#vance-skin)"/>
+                <path d="M42 58 L58 58 L50 66 Z" fill="#9a5a35" opacity="0.45"/>
+                <path d="M29 37 C29 20, 71 20, 71 37 C71 53, 63 65, 50 65 C37 65, 29 53, 29 37 Z" fill="url(#vance-skin)" filter="url(#soft-shadow)"/>
+                <circle cx="28" cy="40.5" r="4.2" fill="#dda27b"/>
+                <path d="M28.5 38.5 Q27 40.5 28.5 42.5" stroke="#b87b54" stroke-width="1" fill="none"/>
+                <circle cx="72" cy="40.5" r="4.2" fill="#dda27b"/>
+                <path d="M71.5 38.5 Q73 40.5 71.5 42.5" stroke="#b87b54" stroke-width="1" fill="none"/>
+                <path d="M27 33 C26 17, 37 9, 50 9 C63 9, 74 17, 73 33 C70 21, 60 15, 50 16 C40 15, 30 21, 27 33 Z" fill="url(#vance-hair)"/>
+                <path d="M29 29 C34 19, 45 15, 56 16 C63 17, 70 21, 73 28 C70 22, 63 18, 54 18 C44 18, 35 22, 29 29 Z" fill="#94a3b8" opacity="0.6"/>
+                <path d="M29 32 L29 38 L31 36 Z" fill="#374151"/>
+                <path d="M71 32 L71 38 L69 36 Z" fill="#374151"/>
+                <path d="M34 31 Q40 28.5 46.5 30.5" stroke="#1f2937" stroke-width="2.2" stroke-linecap="round" fill="none"/>
+                <path d="M53.5 30.5 Q60 28.5 66 31" stroke="#1f2937" stroke-width="2.2" stroke-linecap="round" fill="none"/>
+                <ellipse cx="40" cy="37.5" rx="4.5" ry="3" fill="#ffffff"/>
+                <circle cx="40.5" cy="37.5" r="2.2" fill="#1d4ed8" class="avatar-iris"/>
+                <circle cx="40.5" cy="37.5" r="1.2" fill="#0f172a" class="avatar-pupil"/>
+                <circle cx="41.3" cy="36.6" r="0.75" fill="#ffffff"/>
+                <circle cx="39.5" cy="38.5" r="0.35" fill="rgba(255,255,255,0.7)"/>
+                <ellipse cx="60" cy="37.5" rx="4.5" ry="3" fill="#ffffff"/>
+                <circle cx="59.5" cy="37.5" r="2.2" fill="#1d4ed8" class="avatar-iris"/>
+                <circle cx="59.5" cy="37.5" r="1.2" fill="#0f172a" class="avatar-pupil"/>
+                <circle cx="60.3" cy="36.6" r="0.75" fill="#ffffff"/>
+                <circle cx="58.5" cy="38.5" r="0.35" fill="rgba(255,255,255,0.7)"/>
+                <rect x="34.5" y="33.5" width="11" height="8" fill="url(#vance-skin)" class="avatar-eyelid avatar-eyelid-l"/>
+                <rect x="54.5" y="33.5" width="11" height="8" fill="url(#vance-skin)" class="avatar-eyelid avatar-eyelid-r"/>
+                <rect x="32" y="31.8" width="16" height="11.5" rx="3.5" fill="rgba(255,255,255,0.06)" stroke="url(#vance-glasses)" stroke-width="1.8"/>
+                <rect x="52" y="31.8" width="16" height="11.5" rx="3.5" fill="rgba(255,255,255,0.06)" stroke="url(#vance-glasses)" stroke-width="1.8"/>
+                <path d="M48 36.5 Q50 35 52 36.5" stroke="url(#vance-glasses)" stroke-width="1.8" fill="none"/>
+                <line x1="34" y1="34" x2="39" y2="34" stroke="rgba(255,255,255,0.85)" stroke-width="1.2" stroke-linecap="round"/>
+                <line x1="54" y1="34" x2="59" y2="34" stroke="rgba(255,255,255,0.85)" stroke-width="1.2" stroke-linecap="round"/>
+                <path d="M50 35 L49 46.5 Q50 48.5 52.5 47.5" stroke="#a16239" stroke-width="1.6" stroke-linecap="round" fill="none"/>
+                <path d="M43.5 53.5 Q50 56.5 56.5 53.5" stroke="#7c2d12" stroke-width="2.3" stroke-linecap="round" fill="none" class="avatar-mouth-resting"/>
+                <g class="avatar-mouth-speaking">
+                  <ellipse cx="50" cy="55" rx="5.2" ry="3.2" fill="#450a0a" stroke="#7c2d12" stroke-width="1.6"/>
+                  <path d="M47 53.2 Q50 53.8 53 53.2" stroke="#ffffff" stroke-width="1.2" stroke-linecap="round" fill="none"/>
+                </g>
+              </svg>
+            </div>
+          </div>
+          <div class="interviewer-info">
+            <h3 id="a3-interviewer-name">Dr. Marcus Vance</h3>
+            <p id="a3-interviewer-role">Deliberate Practice AI Coach • Question Evaluation</p>
+            <div style="display: flex; gap: 0.6rem; align-items: center; margin-top: 0.35rem; flex-wrap: wrap;">
+              <span class="voice-status-pill speaking" id="a3-voice-status">🔊 Coach Speaking</span>
+              <div class="waveform-equalizer active" id="a3-equalizer">
+                <span class="wave-bar"></span>
+                <span class="wave-bar"></span>
+                <span class="wave-bar"></span>
+                <span class="wave-bar"></span>
+                <span class="wave-bar"></span>
+              </div>
+            </div>
+          </div>
+          <div class="interviewer-sound-controls">
+            <button class="btn btn-secondary btn-sm" id="btn-read-a3" onclick="speakCurrentQuestionA()">🔊 Replay</button>
+            <button class="btn btn-outline btn-sm" id="btn-mute-a3" onclick="toggleMuteAudio()">🔇 Mute</button>
+            <button class="btn btn-outline btn-sm" onclick="openConfigModal()">⚙️ Settings</button>
+          </div>
+        </div>
+
+        <div class="interview-context-bar" style="margin-bottom: 1.25rem; border-left: 5px solid var(--primary); padding: 1rem 1.25rem; border-radius: 8px; background: var(--surface);">
+          <div style="display: flex; gap: 0.4rem; align-items: center; flex-wrap: wrap; margin-bottom: 0.4rem;">
+            <span class="badge badge-primary" id="a3-q-num">QUESTION 1 / 3</span>
+            <span class="context-pill pill-track" id="a3-track-pill">🎯 Focus: STAR Behavioral</span>
+          </div>
+          <h2 class="card-title" id="a3-q-text" style="margin: 0.25rem 0 0.5rem 0; font-size: 1.25rem; line-height: 1.45;">“Tell me about a time when you worked with a difficult teammate.”</h2>
+          <p style="font-size: 0.85rem; color: var(--text-muted); margin: 0;">💡 Deliberate Practice Tip: Structure your answer using the <strong>STAR</strong> method (Situation, Task, Action, Result) with verifiable outcomes.</p>
+        </div>
+
+        <!-- Modern Multimodal Interview Cockpit Dock (Prototype A) -->
+        <div class="cockpit-dock" id="a3-cockpit-dock">
+          <div class="cockpit-dock-header">
+            <div class="cockpit-mode-toggle">
+              <button class="dock-tab-btn active" id="a3-dock-btn-voice" onclick="setCockpitInputModeA('voice', 'a3')">
+                🎙️ Spoken Voice Mode (Live Streaming)
+              </button>
+              <button class="dock-tab-btn" id="a3-dock-btn-text" onclick="setCockpitInputModeA('text', 'a3')">
+                ⌨️ Keyboard / Typed Mode
+              </button>
+            </div>
+            <div class="dock-header-actions">
+              <button class="btn btn-secondary btn-sm" id="btn-sample-a3" onclick="loadSampleAnswerA(1)" style="display: none;">⚡ Sample Answer</button>
+              <button class="btn btn-outline btn-sm" onclick="clearAnswerDirect('a-answer', 'a3-stt-status', 'a3-live-preview')">Clear</button>
+            </div>
+          </div>
+
+          <!-- VOICE MODE STAGE -->
+          <div id="a3-dock-voice-stage" class="dock-stage">
+            <div class="hero-mic-container">
+              <button class="hero-mic-btn" id="btn-speech-a" onclick="toggleVoiceInputUniversal('a-answer', 'btn-speech-a', 'a3-stt-panel', 'a3-stt-status', null, null, 'a3-live-preview')">
+                <span class="mic-icon-wrapper">
+                  <span class="mic-glyph" id="hero-mic-glyph-a">🎙️</span>
+                </span>
+                <span class="mic-label-group">
+                  <strong class="mic-primary-label" id="hero-mic-label-a">Click to Speak Your Answer</strong>
+                  <span class="mic-sub-label" id="hero-mic-sub-a">Transcribes in real time • Click when done speaking</span>
+                </span>
+              </button>
+            </div>
+
+            <div class="cockpit-caption-strip" id="a3-stt-panel">
+              <div class="caption-status" id="a3-stt-status">🎙️ Ready for your response. Click the button above to speak.</div>
+              <div class="caption-preview" id="a3-live-preview"></div>
+            </div>
+          </div>
+
+          <!-- TYPED MODE STAGE -->
+          <div id="a3-dock-text-stage" class="dock-stage" style="display: none;">
+            <div class="form-group" style="margin-bottom: 0.5rem;">
+              <textarea class="form-control" id="a-answer" rows="5" placeholder="Type or speak your answer here... Transcribes live as you speak, evaluated against the standard rubric."></textarea>
+            </div>
+          </div>
+
+          <!-- Cockpit Bottom Utility Bar -->
+          <div class="cockpit-bottom-bar">
+            <div class="dock-hint-text">
+              <span id="a-word-count">0 words</span>
+              <span class="pill-divider" style="margin: 0 0.5rem;">•</span>
+              <span style="color: var(--text-muted); font-size: 0.8rem;">Recommended: 80 - 200 words following STAR framework</span>
+            </div>
+            <div class="dock-controls-group" style="display: flex; gap: 0.5rem; align-items: center;">
+              <button class="btn btn-outline" onclick="goBackUniversal('a2')">← Back to Setup</button>
+              <button class="btn btn-primary" id="btn-submit-a" onclick="submitAnswerA(1)">Submit Answer for Evaluation →</button>
+            </div>
+          </div>
+
+          <!-- Prototype A Loading Notice Box (Consistent with Prototype B) -->
+          <div id="a3-loading-notice" class="loading-notice-box" style="display: none; margin-top: 0.75rem; margin-bottom: 0;">
+            <div class="typing-dots"><span></span><span></span><span></span></div>
+            <span>Auditing response evidence against rubric anchors & calculating STAR scores (approx 4-8s)...</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- A4: AI Feedback -->
+      <div class="card" id="screen-a4" style="display: none;">
+        <!-- Loading State Placeholder (Consistent with Prototype B) -->
+        <div id="a4-loading-state" style="display: none; text-align: center; padding: 3rem 1rem;">
+          <div class="typing-dots" style="margin-bottom: 1rem;"><span></span><span></span><span></span></div>
+          <h3 style="color: var(--text-main); font-size: 1.3rem;">Evaluating Response Against Standard Rubric...</h3>
+          <p style="color: var(--text-muted); font-size: 0.9rem; max-width: 540px; margin: 0.5rem auto;">Our AI evaluators are auditing your complete response against fixed BARS rubric anchors (Relevance, Specificity, Evidence & Outcome, Structure & Clarity)...</p>
+        </div>
+
+        <div id="a4-dashboard-content">
+        <!-- High-Fidelity Evaluator Card Header -->
+        <div class="interviewer-hero" id="a4-interviewer-card" style="margin-bottom: 1.25rem;">
+          <div class="avatar-wrapper" id="a4-avatar-wrapper">
+            <div class="avatar-halo"></div>
+            <div class="interviewer-avatar" title="Dr. Marcus Vance • Official AI Interviewer">
+              <svg viewBox="0 0 100 100" class="dr-vance-avatar-svg" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                  <radialGradient id="vance-bg" cx="50%" cy="32%" r="68%">
+                    <stop offset="0%" stop-color="#2563eb"/>
+                    <stop offset="55%" stop-color="#1e3a8a"/>
+                    <stop offset="100%" stop-color="#090d16"/>
+                  </radialGradient>
+                  <linearGradient id="vance-skin" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#f8cbb0"/>
+                    <stop offset="50%" stop-color="#e3a782"/>
+                    <stop offset="100%" stop-color="#c9855b"/>
+                  </linearGradient>
+                  <linearGradient id="vance-suit" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#1e293b"/>
+                    <stop offset="60%" stop-color="#111827"/>
+                    <stop offset="100%" stop-color="#090d16"/>
+                  </linearGradient>
+                  <linearGradient id="vance-tie" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#3b82f6"/>
+                    <stop offset="100%" stop-color="#1d4ed8"/>
+                  </linearGradient>
+                  <linearGradient id="vance-hair" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#475569"/>
+                    <stop offset="50%" stop-color="#334155"/>
+                    <stop offset="100%" stop-color="#1e293b"/>
+                  </linearGradient>
+                  <linearGradient id="vance-glasses" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#cbd5e1"/>
+                    <stop offset="100%" stop-color="#64748b"/>
+                  </linearGradient>
+                  <filter id="soft-shadow" x="-10%" y="-10%" width="120%" height="120%">
+                    <feDropShadow dx="0" dy="1.5" stdDeviation="1.2" flood-color="#000000" flood-opacity="0.35"/>
+                  </filter>
+                </defs>
+                <circle cx="50" cy="50" r="50" fill="url(#vance-bg)"/>
+                <circle cx="50" cy="50" r="48" fill="none" stroke="rgba(255,255,255,0.18)" stroke-width="1.2"/>
+                <path d="M10 100 C14 74, 26 71, 38 70 L62 70 C74 71, 86 74, 90 100 Z" fill="url(#vance-suit)"/>
+                <polygon points="38,70 62,70 50,92" fill="#ffffff"/>
+                <polygon points="46.5,72 53.5,72 55.5,91 50,99 44.5,91" fill="url(#vance-tie)"/>
+                <polygon points="30,71 42,88 35,99 20,86" fill="#111827"/>
+                <polygon points="70,71 58,88 65,99 80,86" fill="#111827"/>
+                <line x1="47.5" y1="83" x2="52.5" y2="83" stroke="#e2e8f0" stroke-width="0.8" stroke-linecap="round"/>
+                <path d="M42 58 L42 72 L58 72 L58 58 Z" fill="url(#vance-skin)"/>
+                <path d="M42 58 L58 58 L50 66 Z" fill="#9a5a35" opacity="0.45"/>
+                <path d="M29 37 C29 20, 71 20, 71 37 C71 53, 63 65, 50 65 C37 65, 29 53, 29 37 Z" fill="url(#vance-skin)" filter="url(#soft-shadow)"/>
+                <circle cx="28" cy="40.5" r="4.2" fill="#dda27b"/>
+                <path d="M28.5 38.5 Q27 40.5 28.5 42.5" stroke="#b87b54" stroke-width="1" fill="none"/>
+                <circle cx="72" cy="40.5" r="4.2" fill="#dda27b"/>
+                <path d="M71.5 38.5 Q73 40.5 71.5 42.5" stroke="#b87b54" stroke-width="1" fill="none"/>
+                <path d="M27 33 C26 17, 37 9, 50 9 C63 9, 74 17, 73 33 C70 21, 60 15, 50 16 C40 15, 30 21, 27 33 Z" fill="url(#vance-hair)"/>
+                <path d="M29 29 C34 19, 45 15, 56 16 C63 17, 70 21, 73 28 C70 22, 63 18, 54 18 C44 18, 35 22, 29 29 Z" fill="#94a3b8" opacity="0.6"/>
+                <path d="M29 32 L29 38 L31 36 Z" fill="#374151"/>
+                <path d="M71 32 L71 38 L69 36 Z" fill="#374151"/>
+                <path d="M34 31 Q40 28.5 46.5 30.5" stroke="#1f2937" stroke-width="2.2" stroke-linecap="round" fill="none"/>
+                <path d="M53.5 30.5 Q60 28.5 66 31" stroke="#1f2937" stroke-width="2.2" stroke-linecap="round" fill="none"/>
+                <ellipse cx="40" cy="37.5" rx="4.5" ry="3" fill="#ffffff"/>
+                <circle cx="40.5" cy="37.5" r="2.2" fill="#1d4ed8" class="avatar-iris"/>
+                <circle cx="40.5" cy="37.5" r="1.2" fill="#0f172a" class="avatar-pupil"/>
+                <circle cx="41.3" cy="36.6" r="0.75" fill="#ffffff"/>
+                <circle cx="39.5" cy="38.5" r="0.35" fill="rgba(255,255,255,0.7)"/>
+                <ellipse cx="60" cy="37.5" rx="4.5" ry="3" fill="#ffffff"/>
+                <circle cx="59.5" cy="37.5" r="2.2" fill="#1d4ed8" class="avatar-iris"/>
+                <circle cx="59.5" cy="37.5" r="1.2" fill="#0f172a" class="avatar-pupil"/>
+                <circle cx="60.3" cy="36.6" r="0.75" fill="#ffffff"/>
+                <circle cx="58.5" cy="38.5" r="0.35" fill="rgba(255,255,255,0.7)"/>
+                <rect x="34.5" y="33.5" width="11" height="8" fill="url(#vance-skin)" class="avatar-eyelid avatar-eyelid-l"/>
+                <rect x="54.5" y="33.5" width="11" height="8" fill="url(#vance-skin)" class="avatar-eyelid avatar-eyelid-r"/>
+                <rect x="32" y="31.8" width="16" height="11.5" rx="3.5" fill="rgba(255,255,255,0.06)" stroke="url(#vance-glasses)" stroke-width="1.8"/>
+                <rect x="52" y="31.8" width="16" height="11.5" rx="3.5" fill="rgba(255,255,255,0.06)" stroke="url(#vance-glasses)" stroke-width="1.8"/>
+                <path d="M48 36.5 Q50 35 52 36.5" stroke="url(#vance-glasses)" stroke-width="1.8" fill="none"/>
+                <line x1="34" y1="34" x2="39" y2="34" stroke="rgba(255,255,255,0.85)" stroke-width="1.2" stroke-linecap="round"/>
+                <line x1="54" y1="34" x2="59" y2="34" stroke="rgba(255,255,255,0.85)" stroke-width="1.2" stroke-linecap="round"/>
+                <path d="M50 35 L49 46.5 Q50 48.5 52.5 47.5" stroke="#a16239" stroke-width="1.6" stroke-linecap="round" fill="none"/>
+                <path d="M43.5 53.5 Q50 56.5 56.5 53.5" stroke="#7c2d12" stroke-width="2.3" stroke-linecap="round" fill="none" class="avatar-mouth-resting"/>
+                <g class="avatar-mouth-speaking">
+                  <ellipse cx="50" cy="55" rx="5.2" ry="3.2" fill="#450a0a" stroke="#7c2d12" stroke-width="1.6"/>
+                  <path d="M47 53.2 Q50 53.8 53 53.2" stroke="#ffffff" stroke-width="1.2" stroke-linecap="round" fill="none"/>
+                </g>
+              </svg>
+            </div>
+          </div>
+          <div class="interviewer-info">
+            <h3 id="a4-interviewer-name">Dr. Marcus Vance</h3>
+            <p id="a4-interviewer-role">Deliberate Practice Evaluator • Automated Rubric Audit</p>
+            <div style="display: flex; gap: 0.6rem; align-items: center; margin-top: 0.35rem; flex-wrap: wrap;">
+              <span class="voice-status-pill speaking" id="a4-voice-status">✓ Rubric Evaluation Complete</span>
+              <div class="waveform-equalizer" id="a4-equalizer">
+                <span class="wave-bar"></span>
+                <span class="wave-bar"></span>
+                <span class="wave-bar"></span>
+                <span class="wave-bar"></span>
+                <span class="wave-bar"></span>
+              </div>
+            </div>
+          </div>
+          <div class="interviewer-sound-controls">
+            <button class="btn btn-secondary btn-sm" id="btn-read-a4" onclick="speakFeedbackA4()">🔊 Listen to Feedback</button>
+            <button class="btn btn-outline btn-sm" id="btn-mute-a4" onclick="toggleMuteAudio()">🔇 Mute</button>
+            <button class="btn btn-outline btn-sm" onclick="openWhyFeedbackModal()">🔍 Audit Breakdown</button>
+          </div>
+        </div>
+
+        <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem;">
+          <div>
+            <h2 class="card-title">AI Feedback Evaluation</h2>
+            <p class="card-subtitle">Transparent assessment based on fixed, inspectable rubric criteria.</p>
+          </div>
+          <div style="text-align: right;">
+            <div style="font-size: 0.8rem; color: var(--text-muted); display: flex; align-items: center; justify-content: flex-end; gap: 0.25rem;">
+              <span>OVERALL RATING</span>
+              <span class="metric-info-wrapper" onclick="event.stopPropagation()">
+                <button type="button" class="metric-info-btn" title="Hover to view metric explanation" aria-label="Detailed rubric definition for Overall Rating">
+                  <svg class="metric-info-svg" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+                  </svg>
+                </button>
+                <div class="metric-tooltip-popover">
+                  <div class="metric-tooltip-header">
+                    <span class="metric-tooltip-tag">RUBRIC DEFINITION & CRITERIA</span>
+                    <h4>Overall Rating & Hiring Bar</h4>
+                  </div>
+                  <div class="metric-tooltip-body">
+                    <p class="metric-tooltip-desc"><strong>What This Metric Measures:</strong><br>Holistic evaluation score synthesized across all 4 rubric dimensions (Relevance, Specificity, Evidence & Outcome, Structure & Clarity) on a 1.0 to 10.0 scale.</p>
+                    <div class="metric-tooltip-anchors">
+                      <div class="metric-anchor-row anchor-high">
+                        <span class="anchor-label">★ Strong Hire (8.8–10.0):</span>
+                        <span>Candidate demonstrates senior competency, concrete metrics, and structured STAR narrative.</span>
+                      </div>
+                      <div class="metric-anchor-row anchor-mid">
+                        <span class="anchor-label">✓ Hire / Leaning Hire (7.3–8.7):</span>
+                        <span>Candidate meets baseline expectations with moderate technical clarity and partial metrics.</span>
+                      </div>
+                      <div class="metric-anchor-row anchor-low">
+                        <span class="anchor-label">⚠️ Needs Deliberate Retry (&lt;7.3):</span>
+                        <span>Candidate misses quantifiable evidence, drifts from prompt, or lacks structured flow.</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </span>
+            </div>
+            <div style="font-size: 2rem; font-weight: 800; color: var(--primary);" id="a4-overall-score">6.0 / 10</div>
+          </div>
+        </div>
+
+        <!-- 4 Rubric Criteria Cards with Hoverable Definition Tooltips -->
+        <div class="rubric-grid">
+          <div class="rubric-card" id="card-rel" onclick="openWhyFeedbackModalFor('relevance')" title="Click to view transparent rubric audit">
+            <div class="rubric-header">
+              <div style="display: flex; align-items: center;">
+                <span class="rubric-name">Relevance</span>
+                <span class="metric-info-wrapper" onclick="event.stopPropagation()">
+                  <button type="button" class="metric-info-btn" title="Hover to view metric explanation" aria-label="Detailed rubric definition for Relevance">
+                    <svg class="metric-info-svg" viewBox="0 0 20 20" fill="currentColor">
+                      <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+                    </svg>
+                  </button>
+                  <div class="metric-tooltip-popover">
+                    <div class="metric-tooltip-header">
+                      <span class="metric-tooltip-tag">RUBRIC DEFINITION & CRITERIA</span>
+                      <h4>Relevance & Directness</h4>
+                    </div>
+                    <div class="metric-tooltip-body">
+                      <p class="metric-tooltip-desc"><strong>What This Metric Measures:</strong><br>Measures whether the candidate addresses the exact question prompt directly without drifting into unprompted filler context.</p>
+                      <div class="metric-tooltip-anchors">
+                        <div class="metric-anchor-row anchor-high">
+                          <span class="anchor-label">★ Exceeds Bar (8.8–10.0):</span>
+                          <span>Directly addresses core situation in opening sentence; tightly aligned with role and question objectives.</span>
+                        </div>
+                        <div class="metric-anchor-row anchor-mid">
+                          <span class="anchor-label">✓ Meets Bar (7.3–8.7):</span>
+                          <span>Partially answers prompt but includes minor tangentials or generic preamble before reaching the core point.</span>
+                        </div>
+                        <div class="metric-anchor-row anchor-low">
+                          <span class="anchor-label">⚠️ Below Bar (&lt;7.3):</span>
+                          <span>Misunderstands or evades prompt; gives generic theoretical lecture without answering the actual scenario.</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </span>
+              </div>
+              <span class="rubric-score" id="a4-rel-score">8.0/10</span>
+            </div>
+            <p style="font-size: 0.82rem; color: var(--text-muted);" id="a4-rel-reason">Situation is clearly framed.</p>
+          </div>
+
+          <div class="rubric-card" id="card-spec" onclick="openWhyFeedbackModalFor('specificity')" title="Click to view transparent rubric audit">
+            <div class="rubric-header">
+              <div style="display: flex; align-items: center;">
+                <span class="rubric-name">Specificity</span>
+                <span class="metric-info-wrapper" onclick="event.stopPropagation()">
+                  <button type="button" class="metric-info-btn" title="Hover to view metric explanation" aria-label="Detailed rubric definition for Specificity">
+                    <svg class="metric-info-svg" viewBox="0 0 20 20" fill="currentColor">
+                      <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+                    </svg>
+                  </button>
+                  <div class="metric-tooltip-popover">
+                    <div class="metric-tooltip-header">
+                      <span class="metric-tooltip-tag">RUBRIC DEFINITION & CRITERIA</span>
+                      <h4>Specificity & Technical Depth</h4>
+                    </div>
+                    <div class="metric-tooltip-body">
+                      <p class="metric-tooltip-desc"><strong>What This Metric Measures:</strong><br>Evaluates concrete terminology, named tools, technologies, system architectures, and precise operational steps rather than broad generalities.</p>
+                      <div class="metric-tooltip-anchors">
+                        <div class="metric-anchor-row anchor-high">
+                          <span class="anchor-label">★ Exceeds Bar (8.8–10.0):</span>
+                          <span>Names exact tools, technologies, trade-offs, architectures, and concrete steps with senior-level depth.</span>
+                        </div>
+                        <div class="metric-anchor-row anchor-mid">
+                          <span class="anchor-label">✓ Meets Bar (7.3–8.7):</span>
+                          <span>Mentions broad technical steps and generic tools with moderate clarity.</span>
+                        </div>
+                        <div class="metric-anchor-row anchor-low">
+                          <span class="anchor-label">⚠️ Below Bar (&lt;7.3):</span>
+                          <span>Speaks only in high-level platitudes ('we collaborated', 'we solved it') without technical depth or concrete artifacts.</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </span>
+              </div>
+              <span class="rubric-score" id="a4-spec-score">6.0/10</span>
+            </div>
+            <p style="font-size: 0.82rem; color: var(--text-muted);" id="a4-spec-reason">Mentions basic steps.</p>
+          </div>
+
+          <div class="rubric-card highlight" id="card-evid" onclick="openWhyFeedbackModalFor('evidence_outcome')" title="Click to view transparent rubric audit">
+            <div class="rubric-header">
+              <div style="display: flex; align-items: center;">
+                <span class="rubric-name">Evidence & Outcome</span>
+                <span class="metric-info-wrapper" onclick="event.stopPropagation()">
+                  <button type="button" class="metric-info-btn" title="Hover to view metric explanation" aria-label="Detailed rubric definition for Evidence & Outcome">
+                    <svg class="metric-info-svg" viewBox="0 0 20 20" fill="currentColor">
+                      <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+                    </svg>
+                  </button>
+                  <div class="metric-tooltip-popover">
+                    <div class="metric-tooltip-header">
+                      <span class="metric-tooltip-tag">RUBRIC DEFINITION & CRITERIA</span>
+                      <h4>Evidence & Outcome (STAR Result)</h4>
+                    </div>
+                    <div class="metric-tooltip-body">
+                      <p class="metric-tooltip-desc"><strong>What This Metric Measures:</strong><br>Verifies the presence of verifiable business impact, quantifiable metrics (latency, GMV, conversion %, test coverage), and clear resolution deliverables.</p>
+                      <div class="metric-tooltip-anchors">
+                        <div class="metric-anchor-row anchor-high">
+                          <span class="anchor-label">★ Exceeds Bar (8.8–10.0):</span>
+                          <span>Explicitly states concrete quantitative metrics, KPIs, project completion timelines, and permanent organizational impact.</span>
+                        </div>
+                        <div class="metric-anchor-row anchor-mid">
+                          <span class="anchor-label">✓ Meets Bar (7.3–8.7):</span>
+                          <span>Describes positive resolution, but metrics are vague or qualitative rather than quantified with numbers/percentages.</span>
+                        </div>
+                        <div class="metric-anchor-row anchor-low">
+                          <span class="anchor-label">⚠️ Below Bar (&lt;7.3):</span>
+                          <span>Stops entirely at the action taken; completely omits what occurred afterwards or whether the problem was resolved.</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </span>
+              </div>
+              <span class="rubric-score score-warning" id="a4-evid-score">4.0/10</span>
+            </div>
+            <p class="rubric-reason-warning" id="a4-evid-reason">Missing tangible outcome/metric.</p>
+          </div>
+
+          <div class="rubric-card" id="card-struct" onclick="openWhyFeedbackModalFor('structure_clarity')" title="Click to view transparent rubric audit">
+            <div class="rubric-header">
+              <div style="display: flex; align-items: center;">
+                <span class="rubric-name">Structure & Clarity</span>
+                <span class="metric-info-wrapper" onclick="event.stopPropagation()">
+                  <button type="button" class="metric-info-btn" title="Hover to view metric explanation" aria-label="Detailed rubric definition for Structure & Clarity">
+                    <svg class="metric-info-svg" viewBox="0 0 20 20" fill="currentColor">
+                      <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+                    </svg>
+                  </button>
+                  <div class="metric-tooltip-popover">
+                    <div class="metric-tooltip-header">
+                      <span class="metric-tooltip-tag">RUBRIC DEFINITION & CRITERIA</span>
+                      <h4>Structure & Narrative Arc (STAR)</h4>
+                    </div>
+                    <div class="metric-tooltip-body">
+                      <p class="metric-tooltip-desc"><strong>What This Metric Measures:</strong><br>Assesses coherent chronological progression following Situation, Task, Action, and Result with clear transitions and signposting.</p>
+                      <div class="metric-tooltip-anchors">
+                        <div class="metric-anchor-row anchor-high">
+                          <span class="anchor-label">★ Exceeds Bar (8.8–10.0):</span>
+                          <span>Flawless STAR progression with clear chronological signposting and concise transitions between problem and impact.</span>
+                        </div>
+                        <div class="metric-anchor-row anchor-mid">
+                          <span class="anchor-label">✓ Meets Bar (7.3–8.7):</span>
+                          <span>Follows chronological order, but transitions between action and result are slightly blurred or jumpy.</span>
+                        </div>
+                        <div class="metric-anchor-row anchor-low">
+                          <span class="anchor-label">⚠️ Below Bar (&lt;7.3):</span>
+                          <span>Disorganized, rambling, or fragmented narrative without clear beginning, middle, or resolution.</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </span>
+              </div>
+              <span class="rubric-score" id="a4-struct-score">6.0/10</span>
+            </div>
+            <p style="font-size: 0.82rem; color: var(--text-muted);" id="a4-struct-reason">Actions outlined sequentially.</p>
+          </div>
+        </div>
+
+        <!-- Qualitative Strengths & Weaknesses -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem;">
+          <div class="feedback-box feedback-box-success">
+            <strong class="feedback-header-success">✓ STRENGTHS:</strong>
+            <ul id="a4-strengths" class="feedback-list-success"></ul>
+          </div>
+          <div class="feedback-box feedback-box-warning">
+            <strong class="feedback-header-warning">⚠️ NEEDS IMPROVEMENT:</strong>
+            <ul id="a4-weaknesses" class="feedback-list-warning"></ul>
+          </div>
+        </div>
+
+        <div class="how-to-improve-box">
+          <strong style="font-size: 0.9rem; color: var(--primary);">🎯 HOW TO IMPROVE:</strong>
+          <p id="a4-suggestions" style="font-size: 0.88rem; margin-top: 0.35rem;"></p>
+        </div>
+
+        <!-- Adaptive AI Follow-up Probe -->
+        <div class="adaptive-followup-box" id="a4-adaptive-container" style="display: none; margin-bottom: 1.5rem; background: var(--surface-secondary, rgba(59, 130, 246, 0.08)); border: 1.5px solid var(--primary, #3b82f6); border-radius: 8px; padding: 1.25rem;">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem; flex-wrap: wrap; gap: 0.5rem;">
+            <strong style="color: var(--primary); font-size: 0.95rem; display: flex; align-items: center; gap: 0.4rem;">
+              🤖 INTERVIEWER ADAPTIVE FOLLOW-UP PROBE
+            </strong>
+            <span class="badge badge-info" id="a4-adaptive-source">AI Generated Probe</span>
+          </div>
+          <p id="a4-adaptive-followup" style="font-size: 1rem; font-weight: 600; color: var(--text); margin-bottom: 0.4rem; line-height: 1.45;"></p>
+          <div id="a4-adaptive-reasoning" style="font-size: 0.82rem; color: var(--text-muted); font-style: italic;"></div>
+        </div>
+
+        <!-- Evaluation Action Bar -->
+        <div style="display: flex; justify-content: flex-end; align-items: center; flex-wrap: wrap; gap: 0.75rem; margin-top: 1.5rem; padding-top: 1.25rem; border-top: 1px solid var(--border);">
+          <button class="btn btn-outline" onclick="goBackUniversal('a3')">← Back to Question</button>
+          <button class="btn btn-outline" onclick="openWhyFeedbackModal()">🔍 Why This Feedback? (Audit Details)</button>
+          <button class="btn btn-primary" onclick="goToScreenA('a6')">📝 Reflect &amp; Try Again (Attempt 2) →</button>
+        </div>
+        </div>
+      </div>
+
+      <!-- A6: Reflection & Feedforward (Dual Voice & Text Mode) -->
+      <div class="card" id="screen-a6" style="display: none;">
+        <!-- High-Fidelity Animated Deliberate Practice Coach Card (Screen A6: Feedforward) -->
+        <div class="interviewer-hero" id="a6-interviewer-card">
+          <div class="avatar-wrapper" id="a6-avatar-wrapper">
+            <div class="avatar-halo"></div>
+            <div class="interviewer-avatar" title="Dr. Marcus Vance • Official AI Interviewer">
+              <svg viewBox="0 0 100 100" class="dr-vance-avatar-svg" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                  <radialGradient id="vance-bg" cx="50%" cy="32%" r="68%">
+                    <stop offset="0%" stop-color="#2563eb"/>
+                    <stop offset="55%" stop-color="#1e3a8a"/>
+                    <stop offset="100%" stop-color="#090d16"/>
+                  </radialGradient>
+                  <linearGradient id="vance-skin" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#f8cbb0"/>
+                    <stop offset="50%" stop-color="#e3a782"/>
+                    <stop offset="100%" stop-color="#c9855b"/>
+                  </linearGradient>
+                  <linearGradient id="vance-suit" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#1e293b"/>
+                    <stop offset="60%" stop-color="#111827"/>
+                    <stop offset="100%" stop-color="#090d16"/>
+                  </linearGradient>
+                  <linearGradient id="vance-tie" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#3b82f6"/>
+                    <stop offset="100%" stop-color="#1d4ed8"/>
+                  </linearGradient>
+                  <linearGradient id="vance-hair" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#475569"/>
+                    <stop offset="50%" stop-color="#334155"/>
+                    <stop offset="100%" stop-color="#1e293b"/>
+                  </linearGradient>
+                  <linearGradient id="vance-glasses" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#cbd5e1"/>
+                    <stop offset="100%" stop-color="#64748b"/>
+                  </linearGradient>
+                  <filter id="soft-shadow" x="-10%" y="-10%" width="120%" height="120%">
+                    <feDropShadow dx="0" dy="1.5" stdDeviation="1.2" flood-color="#000000" flood-opacity="0.35"/>
+                  </filter>
+                </defs>
+                <circle cx="50" cy="50" r="50" fill="url(#vance-bg)"/>
+                <circle cx="50" cy="50" r="48" fill="none" stroke="rgba(255,255,255,0.18)" stroke-width="1.2"/>
+                <path d="M10 100 C14 74, 26 71, 38 70 L62 70 C74 71, 86 74, 90 100 Z" fill="url(#vance-suit)"/>
+                <polygon points="38,70 62,70 50,92" fill="#ffffff"/>
+                <polygon points="46.5,72 53.5,72 55.5,91 50,99 44.5,91" fill="url(#vance-tie)"/>
+                <polygon points="30,71 42,88 35,99 20,86" fill="#111827"/>
+                <polygon points="70,71 58,88 65,99 80,86" fill="#111827"/>
+                <line x1="47.5" y1="83" x2="52.5" y2="83" stroke="#e2e8f0" stroke-width="0.8" stroke-linecap="round"/>
+                <path d="M42 58 L42 72 L58 72 L58 58 Z" fill="url(#vance-skin)"/>
+                <path d="M42 58 L58 58 L50 66 Z" fill="#9a5a35" opacity="0.45"/>
+                <path d="M29 37 C29 20, 71 20, 71 37 C71 53, 63 65, 50 65 C37 65, 29 53, 29 37 Z" fill="url(#vance-skin)" filter="url(#soft-shadow)"/>
+                <circle cx="28" cy="40.5" r="4.2" fill="#dda27b"/>
+                <path d="M28.5 38.5 Q27 40.5 28.5 42.5" stroke="#b87b54" stroke-width="1" fill="none"/>
+                <circle cx="72" cy="40.5" r="4.2" fill="#dda27b"/>
+                <path d="M71.5 38.5 Q73 40.5 71.5 42.5" stroke="#b87b54" stroke-width="1" fill="none"/>
+                <path d="M27 33 C26 17, 37 9, 50 9 C63 9, 74 17, 73 33 C70 21, 60 15, 50 16 C40 15, 30 21, 27 33 Z" fill="url(#vance-hair)"/>
+                <path d="M29 29 C34 19, 45 15, 56 16 C63 17, 70 21, 73 28 C70 22, 63 18, 54 18 C44 18, 35 22, 29 29 Z" fill="#94a3b8" opacity="0.6"/>
+                <path d="M29 32 L29 38 L31 36 Z" fill="#374151"/>
+                <path d="M71 32 L71 38 L69 36 Z" fill="#374151"/>
+                <path d="M34 31 Q40 28.5 46.5 30.5" stroke="#1f2937" stroke-width="2.2" stroke-linecap="round" fill="none"/>
+                <path d="M53.5 30.5 Q60 28.5 66 31" stroke="#1f2937" stroke-width="2.2" stroke-linecap="round" fill="none"/>
+                <ellipse cx="40" cy="37.5" rx="4.5" ry="3" fill="#ffffff"/>
+                <circle cx="40.5" cy="37.5" r="2.2" fill="#1d4ed8" class="avatar-iris"/>
+                <circle cx="40.5" cy="37.5" r="1.2" fill="#0f172a" class="avatar-pupil"/>
+                <circle cx="41.3" cy="36.6" r="0.75" fill="#ffffff"/>
+                <circle cx="39.5" cy="38.5" r="0.35" fill="rgba(255,255,255,0.7)"/>
+                <ellipse cx="60" cy="37.5" rx="4.5" ry="3" fill="#ffffff"/>
+                <circle cx="59.5" cy="37.5" r="2.2" fill="#1d4ed8" class="avatar-iris"/>
+                <circle cx="59.5" cy="37.5" r="1.2" fill="#0f172a" class="avatar-pupil"/>
+                <circle cx="60.3" cy="36.6" r="0.75" fill="#ffffff"/>
+                <circle cx="58.5" cy="38.5" r="0.35" fill="rgba(255,255,255,0.7)"/>
+                <rect x="34.5" y="33.5" width="11" height="8" fill="url(#vance-skin)" class="avatar-eyelid avatar-eyelid-l"/>
+                <rect x="54.5" y="33.5" width="11" height="8" fill="url(#vance-skin)" class="avatar-eyelid avatar-eyelid-r"/>
+                <rect x="32" y="31.8" width="16" height="11.5" rx="3.5" fill="rgba(255,255,255,0.06)" stroke="url(#vance-glasses)" stroke-width="1.8"/>
+                <rect x="52" y="31.8" width="16" height="11.5" rx="3.5" fill="rgba(255,255,255,0.06)" stroke="url(#vance-glasses)" stroke-width="1.8"/>
+                <path d="M48 36.5 Q50 35 52 36.5" stroke="url(#vance-glasses)" stroke-width="1.8" fill="none"/>
+                <line x1="34" y1="34" x2="39" y2="34" stroke="rgba(255,255,255,0.85)" stroke-width="1.2" stroke-linecap="round"/>
+                <line x1="54" y1="34" x2="59" y2="34" stroke="rgba(255,255,255,0.85)" stroke-width="1.2" stroke-linecap="round"/>
+                <path d="M50 35 L49 46.5 Q50 48.5 52.5 47.5" stroke="#a16239" stroke-width="1.6" stroke-linecap="round" fill="none"/>
+                <path d="M43.5 53.5 Q50 56.5 56.5 53.5" stroke="#7c2d12" stroke-width="2.3" stroke-linecap="round" fill="none" class="avatar-mouth-resting"/>
+                <g class="avatar-mouth-speaking">
+                  <ellipse cx="50" cy="55" rx="5.2" ry="3.2" fill="#450a0a" stroke="#7c2d12" stroke-width="1.6"/>
+                  <path d="M47 53.2 Q50 53.8 53 53.2" stroke="#ffffff" stroke-width="1.2" stroke-linecap="round" fill="none"/>
+                </g>
+              </svg>
+            </div>
+          </div>
+          <div class="interviewer-info">
+            <h3 id="a6-interviewer-name">Dr. Marcus Vance</h3>
+            <p id="a6-interviewer-role">Deliberate Practice AI Coach • Feedforward Guidance</p>
+            <div style="display: flex; gap: 0.6rem; align-items: center; margin-top: 0.35rem; flex-wrap: wrap;">
+              <span class="voice-status-pill speaking" id="a6-voice-status">🔊 Coach Ready</span>
+              <div class="waveform-equalizer" id="a6-equalizer">
+                <span class="wave-bar"></span>
+                <span class="wave-bar"></span>
+                <span class="wave-bar"></span>
+                <span class="wave-bar"></span>
+                <span class="wave-bar"></span>
+              </div>
+            </div>
+          </div>
+          <div class="interviewer-sound-controls">
+            <button class="btn btn-secondary btn-sm" id="btn-read-a6" onclick="speakFeedforwardA6()">🔊 Listen to Guidance</button>
+            <button class="btn btn-outline btn-sm" id="btn-mute-a6" onclick="toggleMuteAudio()">🔇 Mute</button>
+            <button class="btn btn-outline btn-sm" onclick="openConfigModal()">⚙️ Settings</button>
+          </div>
+        </div>
+
+        <div class="card-header" style="margin-top: 1rem;">
+          <div style="display: flex; gap: 0.4rem; align-items: center; margin-bottom: 0.4rem; flex-wrap: wrap;">
+            <span class="badge badge-primary">STAGE A6: GUIDED REFLECTION & FEEDFORWARD</span>
+            <span class="context-pill pill-track">🧠 Metacognitive Synthesis</span>
+            <span class="context-pill pill-duration">🎯 Goal: Formulate Measurable Revision Plan</span>
+          </div>
+          <h2 class="card-title">Synthesize Feedback into a Revision Plan</h2>
+          <p class="card-subtitle">Deliberate practice requires analyzing feedback before attempting your second revision.</p>
+        </div>
+
+        <div class="feedback-box feedback-box-info" style="margin-bottom: 1.25rem;">
+          <strong style="color: var(--primary);">💡 Feedforward Coaching Tip:</strong>
+          <span style="font-size: 0.9rem; color: var(--text-main);"> Dictate or type specific technical changes and quantifiable metrics (latency reduction, % conversion lift, team scale) you will incorporate into your revised answer.</span>
+        </div>
+
+        <!-- Modern Multimodal Cockpit Dock for Guided Reflection (Consistent with Screen A3 & A7) -->
+        <div class="cockpit-dock" id="a6-cockpit-dock">
+          <!-- Dock Mode Switcher Tabs -->
+          <div class="cockpit-dock-header">
+            <div class="cockpit-mode-toggle">
+              <button class="dock-tab-btn active" id="a6-dock-btn-voice" onclick="setCockpitInputModeA('voice', 'a6')">
+                🎙️ Spoken Voice Mode (Live Streaming)
+              </button>
+              <button class="dock-tab-btn" id="a6-dock-btn-text" onclick="setCockpitInputModeA('text', 'a6')">
+                ⌨️ Keyboard / Typed Mode
+              </button>
+            </div>
+            <div class="dock-header-actions">
+              <button class="btn btn-secondary btn-sm" id="btn-sample-a6" onclick="loadSampleReflectionA()" title="Auto-fill high-quality contextual reflection plan" style="display: none;">⚡ Sample Reflection</button>
+              <button class="btn btn-outline btn-sm" onclick="clearAnswerDirect('a-change', 'a6-stt-status', 'a6-live-preview')" title="Clear reflection notes">Clear</button>
+            </div>
+          </div>
+
+          <!-- VOICE MODE STAGE -->
+          <div id="a6-dock-voice-stage" class="dock-stage">
+            <div class="hero-mic-container">
+              <button class="hero-mic-btn" id="btn-speech-a6" onclick="toggleVoiceInputUniversal('a-change', 'btn-speech-a6', 'a6-stt-panel', 'a6-stt-status', null, null, 'a6-live-preview')">
+                <span class="mic-icon-wrapper">
+                  <span class="mic-glyph" id="hero-mic-glyph-a6">🎙️</span>
+                </span>
+                <span class="mic-label-group">
+                  <strong class="mic-primary-label" id="hero-mic-label-a6">Click to Speak Your Reflection</strong>
+                  <span class="mic-sub-label" id="hero-mic-sub-a6">Transcribes in real time • Click when done speaking</span>
+                </span>
+              </button>
+            </div>
+
+            <div class="cockpit-caption-strip" id="a6-stt-panel">
+              <div class="caption-status" id="a6-stt-status">🎙️ Ready for your reflection. Click the button above to speak.</div>
+              <div class="caption-preview" id="a6-live-preview"></div>
+            </div>
+          </div>
+
+          <!-- TYPED MODE STAGE -->
+          <div id="a6-dock-text-stage" class="dock-stage" style="display: none;">
+            <div class="form-group" style="margin-bottom: 0.75rem;">
+              <label class="form-label" style="font-weight: 600; font-size: 0.88rem;">1. What specific changes will you incorporate in your revised answer?</label>
+              <textarea class="form-control" id="a-change" rows="3" placeholder="e.g., I would add the measurable outcome and user feedback metric... Transcribes live as you speak."></textarea>
+            </div>
+            <div class="form-group" style="margin-bottom: 0.5rem;">
+              <label class="form-label" style="font-weight: 600; font-size: 0.88rem;">2. What did you learn from the automated rubric evaluation?</label>
+              <textarea class="form-control" id="a-learn" rows="3" placeholder="e.g., I need to give concrete evidence, not just actions..."></textarea>
+            </div>
+          </div>
+
+          <!-- Cockpit Bottom Utility Bar -->
+          <div class="cockpit-bottom-bar">
+            <div class="dock-hint-text">
+              <span id="a6-word-count">0 words</span>
+              <span class="pill-divider" style="margin: 0 0.5rem;">•</span>
+              <span style="color: var(--text-muted); font-size: 0.8rem;">Click 'Done Speaking', then save to proceed</span>
+            </div>
+            <div class="dock-controls-group" style="display: flex; gap: 0.5rem;">
+              <button class="btn btn-outline" onclick="goBackUniversal('a4')">← Back to Feedback</button>
+              <button class="btn btn-primary" id="btn-save-reflection-a" onclick="saveReflectionA()">💾 Save & Proceed to Attempt 2 (Retry) →</button>
+            </div>
+          </div>
+
+          <!-- Loading Notice Box -->
+          <div id="a6-loading-notice" class="loading-notice-box" style="display: none; margin-top: 0.75rem; margin-bottom: 0;">
+            <div class="typing-dots"><span></span><span></span><span></span></div>
+            <span>Saving reflection and configuring Attempt 2 revision scenario...</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- A7: Retry -->
+      <div class="card" id="screen-a7" style="display: none;">
+        <!-- High-Fidelity Animated Deliberate Practice Coach Card (Attempt 2) -->
+        <div class="interviewer-hero" id="a7-interviewer-card">
+          <div class="avatar-wrapper" id="a7-avatar-wrapper">
+            <div class="avatar-halo"></div>
+            <div class="interviewer-avatar" title="Dr. Marcus Vance • Official AI Interviewer">
+              <svg viewBox="0 0 100 100" class="dr-vance-avatar-svg" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                  <radialGradient id="vance-bg" cx="50%" cy="32%" r="68%">
+                    <stop offset="0%" stop-color="#2563eb"/>
+                    <stop offset="55%" stop-color="#1e3a8a"/>
+                    <stop offset="100%" stop-color="#090d16"/>
+                  </radialGradient>
+                  <linearGradient id="vance-skin" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#f8cbb0"/>
+                    <stop offset="50%" stop-color="#e3a782"/>
+                    <stop offset="100%" stop-color="#c9855b"/>
+                  </linearGradient>
+                  <linearGradient id="vance-suit" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#1e293b"/>
+                    <stop offset="60%" stop-color="#111827"/>
+                    <stop offset="100%" stop-color="#090d16"/>
+                  </linearGradient>
+                  <linearGradient id="vance-tie" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#3b82f6"/>
+                    <stop offset="100%" stop-color="#1d4ed8"/>
+                  </linearGradient>
+                  <linearGradient id="vance-hair" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#475569"/>
+                    <stop offset="50%" stop-color="#334155"/>
+                    <stop offset="100%" stop-color="#1e293b"/>
+                  </linearGradient>
+                  <linearGradient id="vance-glasses" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#cbd5e1"/>
+                    <stop offset="100%" stop-color="#64748b"/>
+                  </linearGradient>
+                  <filter id="soft-shadow" x="-10%" y="-10%" width="120%" height="120%">
+                    <feDropShadow dx="0" dy="1.5" stdDeviation="1.2" flood-color="#000000" flood-opacity="0.35"/>
+                  </filter>
+                </defs>
+                <circle cx="50" cy="50" r="50" fill="url(#vance-bg)"/>
+                <circle cx="50" cy="50" r="48" fill="none" stroke="rgba(255,255,255,0.18)" stroke-width="1.2"/>
+                <path d="M10 100 C14 74, 26 71, 38 70 L62 70 C74 71, 86 74, 90 100 Z" fill="url(#vance-suit)"/>
+                <polygon points="38,70 62,70 50,92" fill="#ffffff"/>
+                <polygon points="46.5,72 53.5,72 55.5,91 50,99 44.5,91" fill="url(#vance-tie)"/>
+                <polygon points="30,71 42,88 35,99 20,86" fill="#111827"/>
+                <polygon points="70,71 58,88 65,99 80,86" fill="#111827"/>
+                <line x1="47.5" y1="83" x2="52.5" y2="83" stroke="#e2e8f0" stroke-width="0.8" stroke-linecap="round"/>
+                <path d="M42 58 L42 72 L58 72 L58 58 Z" fill="url(#vance-skin)"/>
+                <path d="M42 58 L58 58 L50 66 Z" fill="#9a5a35" opacity="0.45"/>
+                <path d="M29 37 C29 20, 71 20, 71 37 C71 53, 63 65, 50 65 C37 65, 29 53, 29 37 Z" fill="url(#vance-skin)" filter="url(#soft-shadow)"/>
+                <circle cx="28" cy="40.5" r="4.2" fill="#dda27b"/>
+                <path d="M28.5 38.5 Q27 40.5 28.5 42.5" stroke="#b87b54" stroke-width="1" fill="none"/>
+                <circle cx="72" cy="40.5" r="4.2" fill="#dda27b"/>
+                <path d="M71.5 38.5 Q73 40.5 71.5 42.5" stroke="#b87b54" stroke-width="1" fill="none"/>
+                <path d="M27 33 C26 17, 37 9, 50 9 C63 9, 74 17, 73 33 C70 21, 60 15, 50 16 C40 15, 30 21, 27 33 Z" fill="url(#vance-hair)"/>
+                <path d="M29 29 C34 19, 45 15, 56 16 C63 17, 70 21, 73 28 C70 22, 63 18, 54 18 C44 18, 35 22, 29 29 Z" fill="#94a3b8" opacity="0.6"/>
+                <path d="M29 32 L29 38 L31 36 Z" fill="#374151"/>
+                <path d="M71 32 L71 38 L69 36 Z" fill="#374151"/>
+                <path d="M34 31 Q40 28.5 46.5 30.5" stroke="#1f2937" stroke-width="2.2" stroke-linecap="round" fill="none"/>
+                <path d="M53.5 30.5 Q60 28.5 66 31" stroke="#1f2937" stroke-width="2.2" stroke-linecap="round" fill="none"/>
+                <ellipse cx="40" cy="37.5" rx="4.5" ry="3" fill="#ffffff"/>
+                <circle cx="40.5" cy="37.5" r="2.2" fill="#1d4ed8" class="avatar-iris"/>
+                <circle cx="40.5" cy="37.5" r="1.2" fill="#0f172a" class="avatar-pupil"/>
+                <circle cx="41.3" cy="36.6" r="0.75" fill="#ffffff"/>
+                <circle cx="39.5" cy="38.5" r="0.35" fill="rgba(255,255,255,0.7)"/>
+                <ellipse cx="60" cy="37.5" rx="4.5" ry="3" fill="#ffffff"/>
+                <circle cx="59.5" cy="37.5" r="2.2" fill="#1d4ed8" class="avatar-iris"/>
+                <circle cx="59.5" cy="37.5" r="1.2" fill="#0f172a" class="avatar-pupil"/>
+                <circle cx="60.3" cy="36.6" r="0.75" fill="#ffffff"/>
+                <circle cx="58.5" cy="38.5" r="0.35" fill="rgba(255,255,255,0.7)"/>
+                <rect x="34.5" y="33.5" width="11" height="8" fill="url(#vance-skin)" class="avatar-eyelid avatar-eyelid-l"/>
+                <rect x="54.5" y="33.5" width="11" height="8" fill="url(#vance-skin)" class="avatar-eyelid avatar-eyelid-r"/>
+                <rect x="32" y="31.8" width="16" height="11.5" rx="3.5" fill="rgba(255,255,255,0.06)" stroke="url(#vance-glasses)" stroke-width="1.8"/>
+                <rect x="52" y="31.8" width="16" height="11.5" rx="3.5" fill="rgba(255,255,255,0.06)" stroke="url(#vance-glasses)" stroke-width="1.8"/>
+                <path d="M48 36.5 Q50 35 52 36.5" stroke="url(#vance-glasses)" stroke-width="1.8" fill="none"/>
+                <line x1="34" y1="34" x2="39" y2="34" stroke="rgba(255,255,255,0.85)" stroke-width="1.2" stroke-linecap="round"/>
+                <line x1="54" y1="34" x2="59" y2="34" stroke="rgba(255,255,255,0.85)" stroke-width="1.2" stroke-linecap="round"/>
+                <path d="M50 35 L49 46.5 Q50 48.5 52.5 47.5" stroke="#a16239" stroke-width="1.6" stroke-linecap="round" fill="none"/>
+                <path d="M43.5 53.5 Q50 56.5 56.5 53.5" stroke="#7c2d12" stroke-width="2.3" stroke-linecap="round" fill="none" class="avatar-mouth-resting"/>
+                <g class="avatar-mouth-speaking">
+                  <ellipse cx="50" cy="55" rx="5.2" ry="3.2" fill="#450a0a" stroke="#7c2d12" stroke-width="1.6"/>
+                  <path d="M47 53.2 Q50 53.8 53 53.2" stroke="#ffffff" stroke-width="1.2" stroke-linecap="round" fill="none"/>
+                </g>
+              </svg>
+            </div>
+          </div>
+          <div class="interviewer-info">
+            <h3 id="a7-interviewer-name">Dr. Marcus Vance</h3>
+            <p id="a7-interviewer-role">Deliberate Practice AI Coach • Revision Round</p>
+            <div style="display: flex; gap: 0.6rem; align-items: center; margin-top: 0.35rem; flex-wrap: wrap;">
+              <span class="voice-status-pill speaking" id="a7-voice-status">🔊 Coach Ready</span>
+              <div class="waveform-equalizer" id="a7-equalizer">
+                <span class="wave-bar"></span>
+                <span class="wave-bar"></span>
+                <span class="wave-bar"></span>
+                <span class="wave-bar"></span>
+                <span class="wave-bar"></span>
+              </div>
+            </div>
+          </div>
+          <div class="interviewer-sound-controls">
+            <button class="btn btn-secondary btn-sm" onclick="speakCurrentQuestionA()">🔊 Replay</button>
+            <button class="btn btn-outline btn-sm" id="btn-mute-a7" onclick="toggleMuteAudio()">🔇 Mute</button>
+            <button class="btn btn-outline btn-sm" onclick="openConfigModal()">⚙️ Settings</button>
+          </div>
+        </div>
+
+        <div class="interview-context-bar" style="margin-bottom: 1.25rem; border-left: 5px solid var(--warning); padding: 1rem 1.25rem; border-radius: 8px; background: var(--surface);">
+          <div style="display: flex; gap: 0.4rem; align-items: center; flex-wrap: wrap; margin-bottom: 0.4rem;">
+            <span class="badge badge-warning">ATTEMPT 2 (DELIBERATE RETRY)</span>
+            <span class="context-pill pill-track">🎯 Goal: Incorporate AI Rubric Adjustments</span>
+          </div>
+          <h2 class="card-title" id="a7-q-text" style="margin: 0.25rem 0 0.5rem 0; font-size: 1.25rem; line-height: 1.45;">“Tell me about a time when you worked with a difficult teammate.”</h2>
+        </div>
+
+        <div class="feedback-box feedback-box-warning" style="margin-bottom: 1rem;">
+          <strong class="feedback-header-warning">📌 Target Improvement Focus: Evidence & Measurable Outcome</strong>
+          <p class="feedback-sub-warning">Specify the exact metrics, percentages, project impact, or team resolution that occurred after your action.</p>
+        </div>
+
+        <!-- AI Follow-up Question to Address in Retry -->
+        <div class="feedback-box feedback-box-info" id="a7-adaptive-prompt-box" style="margin-bottom: 1.25rem; display: none;">
+          <strong class="feedback-header-info">🎯 AI Follow-Up Question to Address in Your Revision:</strong>
+          <p id="a7-adaptive-prompt" style="font-size: 0.95rem; font-weight: 600; margin-top: 0.35rem; color: var(--text);"></p>
+        </div>
+
+        <!-- Modern Multimodal Interview Cockpit Dock (Retry) -->
+        <div class="cockpit-dock" id="a7-cockpit-dock">
+          <div class="cockpit-dock-header">
+            <div class="cockpit-mode-toggle">
+              <button class="dock-tab-btn active" id="a7-dock-btn-voice" onclick="setCockpitInputModeA('voice', 'a7')">
+                🎙️ Spoken Voice Mode (Live Streaming)
+              </button>
+              <button class="dock-tab-btn" id="a7-dock-btn-text" onclick="setCockpitInputModeA('text', 'a7')">
+                ⌨️ Keyboard / Typed Mode
+              </button>
+            </div>
+            <div class="dock-header-actions">
+              <button class="btn btn-secondary btn-sm" id="btn-sample-a7" onclick="loadSampleAnswerA(2)" style="display: none;">⚡ Sample Improved</button>
+              <button class="btn btn-outline btn-sm" onclick="clearAnswerDirect('a-retry-answer', 'a7-stt-status', 'a7-live-preview')">Clear</button>
+            </div>
+          </div>
+
+          <!-- VOICE MODE STAGE -->
+          <div id="a7-dock-voice-stage" class="dock-stage">
+            <div class="hero-mic-container">
+              <button class="hero-mic-btn" id="btn-speech-a7" onclick="toggleVoiceInputUniversal('a-retry-answer', 'btn-speech-a7', 'a7-stt-panel', 'a7-stt-status', null, null, 'a7-live-preview')">
+                <span class="mic-icon-wrapper">
+                  <span class="mic-glyph" id="hero-mic-glyph-a7">🎙️</span>
+                </span>
+                <span class="mic-label-group">
+                  <strong class="mic-primary-label" id="hero-mic-label-a7">Click to Dictate Attempt 2 Revision</strong>
+                  <span class="mic-sub-label" id="hero-mic-sub-a7">Transcribes in real time • Click when done speaking</span>
+                </span>
+              </button>
+            </div>
+
+            <div class="cockpit-caption-strip" id="a7-stt-panel">
+              <div class="caption-status" id="a7-stt-status">🎙️ Ready for your revision. Click the button above to speak.</div>
+              <div class="caption-preview" id="a7-live-preview"></div>
+            </div>
+          </div>
+
+          <!-- TYPED MODE STAGE -->
+          <div id="a7-dock-text-stage" class="dock-stage" style="display: none;">
+            <div class="form-group" style="margin-bottom: 0.5rem;">
+              <textarea class="form-control" id="a-retry-answer" rows="5" placeholder="Rewrite or dictate your revised answer incorporating measurable evidence and structured STAR flow... Transcribes live as you speak."></textarea>
+            </div>
+          </div>
+
+          <!-- Cockpit Bottom Utility Bar -->
+          <div class="cockpit-bottom-bar">
+            <div class="dock-hint-text">
+              <span id="a7-word-count">0 words</span>
+              <span class="pill-divider" style="margin: 0 0.5rem;">•</span>
+              <span style="color: var(--text-muted); font-size: 0.8rem;">Recommended: 80 - 200 words incorporating STAR results</span>
+            </div>
+            <div class="dock-controls-group" style="display: flex; gap: 0.5rem; align-items: center;">
+              <button class="btn btn-outline" onclick="goBackUniversal('a6')">← Back to Reflection</button>
+              <button class="btn btn-primary" id="btn-submit-a7" onclick="submitAnswerA(2)">Submit Revision for Comparison →</button>
+            </div>
+          </div>
+
+          <!-- Prototype A Loading Notice Box (Consistent with Prototype B) -->
+          <div id="a7-loading-notice" class="loading-notice-box" style="display: none; margin-top: 0.75rem; margin-bottom: 0;">
+            <div class="typing-dots"><span></span><span></span><span></span></div>
+            <span>Auditing Attempt 2, comparing against baseline, and calculating measurable delta (approx 4-8s)...</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- A8: Compare Attempts -->
+      <div class="card" id="screen-a8" style="display: none;">
+        <!-- Loading State Placeholder (Consistent with Prototype B) -->
+        <div id="a8-loading-state" style="display: none; text-align: center; padding: 3rem 1rem;">
+          <div class="typing-dots" style="margin-bottom: 1rem;"><span></span><span></span><span></span></div>
+          <h3 style="color: var(--text-main); font-size: 1.3rem;">Computing Measurable Delta Between Attempts...</h3>
+          <p style="color: var(--text-muted); font-size: 0.9rem; max-width: 540px; margin: 0.5rem auto;">Auditing Attempt 2 improvements, scoring differentials, and evidence enhancements across all rubric criteria...</p>
+        </div>
+
+        <div id="a8-dashboard-content">
+        <!-- High-Fidelity Animated Deliberate Practice Coach Card (Screen A8) -->
+        <div class="interviewer-hero" id="a8-interviewer-card" style="margin-bottom: 1.25rem;">
+          <div class="avatar-wrapper" id="a8-avatar-wrapper">
+            <div class="avatar-halo"></div>
+            <div class="interviewer-avatar" title="Dr. Marcus Vance • Official AI Interviewer">
+              <svg viewBox="0 0 100 100" class="dr-vance-avatar-svg" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                  <radialGradient id="vance-bg" cx="50%" cy="32%" r="68%">
+                    <stop offset="0%" stop-color="#2563eb"/>
+                    <stop offset="55%" stop-color="#1e3a8a"/>
+                    <stop offset="100%" stop-color="#090d16"/>
+                  </radialGradient>
+                  <linearGradient id="vance-skin" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#f8cbb0"/>
+                    <stop offset="50%" stop-color="#e3a782"/>
+                    <stop offset="100%" stop-color="#c9855b"/>
+                  </linearGradient>
+                  <linearGradient id="vance-suit" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#1e293b"/>
+                    <stop offset="60%" stop-color="#111827"/>
+                    <stop offset="100%" stop-color="#090d16"/>
+                  </linearGradient>
+                  <linearGradient id="vance-tie" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#3b82f6"/>
+                    <stop offset="100%" stop-color="#1d4ed8"/>
+                  </linearGradient>
+                  <linearGradient id="vance-hair" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#475569"/>
+                    <stop offset="50%" stop-color="#334155"/>
+                    <stop offset="100%" stop-color="#1e293b"/>
+                  </linearGradient>
+                  <linearGradient id="vance-glasses" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#cbd5e1"/>
+                    <stop offset="100%" stop-color="#64748b"/>
+                  </linearGradient>
+                  <filter id="soft-shadow" x="-10%" y="-10%" width="120%" height="120%">
+                    <feDropShadow dx="0" dy="1.5" stdDeviation="1.2" flood-color="#000000" flood-opacity="0.35"/>
+                  </filter>
+                </defs>
+                <circle cx="50" cy="50" r="50" fill="url(#vance-bg)"/>
+                <circle cx="50" cy="50" r="48" fill="none" stroke="rgba(255,255,255,0.18)" stroke-width="1.2"/>
+                <path d="M10 100 C14 74, 26 71, 38 70 L62 70 C74 71, 86 74, 90 100 Z" fill="url(#vance-suit)"/>
+                <polygon points="38,70 62,70 50,92" fill="#ffffff"/>
+                <polygon points="46.5,72 53.5,72 55.5,91 50,99 44.5,91" fill="url(#vance-tie)"/>
+                <polygon points="30,71 42,88 35,99 20,86" fill="#111827"/>
+                <polygon points="70,71 58,88 65,99 80,86" fill="#111827"/>
+                <line x1="47.5" y1="83" x2="52.5" y2="83" stroke="#e2e8f0" stroke-width="0.8" stroke-linecap="round"/>
+                <path d="M42 58 L42 72 L58 72 L58 58 Z" fill="url(#vance-skin)"/>
+                <path d="M42 58 L58 58 L50 66 Z" fill="#9a5a35" opacity="0.45"/>
+                <path d="M29 37 C29 20, 71 20, 71 37 C71 53, 63 65, 50 65 C37 65, 29 53, 29 37 Z" fill="url(#vance-skin)" filter="url(#soft-shadow)"/>
+                <circle cx="28" cy="40.5" r="4.2" fill="#dda27b"/>
+                <path d="M28.5 38.5 Q27 40.5 28.5 42.5" stroke="#b87b54" stroke-width="1" fill="none"/>
+                <circle cx="72" cy="40.5" r="4.2" fill="#dda27b"/>
+                <path d="M71.5 38.5 Q73 40.5 71.5 42.5" stroke="#b87b54" stroke-width="1" fill="none"/>
+                <path d="M27 33 C26 17, 37 9, 50 9 C63 9, 74 17, 73 33 C70 21, 60 15, 50 16 C40 15, 30 21, 27 33 Z" fill="url(#vance-hair)"/>
+                <path d="M29 29 C34 19, 45 15, 56 16 C63 17, 70 21, 73 28 C70 22, 63 18, 54 18 C44 18, 35 22, 29 29 Z" fill="#94a3b8" opacity="0.6"/>
+                <path d="M29 32 L29 38 L31 36 Z" fill="#374151"/>
+                <path d="M71 32 L71 38 L69 36 Z" fill="#374151"/>
+                <path d="M34 31 Q40 28.5 46.5 30.5" stroke="#1f2937" stroke-width="2.2" stroke-linecap="round" fill="none"/>
+                <path d="M53.5 30.5 Q60 28.5 66 31" stroke="#1f2937" stroke-width="2.2" stroke-linecap="round" fill="none"/>
+                <ellipse cx="40" cy="37.5" rx="4.5" ry="3" fill="#ffffff"/>
+                <circle cx="40.5" cy="37.5" r="2.2" fill="#1d4ed8" class="avatar-iris"/>
+                <circle cx="40.5" cy="37.5" r="1.2" fill="#0f172a" class="avatar-pupil"/>
+                <circle cx="41.3" cy="36.6" r="0.75" fill="#ffffff"/>
+                <circle cx="39.5" cy="38.5" r="0.35" fill="rgba(255,255,255,0.7)"/>
+                <ellipse cx="60" cy="37.5" rx="4.5" ry="3" fill="#ffffff"/>
+                <circle cx="59.5" cy="37.5" r="2.2" fill="#1d4ed8" class="avatar-iris"/>
+                <circle cx="59.5" cy="37.5" r="1.2" fill="#0f172a" class="avatar-pupil"/>
+                <circle cx="60.3" cy="36.6" r="0.75" fill="#ffffff"/>
+                <circle cx="58.5" cy="38.5" r="0.35" fill="rgba(255,255,255,0.7)"/>
+                <rect x="34.5" y="33.5" width="11" height="8" fill="url(#vance-skin)" class="avatar-eyelid avatar-eyelid-l"/>
+                <rect x="54.5" y="33.5" width="11" height="8" fill="url(#vance-skin)" class="avatar-eyelid avatar-eyelid-r"/>
+                <rect x="32" y="31.8" width="16" height="11.5" rx="3.5" fill="rgba(255,255,255,0.06)" stroke="url(#vance-glasses)" stroke-width="1.8"/>
+                <rect x="52" y="31.8" width="16" height="11.5" rx="3.5" fill="rgba(255,255,255,0.06)" stroke="url(#vance-glasses)" stroke-width="1.8"/>
+                <path d="M48 36.5 Q50 35 52 36.5" stroke="url(#vance-glasses)" stroke-width="1.8" fill="none"/>
+                <line x1="34" y1="34" x2="39" y2="34" stroke="rgba(255,255,255,0.85)" stroke-width="1.2" stroke-linecap="round"/>
+                <line x1="54" y1="34" x2="59" y2="34" stroke="rgba(255,255,255,0.85)" stroke-width="1.2" stroke-linecap="round"/>
+                <path d="M50 35 L49 46.5 Q50 48.5 52.5 47.5" stroke="#a16239" stroke-width="1.6" stroke-linecap="round" fill="none"/>
+                <path d="M43.5 53.5 Q50 56.5 56.5 53.5" stroke="#7c2d12" stroke-width="2.3" stroke-linecap="round" fill="none" class="avatar-mouth-resting"/>
+                <g class="avatar-mouth-speaking">
+                  <ellipse cx="50" cy="55" rx="5.2" ry="3.2" fill="#450a0a" stroke="#7c2d12" stroke-width="1.6"/>
+                  <path d="M47 53.2 Q50 53.8 53 53.2" stroke="#ffffff" stroke-width="1.2" stroke-linecap="round" fill="none"/>
+                </g>
+              </svg>
+            </div>
+          </div>
+          <div class="interviewer-info">
+            <h3 id="a8-interviewer-name">Dr. Marcus Vance</h3>
+            <p id="a8-interviewer-role">Deliberate Practice AI Coach • Measurable Delta Audit</p>
+            <div style="display: flex; gap: 0.6rem; align-items: center; margin-top: 0.35rem; flex-wrap: wrap;">
+              <span class="voice-status-pill speaking" id="a8-voice-status">✓ Attempt Delta Audited</span>
+              <div class="waveform-equalizer" id="a8-equalizer">
+                <span class="wave-bar"></span>
+                <span class="wave-bar"></span>
+                <span class="wave-bar"></span>
+                <span class="wave-bar"></span>
+                <span class="wave-bar"></span>
+              </div>
+            </div>
+          </div>
+          <div class="interviewer-sound-controls">
+            <button class="btn btn-secondary btn-sm" id="btn-read-a8" onclick="speakComparisonA8()">🔊 Listen to Comparison</button>
+            <button class="btn btn-outline btn-sm" id="btn-mute-a8" onclick="toggleMuteAudio()">🔇 Mute</button>
+            <button class="btn btn-outline btn-sm" onclick="openConfigModal()">⚙️ Settings</button>
+          </div>
+        </div>
+
+        <div class="card-header">
+          <div style="display: flex; gap: 0.4rem; align-items: center; margin-bottom: 0.4rem;">
+            <span class="badge badge-success">STAGE A8: DIRECT ATTEMPT COMPARISON</span>
+            <span class="context-pill pill-duration">📊 Measurable Progress Delta</span>
+          </div>
+          <h2 class="card-title">Attempt 1 vs Attempt 2 Rubric Delta</h2>
+          <p class="card-subtitle">Direct evaluation diff demonstrating measurable learning.</p>
+        </div>
+
+        <table class="comparison-table">
+          <thead>
+            <tr>
+              <th>Rubric Criterion</th>
+              <th>1st Attempt</th>
+              <th>2nd Attempt</th>
+              <th>Delta / Improvement</th>
+            </tr>
+          </thead>
+          <tbody id="compare-tbody">
+            <!-- Populated dynamically -->
+          </tbody>
+        </table>
+
+        <div class="feedback-box feedback-box-success" style="margin-bottom: 1.5rem;">
+          <strong class="feedback-header-success">🎉 IMPROVEMENTS DETECTED:</strong>
+          <ul id="compare-improvements" class="feedback-list-success"></ul>
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; align-items: center; flex-wrap: wrap; gap: 0.75rem; margin-top: 1.5rem; padding-top: 1.25rem; border-top: 1px solid var(--border);">
+          <button class="btn btn-outline" onclick="goBackUniversal('a7')">← Back to Revision</button>
+          <button class="btn btn-primary" id="btn-next-question-a8" onclick="nextQuestionA()">Next Question →</button>
+        </div>
+        </div>
+      </div>
+
+      <!-- A9: Progress Tracker -->
+      <div class="card" id="screen-a9" style="display: none;">
+        <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
+          <div>
+            <h2 class="card-title">Longitudinal Performance Progress</h2>
+            <p class="card-subtitle">Time-series tracking of all 5 evaluation parameters across attempts.</p>
+          </div>
+          <div>
+            <button class="btn btn-outline btn-danger btn-sm" onclick="resetLongitudinalProgress()">🗑️ Reset Progress (Forget All Data)</button>
+          </div>
+        </div>
+
+        <!-- Trend Chart Container (Plots all 5 parameters across attempts on x-axis) -->
+        <div id="prog-chart-container" style="height: 400px; margin-bottom: 1.5rem; position: relative;">
+          <canvas id="progressChart"></canvas>
+        </div>
+
+        <div id="prog-empty-state" class="longitudinal-chart-empty-state" style="display: none; border: 2px dashed var(--border); border-radius: 12px; margin-bottom: 1.5rem;">
+          <div style="font-size: 2.5rem; margin-bottom: 0.75rem;">📈</div>
+          <h4 style="color: var(--text-main); margin-bottom: 0.35rem; font-size: 1.15rem;">No Practice Attempts Recorded Yet</h4>
+          <p style="color: var(--text-muted); font-size: 0.92rem; max-width: 480px; margin: 0 auto;">
+            Complete your first interview attempt or simulation round to begin tracking your 5-parameter performance progression over time.
+          </p>
+        </div>
+
+        <!-- Bottom Controls -->
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; border-top: 1px solid var(--border); padding-top: 1.25rem;">
+          <div style="display: flex; gap: 0.75rem; align-items: center;">
+            <button class="btn btn-outline" onclick="goBackUniversal('b1')">← Back</button>
+            <button class="btn btn-secondary" onclick="goToHomeUniversal()">🏠 Home</button>
+          </div>
+          <div>
+            <button class="btn btn-danger" onclick="resetLongitudinalProgress()">🗑️ Reset Progress (Forget All Data)</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- SECTION 2: PROTOTYPE B (REALISM-ORIENTED)  -->
+    <!-- ========================================== -->
+    <div id="section-proto-b" style="display: block;">
+      <!-- B1: Home -->
+      <div class="card" id="screen-b1">
+        <div class="research-context-chip" title="HCI Research Mapping">
+          <span>ℹ️ HCI Research Context: Conversational Realism &amp; Adaptive Follow-Up Probing (RQ2, UR1, UR3)</span>
+        </div>
+        <div class="card-header">
+          <h2 class="card-title">Interview Simulation</h2>
+          <p class="card-subtitle">Experience realistic mock interviews with conversational, adaptive follow-up questioning.</p>
+        </div>
+        <div class="welcome-banner welcome-banner-b">
+          <h4>Full Realistic Mock Interview</h4>
+          <p style="font-size: 0.9rem; color: var(--text-muted); margin-top: 0.25rem;">
+            Feedback is withheld during the simulation to replicate real hiring conditions. Dr. Marcus Vance evaluates your spoken responses and generates adaptive follow-up questions in real time.
+          </p>
+          <div style="display: flex; gap: 0.5rem; margin-top: 0.85rem; flex-wrap: wrap; align-items: center;">
+            <span class="preset-label">Quick Track Presets:</span>
+            <div class="quick-chips-group" style="margin-top: 0;">
+              <span class="role-chip" onclick="applyRolePresetB('Staff Distributed Systems Engineer', 'Stripe', 'Senior', 'Technical & System Architecture (Deep Dive)', 'Comprehensive Onsite Loop (8-10 Questions • ~60 mins)', 'Challenging & Probing (Technical Bar Raiser / Stress Test)')">💻 Distributed Systems (Stripe)</span>
+              <span class="role-chip" onclick="applyRolePresetB('UX Research Intern', 'Google', 'Student / Intern', 'Behavioral & Culture Fit (STAR Method Focus)', 'Standard Round (6-7 Questions • ~45 mins)', 'Supportive & Conversational (Mentorship / Low Stress)')">🎨 UX Research (Google)</span>
+              <span class="role-chip" onclick="applyRolePresetB('Associate Product Manager', 'Airbnb', 'Mid-Level', 'Situational Problem Solving & Strategy (Execution)', 'Standard Round (6-7 Questions • ~45 mins)', 'Neutral Corporate (Standard Hiring Bar / Objective)')">📦 Product Strategy (Airbnb)</span>
+              <span class="role-chip" onclick="applyRolePresetB('Senior Machine Learning Engineer', 'HealthAI Labs', 'Senior', 'Technical & System Architecture (Deep Dive)', 'Standard Round (6-7 Questions • ~45 mins)', 'Challenging & Probing (Technical Bar Raiser / Stress Test)')">🤖 Machine Learning</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Practice Workflow Dropdown Selector -->
+        <div class="form-group" style="margin-top: 1.25rem; margin-bottom: 1.25rem; max-width: 620px;">
+          <label class="form-label" style="font-weight: 700; font-size: 0.95rem; color: var(--text-main);">
+            🎯 Select Practice Mode:
+          </label>
+          <select class="form-control" id="home-mode-select" style="font-weight: 600; padding: 0.65rem 0.85rem; border: 2px solid var(--primary);" onchange="handleHomeModeSelectChange(this.value)">
+            <option value="B" selected>Interview Simulation</option>
+            <option value="A">Feedback-Based Interview Practice</option>
+          </select>
+          <p style="font-size: 0.82rem; color: var(--text-muted); margin-top: 0.35rem;" id="home-mode-desc">
+            Continuous corporate interview with multi-turn adaptive follow-ups; feedback withheld until conclusion.
+          </p>
+        </div>
+
+        <div style="display: flex; gap: 1rem; flex-wrap: wrap; align-items: center;">
+          <button class="btn btn-primary" id="btn-start-from-home" onclick="handleStartFromHome()">🎙️ Start Interview Simulation</button>
+          <button class="btn btn-secondary" onclick="handleAutoFillFromHome()">🎲 Auto-Fill Sample & Setup</button>
+          <button class="btn btn-outline" onclick="openLongitudinalProgress()">📊 View Longitudinal Progress</button>
+        </div>
+      </div>
+
+      <!-- B2: Setup (User Defined Fields) -->
+      <div class="card" id="screen-b2" style="display: none;">
+        <div class="card-header">
+          <h2 class="card-title">Interview Configuration</h2>
+          <p class="card-subtitle">Customize candidate credentials and simulation parameters.</p>
+        </div>
+
+        <!-- Demonstration Mode Auto-Fill & Portfolio Rotating Controller (Prototype B) -->
+        <div class="demo-banner-b" id="demo-banner-b">
+          <div style="display: flex; align-items: center; gap: 0.65rem;">
+            <span style="font-size: 1.4rem;">⚡</span>
+            <div>
+              <div class="demo-title demo-title-b">
+                Frictionless Demonstration Mode
+              </div>
+              <div class="demo-badge-text demo-badge-text-b" id="b-demo-badge">
+                Auto-fill fields & options with realistic candidate portfolios. Clicking again rotates to the next portfolio.
+              </div>
+            </div>
+          </div>
+          <button class="btn btn-primary btn-sm btn-demo-b" id="btn-demo-cycle-b" onclick="cycleDemoPortfolio('B')">
+            🎲 Insert Sample Portfolio (Click to Cycle)
+          </button>
+        </div>
+
+        <!-- Mode Dropdown Selector -->
+        <div class="form-group" style="background: var(--surface); padding: 0.85rem 1rem; border: 1.5px solid var(--border); border-radius: 8px; margin-bottom: 1.25rem;">
+          <label class="form-label" style="font-weight: 700; color: var(--text-main); margin-bottom: 0.35rem;">🎯 Select Practice Mode:</label>
+          <select class="form-control" id="b2-prototype-mode" onchange="handleB2ModeSwitch(this.value)" style="font-weight: 600; font-size: 0.95rem;">
+            <option value="B" selected>Interview Simulation</option>
+            <option value="A">Feedback-Based Interview Practice</option>
+          </select>
+          <span style="font-size: 0.8rem; color: var(--text-muted); display: block; margin-top: 0.3rem;" id="b2-mode-hint">
+            Configuring Interview Simulation. Select Feedback-Based Interview Practice to switch to deliberate practice with instant feedback.
+          </span>
+        </div>
+
+        <div class="form-group" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+          <div>
+            <label class="form-label">Candidate Name</label>
+            <input type="text" class="form-control" id="b-name" placeholder="Enter your name or alias..." oninput="syncCandidateName(this.value)">
+          </div>
+          <div>
+            <label class="form-label">Target Company / Domain (Optional)</label>
+            <input type="text" class="form-control" id="b-company" placeholder="e.g. Google, Amazon, Startup, FinTech..." oninput="syncCandidateCompany(this.value)">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Target Role</label>
+          <input type="text" class="form-control" id="b-role" value="Software Engineer" placeholder="e.g. Associate Product Manager, Software Engineer..." oninput="syncCandidateRole(this.value)">
+          <div class="quick-chips-group">
+            <span style="font-size: 0.78rem; color: var(--text-muted); align-self: center;">Popular:</span>
+            <span class="role-chip" onclick="setRoleFieldB('Software Engineer')">Software Engineer</span>
+            <span class="role-chip" onclick="setRoleFieldB('Associate Product Manager')">Associate Product Manager</span>
+            <span class="role-chip" onclick="setRoleFieldB('Data Scientist')">Data Scientist</span>
+            <span class="role-chip" onclick="setRoleFieldB('UX Research Intern')">UX Research Intern</span>
+          </div>
+        </div>
+
+        <div class="form-group" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 0.75rem;">
+          <div>
+            <label class="form-label">Experience Level</label>
+            <select class="form-control" id="b-level" onchange="syncCandidateLevel(this.value)">
+              <option value="Student / Intern">Student / Intern (Campus / New Grad)</option>
+              <option value="Entry-Level">Entry-Level (0-2 yrs)</option>
+              <option value="Mid-Level" selected>Mid-Level (3-5 yrs)</option>
+              <option value="Senior">Senior / Lead (5+ yrs)</option>
+            </select>
+          </div>
+          <div>
+            <label class="form-label">Interview Track / Focus Area</label>
+            <select class="form-control" id="b-type">
+              <option value="Full Mixed Mock (Behavioral + Technical Architecture)" selected>Full Mixed Mock (Behavioral + Technical Architecture)</option>
+              <option value="Behavioral & Culture Fit (STAR Method Focus)">Behavioral & Culture Fit (STAR Method Focus)</option>
+              <option value="Technical & System Architecture (Deep Dive)">Technical & System Architecture (Deep Dive)</option>
+              <option value="Situational Problem Solving & Strategy (Execution)">Situational Problem Solving & Strategy (Execution)</option>
+              <option value="Leadership & Team Dynamics (Cross-Functional)">Leadership & Team Dynamics (Cross-Functional)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Interviewer Persona & Evaluation Rigor</label>
+          <select class="form-control" id="b-difficulty">
+            <option value="Supportive & Conversational (Mentorship / Low Stress)">Supportive & Conversational (Mentorship / Low Stress)</option>
+            <option value="Neutral Corporate (Standard Hiring Bar / Objective)" selected>Neutral Corporate (Standard Hiring Bar / Objective)</option>
+            <option value="Challenging & Probing (Technical Bar Raiser / Stress Test)">Challenging & Probing (Technical Bar Raiser / Stress Test)</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Resume / Highlights (Optional)</label>
+          <textarea class="form-control" style="min-height: 60px;" id="b-cv" placeholder="Paste your background highlights for the interviewer to probe..."></textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Job Description / Responsibilities (Optional)</label>
+          <textarea class="form-control" style="min-height: 60px;" id="b-jd" placeholder="Paste job description bullets..."></textarea>
+        </div>
+
+        <div id="b2-loading-notice" class="loading-notice-box" style="display: none;">
+          <div class="typing-dots"><span></span><span></span><span></span></div>
+          <span>Connecting to Dr. Marcus Vance & formulating your tailored interview scenario (approx 5-10s)...</span>
+        </div>
+
+        <div style="display: flex; gap: 1rem; flex-wrap: wrap; align-items: center;">
+          <button class="btn btn-primary" id="btn-start-b" onclick="handleStartSimulationOrPractice()">🎙️ Begin Interview Simulation</button>
+          <button class="btn btn-secondary" onclick="cycleDemoPortfolio('B')">🎲 Cycle Sample Portfolio</button>
+          <button class="btn btn-outline" onclick="goBackUniversal('b1')">← Back</button>
+        </div>
+      </div>
+
+      <!-- B3 & B4: Chat Simulation Room -->
+      <div class="card" id="screen-b3" style="display: none;">
+        <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
+          <div>
+            <h2 class="card-title">Real-Time Voice Interview Room</h2>
+            <p class="card-subtitle">Official high-fidelity corporate interview with continuous context memory</p>
+          </div>
+          <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+            <span class="context-pill pill-track" id="sim-track-pill">🎯 Focus: STAR Behavioral • ⏱️ 20 mins</span>
+            <span class="context-pill pill-duration" id="sim-history-pill">🧠 History Buffer: <strong>Starting</strong></span>
+            <span class="badge badge-warning" id="sim-status-badge">Stage 1: Introduction & Background</span>
+          </div>
+        </div>
+
+        <!-- High-Fidelity Animated Interviewer Card -->
+        <div class="interviewer-hero" id="b3-interviewer-card">
+          <div class="avatar-wrapper" id="b3-avatar-wrapper">
+            <div class="avatar-halo"></div>
+            <div class="interviewer-avatar" title="Dr. Marcus Vance • Official AI Interviewer">
+              <svg viewBox="0 0 100 100" class="dr-vance-avatar-svg" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                  <radialGradient id="vance-bg" cx="50%" cy="32%" r="68%">
+                    <stop offset="0%" stop-color="#2563eb"/>
+                    <stop offset="55%" stop-color="#1e3a8a"/>
+                    <stop offset="100%" stop-color="#090d16"/>
+                  </radialGradient>
+                  <linearGradient id="vance-skin" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#f8cbb0"/>
+                    <stop offset="50%" stop-color="#e3a782"/>
+                    <stop offset="100%" stop-color="#c9855b"/>
+                  </linearGradient>
+                  <linearGradient id="vance-suit" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#1e293b"/>
+                    <stop offset="60%" stop-color="#111827"/>
+                    <stop offset="100%" stop-color="#090d16"/>
+                  </linearGradient>
+                  <linearGradient id="vance-tie" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#3b82f6"/>
+                    <stop offset="100%" stop-color="#1d4ed8"/>
+                  </linearGradient>
+                  <linearGradient id="vance-hair" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#475569"/>
+                    <stop offset="50%" stop-color="#334155"/>
+                    <stop offset="100%" stop-color="#1e293b"/>
+                  </linearGradient>
+                  <linearGradient id="vance-glasses" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#cbd5e1"/>
+                    <stop offset="100%" stop-color="#64748b"/>
+                  </linearGradient>
+                  <filter id="soft-shadow" x="-10%" y="-10%" width="120%" height="120%">
+                    <feDropShadow dx="0" dy="1.5" stdDeviation="1.2" flood-color="#000000" flood-opacity="0.35"/>
+                  </filter>
+                </defs>
+                <circle cx="50" cy="50" r="50" fill="url(#vance-bg)"/>
+                <circle cx="50" cy="50" r="48" fill="none" stroke="rgba(255,255,255,0.18)" stroke-width="1.2"/>
+                <path d="M10 100 C14 74, 26 71, 38 70 L62 70 C74 71, 86 74, 90 100 Z" fill="url(#vance-suit)"/>
+                <polygon points="38,70 62,70 50,92" fill="#ffffff"/>
+                <polygon points="46.5,72 53.5,72 55.5,91 50,99 44.5,91" fill="url(#vance-tie)"/>
+                <polygon points="30,71 42,88 35,99 20,86" fill="#111827"/>
+                <polygon points="70,71 58,88 65,99 80,86" fill="#111827"/>
+                <line x1="47.5" y1="83" x2="52.5" y2="83" stroke="#e2e8f0" stroke-width="0.8" stroke-linecap="round"/>
+                <path d="M42 58 L42 72 L58 72 L58 58 Z" fill="url(#vance-skin)"/>
+                <path d="M42 58 L58 58 L50 66 Z" fill="#9a5a35" opacity="0.45"/>
+                <path d="M29 37 C29 20, 71 20, 71 37 C71 53, 63 65, 50 65 C37 65, 29 53, 29 37 Z" fill="url(#vance-skin)" filter="url(#soft-shadow)"/>
+                <circle cx="28" cy="40.5" r="4.2" fill="#dda27b"/>
+                <path d="M28.5 38.5 Q27 40.5 28.5 42.5" stroke="#b87b54" stroke-width="1" fill="none"/>
+                <circle cx="72" cy="40.5" r="4.2" fill="#dda27b"/>
+                <path d="M71.5 38.5 Q73 40.5 71.5 42.5" stroke="#b87b54" stroke-width="1" fill="none"/>
+                <path d="M27 33 C26 17, 37 9, 50 9 C63 9, 74 17, 73 33 C70 21, 60 15, 50 16 C40 15, 30 21, 27 33 Z" fill="url(#vance-hair)"/>
+                <path d="M29 29 C34 19, 45 15, 56 16 C63 17, 70 21, 73 28 C70 22, 63 18, 54 18 C44 18, 35 22, 29 29 Z" fill="#94a3b8" opacity="0.6"/>
+                <path d="M29 32 L29 38 L31 36 Z" fill="#374151"/>
+                <path d="M71 32 L71 38 L69 36 Z" fill="#374151"/>
+                <path d="M34 31 Q40 28.5 46.5 30.5" stroke="#1f2937" stroke-width="2.2" stroke-linecap="round" fill="none"/>
+                <path d="M53.5 30.5 Q60 28.5 66 31" stroke="#1f2937" stroke-width="2.2" stroke-linecap="round" fill="none"/>
+                <ellipse cx="40" cy="37.5" rx="4.5" ry="3" fill="#ffffff"/>
+                <circle cx="40.5" cy="37.5" r="2.2" fill="#1d4ed8" class="avatar-iris"/>
+                <circle cx="40.5" cy="37.5" r="1.2" fill="#0f172a" class="avatar-pupil"/>
+                <circle cx="41.3" cy="36.6" r="0.75" fill="#ffffff"/>
+                <circle cx="39.5" cy="38.5" r="0.35" fill="rgba(255,255,255,0.7)"/>
+                <ellipse cx="60" cy="37.5" rx="4.5" ry="3" fill="#ffffff"/>
+                <circle cx="59.5" cy="37.5" r="2.2" fill="#1d4ed8" class="avatar-iris"/>
+                <circle cx="59.5" cy="37.5" r="1.2" fill="#0f172a" class="avatar-pupil"/>
+                <circle cx="60.3" cy="36.6" r="0.75" fill="#ffffff"/>
+                <circle cx="58.5" cy="38.5" r="0.35" fill="rgba(255,255,255,0.7)"/>
+                <rect x="34.5" y="33.5" width="11" height="8" fill="url(#vance-skin)" class="avatar-eyelid avatar-eyelid-l"/>
+                <rect x="54.5" y="33.5" width="11" height="8" fill="url(#vance-skin)" class="avatar-eyelid avatar-eyelid-r"/>
+                <rect x="32" y="31.8" width="16" height="11.5" rx="3.5" fill="rgba(255,255,255,0.06)" stroke="url(#vance-glasses)" stroke-width="1.8"/>
+                <rect x="52" y="31.8" width="16" height="11.5" rx="3.5" fill="rgba(255,255,255,0.06)" stroke="url(#vance-glasses)" stroke-width="1.8"/>
+                <path d="M48 36.5 Q50 35 52 36.5" stroke="url(#vance-glasses)" stroke-width="1.8" fill="none"/>
+                <line x1="34" y1="34" x2="39" y2="34" stroke="rgba(255,255,255,0.85)" stroke-width="1.2" stroke-linecap="round"/>
+                <line x1="54" y1="34" x2="59" y2="34" stroke="rgba(255,255,255,0.85)" stroke-width="1.2" stroke-linecap="round"/>
+                <path d="M50 35 L49 46.5 Q50 48.5 52.5 47.5" stroke="#a16239" stroke-width="1.6" stroke-linecap="round" fill="none"/>
+                <path d="M43.5 53.5 Q50 56.5 56.5 53.5" stroke="#7c2d12" stroke-width="2.3" stroke-linecap="round" fill="none" class="avatar-mouth-resting"/>
+                <g class="avatar-mouth-speaking">
+                  <ellipse cx="50" cy="55" rx="5.2" ry="3.2" fill="#450a0a" stroke="#7c2d12" stroke-width="1.6"/>
+                  <path d="M47 53.2 Q50 53.8 53 53.2" stroke="#ffffff" stroke-width="1.2" stroke-linecap="round" fill="none"/>
+                </g>
+              </svg>
+            </div>
+          </div>
+          <div class="interviewer-info">
+            <h3 id="b3-interviewer-name">Dr. Marcus Vance</h3>
+            <p id="b3-interviewer-role">Lead Hiring Evaluator • Live Voice Simulation</p>
+            <div style="display: flex; gap: 0.6rem; align-items: center; margin-top: 0.35rem;">
+              <span class="voice-status-pill speaking" id="b3-voice-status">🔊 Interviewer Speaking</span>
+              <div class="waveform-equalizer active" id="b3-equalizer">
+                <span class="wave-bar"></span>
+                <span class="wave-bar"></span>
+                <span class="wave-bar"></span>
+                <span class="wave-bar"></span>
+                <span class="wave-bar"></span>
+              </div>
+            </div>
+          </div>
+          <div class="interviewer-sound-controls">
+            <button class="btn btn-secondary btn-sm" id="btn-replay-b3" onclick="replayLastInterviewerMessage()">🔊 Replay</button>
+            <button class="btn btn-outline btn-sm" id="btn-mute-b3" onclick="toggleMuteAudio()">🔇 Mute</button>
+            <button class="btn btn-outline btn-sm" onclick="openConfigModal()">⚙️ Settings</button>
+          </div>
+        </div>
+
+        <!-- Chat Stream -->
+        <div class="chat-container" id="b-chat-container">
+          <!-- Populated dynamically -->
+        </div>
+
+        <!-- Modern Multimodal Interview Cockpit Dock -->
+        <div class="cockpit-dock" id="b3-cockpit-dock">
+          <!-- Dock Mode Switcher Tabs -->
+          <div class="cockpit-dock-header">
+            <div class="cockpit-mode-toggle">
+              <button class="dock-tab-btn active" id="dock-btn-voice" onclick="setCockpitInputMode('voice')">
+                🎙️ Spoken Voice Mode (Live Streaming)
+              </button>
+              <button class="dock-tab-btn" id="dock-btn-text" onclick="setCockpitInputMode('text')">
+                ⌨️ Keyboard / Typed Mode
+              </button>
+            </div>
+            <div class="dock-header-actions">
+              <button class="btn btn-secondary btn-sm" id="btn-sample-b" onclick="loadSampleAnswerB()" title="Insert contextual sample answer for demonstration" style="display: none;">⚡ Sample Answer</button>
+              <button class="btn btn-secondary btn-sm" id="btn-user-wrapup" onclick="concludeInterviewNaturally()" title="Tell Dr. Vance you are ready to wrap up">🤝 Conclude & Wrap Up</button>
+              <button class="btn btn-outline btn-sm" onclick="clearCockpitAnswer()" title="Clear transcribed or typed response">Clear</button>
+            </div>
+          </div>
+
+          <!-- VOICE MODE INTERACTION STAGE (Default) -->
+          <div id="dock-voice-stage" class="dock-stage">
+            <!-- Hero Pulsing Microphone Button -->
+            <div class="hero-mic-container">
+              <button class="hero-mic-btn" id="hero-mic-b" onclick="toggleVoiceInputUniversal('b-answer', 'hero-mic-b', 'b3-stt-panel', 'b3-stt-status', null, null, 'b3-live-preview')">
+                <span class="mic-icon-wrapper">
+                  <span class="mic-glyph" id="hero-mic-glyph">🎙️</span>
+                </span>
+                <span class="mic-label-group">
+                  <strong class="mic-primary-label" id="hero-mic-label">Click to Speak to Dr. Vance</strong>
+                  <span class="mic-sub-label" id="hero-mic-sub">Transcribes in real time • Click again when done to send</span>
+                </span>
+              </button>
+            </div>
+
+            <!-- Live Streaming Subtitle & Captions Strip -->
+            <div class="cockpit-caption-strip" id="b3-stt-panel">
+              <div class="caption-status" id="b3-stt-status">🎙️ Ready for your response. Click the button above to speak.</div>
+              <div class="caption-preview" id="b3-live-preview"></div>
+            </div>
+
+            <!-- Voice Mode Submit Action Button -->
+            <div id="b3-voice-submit-bar" style="margin-top: 1rem; display: none; justify-content: center; gap: 0.75rem;">
+              <button class="btn btn-primary" id="btn-submit-voice-b" onclick="submitSimulationAnswer()" style="min-width: 260px; font-weight: 700; padding: 0.75rem 1.5rem; font-size: 0.95rem; box-shadow: 0 4px 14px rgba(37,99,235,0.25);">Send Response to Dr. Vance ↵</button>
+            </div>
+          </div>
+
+          <!-- KEYBOARD / TYPED MODE STAGE -->
+          <div id="dock-text-stage" class="dock-stage" style="display: none;">
+            <div class="form-group" style="margin-bottom: 0.5rem;">
+              <textarea class="form-control" id="b-answer" rows="3" placeholder="Type your response to Dr. Marcus Vance here... Click 'Send Typed Answer' or press Enter to submit."></textarea>
+            </div>
+            <div style="display: flex; justify-content: flex-end; gap: 0.5rem;">
+              <button class="btn btn-primary btn-sm" id="btn-b-submit" onclick="submitSimulationAnswer()">Send Typed Answer ↵</button>
+            </div>
+          </div>
+
+          <!-- Cockpit Bottom Utility Bar -->
+          <div class="cockpit-bottom-bar">
+            <div class="dock-hint-text">
+              <span id="b-silence-hint">💡 <strong>Live Interview Simulator:</strong> Speak into the mic to transcribe in real time. Click the button to stop and immediately send your response to Dr. Vance.</span>
+            </div>
+            <div class="dock-controls-group">
+              <button class="btn btn-outline btn-sm" onclick="confirmExitSimulation()">⬅️ Back to Setup</button>
+              <button class="btn btn-danger btn-sm" onclick="finishSimulation()">🏁 Conclude & Evaluate Interview</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- B6: Official Hiring Committee Evaluation Dashboard -->
+      <div class="card" id="screen-b6" style="display: none; padding: 1.5rem;">
+        <!-- Loading State Placeholder -->
+        <div id="b6-loading-state" style="text-align: center; padding: 3rem 1rem;">
+          <div class="typing-dots" style="margin-bottom: 1rem;"><span></span><span></span><span></span></div>
+          <h3 style="color: var(--text-main); font-size: 1.3rem;">Convening Hiring Committee Evaluation...</h3>
+          <p style="color: var(--text-muted); font-size: 0.9rem; max-width: 540px; margin: 0.5rem auto;">Dr. Marcus Vance and the Evaluation Engine are auditing all conversation turns against track-specific BARS rubrics, job description prerequisites, and interview rigor criteria.</p>
+        </div>
+
+        <!-- Rendered Dashboard Content Container -->
+        <div id="b6-dashboard-content" style="display: none;">
+          <!-- Populated dynamically by renderDetailedSimulationFeedback() -->
+        </div>
+
+        <!-- Bottom Action Bar -->
+        <div style="margin-top: 2rem; padding-top: 1.25rem; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; align-items: center; flex-wrap: wrap; gap: 1rem;">
+          <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center;">
+            <button class="btn btn-secondary" onclick="openLongitudinalProgress()">📈 Longitudinal Progress</button>
+            <button class="btn btn-outline btn-danger" onclick="resetLongitudinalProgress()">🗑️ Reset Progress (Forget All Data)</button>
+            <button class="btn btn-primary" onclick="goToScreenB('b1')">🔄 New Simulation Session</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    </main>
+
+  <!-- ========================================== -->
+  <!-- MODAL: WHY THIS FEEDBACK? (INSPECTABLE)    -->
+  <!-- ========================================== -->
+  <div class="modal-overlay" id="modal-why-feedback" style="display: none;">
+    <div class="modal-content" style="max-width: 650px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 0.75rem; margin-bottom: 1rem;">
+        <h3 style="font-size: 1.2rem; color: var(--text-main);">🔍 Why This Feedback? (Transparent Rubric Audit)</h3>
+        <button onclick="closeWhyFeedbackModal()" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-muted);">&times;</button>
+      </div>
+
+      <!-- 4 Rubric Criteria Navigation Tabs -->
+      <div class="why-crit-tabs" style="display: flex; gap: 0.4rem; margin-bottom: 1rem; border-bottom: 1px solid var(--border); padding-bottom: 0.6rem; flex-wrap: wrap;">
+        <button class="btn btn-sm btn-outline why-tab-btn active" id="why-tab-evid" onclick="switchWhyCriterion('evidence_outcome')">Evidence & Outcome</button>
+        <button class="btn btn-sm btn-outline why-tab-btn" id="why-tab-rel" onclick="switchWhyCriterion('relevance')">Relevance</button>
+        <button class="btn btn-sm btn-outline why-tab-btn" id="why-tab-spec" onclick="switchWhyCriterion('specificity')">Specificity</button>
+        <button class="btn btn-sm btn-outline why-tab-btn" id="why-tab-struct" onclick="switchWhyCriterion('structure_clarity')">Structure & Clarity</button>
+      </div>
+
+      <div class="modal-crit-box">
+        <span class="badge badge-primary" id="modal-why-badge">EVALUATION CRITERION</span>
+        <h4 style="margin-top: 0.35rem; color: var(--primary);" id="modal-why-title">Provides Concrete Outcome / Evidence (STAR: Result)</h4>
+        <p class="modal-crit-desc" id="modal-why-standard">
+          Rubric Standard: Answers must provide tangible deliverables, metrics, percentages, or positive resolution impact rather than stopping at the action taken.
+        </p>
+      </div>
+
+      <div style="margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
+        <strong style="font-size: 0.9rem;">Assigned Score:</strong>
+        <span class="modal-why-score" id="modal-why-score">4.0 / 10</span>
+      </div>
+
+      <div class="feedback-box feedback-box-warning" style="margin-bottom: 1rem;">
+        <strong class="feedback-header-warning">Detailed Justification:</strong>
+        <p class="feedback-sub-warning" id="modal-why-reason">
+          Your response thoroughly describes the conflict and the collaborative action taken, but it completely omits what occurred afterwards.
+        </p>
+      </div>
+
+      <div style="margin-bottom: 1.25rem;">
+        <strong style="font-size: 0.88rem;">Excerpts Analyzed from Your Answer:</strong>
+        <div class="excerpt-box" id="modal-why-excerpt">
+          “I set up a 30-minute meeting to discuss the disagreeing views and talked through the requirements.” (Action present, Result missing).
+        </div>
+      </div>
+
+      <div class="feedback-box feedback-box-success" style="margin-bottom: 1.5rem;">
+        <strong class="feedback-header-success">💡 Recommended Addition:</strong>
+        <p class="feedback-sub-success" id="modal-why-addition">
+          “As a result, we agreed on an A/B test compromise, launched the feature 2 days early, and saw a 28% increase in task completion.”
+        </p>
+      </div>
+
+      <div style="text-align: right;">
+        <button class="btn btn-primary" onclick="closeWhyFeedbackModal()">Back to Feedback</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================== -->
+  <!-- MODAL: SETTINGS & EVALUATION FEEDBACK      -->
+  <!-- ========================================== -->
+  <div class="modal-overlay" id="modal-config" style="display: none;">
+    <div class="modal-content" style="max-width: 580px; width: 92vw; max-height: 90vh; overflow-y: auto;">
+      <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 0.75rem; margin-bottom: 1rem;">
+        <h3 style="font-size: 1.25rem; font-weight: 700; color: var(--text-main); margin: 0; display: flex; align-items: center; gap: 0.5rem;">
+          <span>⚙️</span> System Settings &amp; Feedback
+        </h3>
+        <button onclick="closeConfigModal()" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-muted); line-height: 1;">&times;</button>
+      </div>
+
+      <!-- Tab Navigation -->
+      <div style="display: flex; gap: 0.5rem; border-bottom: 1px solid var(--border); margin-bottom: 1.25rem;">
+        <button class="btn btn-sm btn-primary" id="tab-btn-cfg-ai" onclick="switchSettingsTab('ai')" style="border-radius: 6px 6px 0 0; font-weight: 600;">
+          🤖 AI Engine &amp; Gemini
+        </button>
+        <button class="btn btn-sm btn-outline" id="tab-btn-cfg-audio" onclick="switchSettingsTab('audio')" style="border-radius: 6px 6px 0 0; font-weight: 600;">
+          🔊 Audio &amp; Speech
+        </button>
+        <button class="btn btn-sm btn-outline" id="tab-btn-cfg-feedback" onclick="switchSettingsTab('feedback')" style="border-radius: 6px 6px 0 0; font-weight: 600;">
+          📝 User Study Feedback
+        </button>
+      </div>
+
+      <!-- TAB 1: AI ENGINE & GOOGLE GEMINI KEY -->
+      <div id="cfg-tab-ai">
+        <!-- Engine Status Banner -->
+        <div id="cfg-ai-status-card" style="background: #f0fdf4; border: 1.5px solid #bbf7d0; padding: 0.85rem 1rem; border-radius: 8px; margin-bottom: 1.25rem;">
+          <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem;">
+            <strong id="cfg-ai-status-title" style="color: #166534; font-size: 0.92rem; display: flex; align-items: center; gap: 0.4rem;">
+              <span id="cfg-ai-dot">🟢</span> <span id="cfg-ai-title-text">Cloud AI Engine Ready</span>
+            </strong>
+            <span class="badge badge-success" id="cfg-ai-status-badge">Checking...</span>
+          </div>
+          <p style="font-size: 0.8rem; color: #14532d; margin-top: 0.35rem; line-height: 1.4;" id="cfg-ai-status-desc">
+            Google Gemini (<code>gemini-3.5-flash-lite</code>) generates live conversational questions, multi-turn adaptive follow-ups, and hiring committee rubric audits.
+          </p>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 1.25rem;">
+          <label class="form-label" style="font-weight: 700; display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
+            <span>Google Gemini API Key</span>
+            <span class="badge badge-primary" style="font-size: 0.72rem;">Free Tier Ready</span>
+          </label>
+          <div style="display: flex; gap: 0.5rem;">
+            <input type="password" class="form-control" id="cfg-gemini-key" placeholder="AIzaSy... (Paste Google Gemini API Key here)" style="flex: 1; font-family: monospace;">
+            <button type="button" class="btn btn-outline btn-sm" id="btn-toggle-key" onclick="toggleGeminiKeyVisibility()" style="padding: 0.4rem 0.75rem;" title="Show / Hide API Key">👁️</button>
+          </div>
+          <p style="font-size: 0.78rem; color: var(--text-muted); margin-top: 0.45rem; line-height: 1.45;">
+            Get a 100% free API key from <a href="https://aistudio.google.com/apikey" target="_blank" style="color: var(--primary); text-decoration: underline; font-weight: 600;">Google AI Studio</a>. If left blank, the system automatically uses the zero-cost local semantic dialogue engine ($0.00 zero-downtime guaranteed).
+          </p>
+        </div>
+
+        <!-- Real-Time Diagnostic Test Box -->
+        <div style="margin-bottom: 1.5rem;">
+          <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+            <button type="button" class="btn btn-secondary btn-sm" id="btn-test-gemini" onclick="testGeminiConnectionUI()" style="font-weight: 600; display: inline-flex; align-items: center; gap: 0.4rem;">
+              🔌 Test &amp; Validate Gemini Connection
+            </button>
+            <span id="cfg-gemini-key-note" style="font-size: 0.78rem; color: var(--text-muted);"></span>
+          </div>
+          <div id="cfg-gemini-test-result" style="display: none; margin-top: 0.75rem; padding: 0.85rem; border-radius: 8px; font-size: 0.82rem; line-height: 1.45;"></div>
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; gap: 0.5rem; border-top: 1px solid var(--border); padding-top: 1rem;">
+          <button type="button" class="btn btn-secondary btn-sm" onclick="closeConfigModal()">Cancel</button>
+          <button type="button" class="btn btn-primary btn-sm" onclick="saveConfigSettings()">Save &amp; Apply</button>
+        </div>
+      </div>
+
+      <!-- TAB 2: AUDIO & SPEECH SPEED -->
+      <div id="cfg-tab-audio" style="display: none;">
+        <div class="form-group" style="margin-bottom: 1.25rem;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
+            <label class="form-label" style="font-weight: 700; margin: 0;">Speech Playback Speed:</label>
+            <span id="cfg-rate-val" style="font-weight: 800; font-size: 1.05rem; color: var(--primary);">1.00x</span>
+          </div>
+          <input type="range" class="form-control" id="cfg-voice-rate" min="0.5" max="2.0" step="0.05" value="1.0" oninput="setSpeechRate(this.value, false)" style="width: 100%; cursor: pointer;">
+          
+          <!-- Speed Quick Presets -->
+          <div style="display: flex; justify-content: space-between; gap: 0.4rem; margin-top: 0.6rem;">
+            <button type="button" class="btn btn-outline btn-sm" onclick="setSpeechRate(0.75)" style="flex: 1; padding: 0.3rem 0.5rem; font-size: 0.8rem;">0.75x (Slow)</button>
+            <button type="button" class="btn btn-outline btn-sm" onclick="setSpeechRate(1.0)" style="flex: 1; padding: 0.3rem 0.5rem; font-size: 0.8rem;">1.0x (Normal)</button>
+            <button type="button" class="btn btn-outline btn-sm" onclick="setSpeechRate(1.25)" style="flex: 1; padding: 0.3rem 0.5rem; font-size: 0.8rem;">1.25x (Brisk)</button>
+            <button type="button" class="btn btn-outline btn-sm" onclick="setSpeechRate(1.5)" style="flex: 1; padding: 0.3rem 0.5rem; font-size: 0.8rem;">1.5x (Fast)</button>
+          </div>
+          <p style="font-size: 0.78rem; color: var(--text-muted); margin-top: 0.45rem;">Controls the speech rate for Dr. Marcus Vance and AI coach question voice-overs.</p>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 1.5rem; background: var(--bg-surface, rgba(0,0,0,0.03)); padding: 0.85rem; border-radius: 8px; border: 1px solid var(--border);">
+          <label style="display: flex; align-items: center; gap: 0.6rem; cursor: pointer; font-weight: 600; margin: 0; font-size: 0.9rem;">
+            <input type="checkbox" id="cfg-auto-speak" checked onchange="toggleAutoSpeak(this.checked)" style="transform: scale(1.15); cursor: pointer;">
+            <span>Automatically speak interviewer questions aloud</span>
+          </label>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border); padding-top: 1rem;">
+          <button type="button" class="btn btn-outline btn-sm" onclick="testVoicePlayback()" style="font-weight: 600;">🔊 Test Speech Speed</button>
+          <div style="display: flex; gap: 0.5rem;">
+            <button type="button" class="btn btn-secondary btn-sm" onclick="closeConfigModal()">Cancel</button>
+            <button type="button" class="btn btn-primary btn-sm" onclick="saveConfigSettings()">Save Settings</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 2: USER STUDY FEEDBACK -->
+      <div id="cfg-tab-feedback" style="display: none;">
+        <p style="font-size: 0.84rem; color: var(--text-muted); margin-bottom: 1rem; line-height: 1.5;">
+          Please rate your experience with the prototype. Your responses directly support our HCI user evaluation study.
+        </p>
+
+        <!-- Mode Evaluated -->
+        <div class="form-group" style="margin-bottom: 1rem;">
+          <label class="form-label" style="font-weight: 600; font-size: 0.85rem;">Which prototype mode did you evaluate?</label>
+          <select class="form-control" id="fb-prototype" style="font-size: 0.88rem; padding: 0.45rem 0.65rem;">
+            <option value="Both Prototypes (Full Experience)" selected>Both Prototypes (Full Experience)</option>
+            <option value="Prototype A (Practice Mode • Formative Feedback)">Prototype A (Practice Mode • Formative Feedback)</option>
+            <option value="Prototype B (Simulation Mode • Continuous Mock)">Prototype B (Simulation Mode • Continuous Mock)</option>
+          </select>
+        </div>
+
+        <!-- 1-10 Ratings Grid -->
+        <div style="display: flex; flex-direction: column; gap: 0.85rem; margin-bottom: 1.25rem;">
+          <!-- Metric 1 -->
+          <div>
+            <div style="display: flex; justify-content: space-between; font-size: 0.84rem; font-weight: 600; margin-bottom: 0.25rem;">
+              <span>1. Overall System Usability &amp; Experience:</span>
+              <span id="fb-val-overall" style="color: var(--primary); font-weight: 700;">9 / 10</span>
+            </div>
+            <input type="range" class="form-control" id="fb-rate-overall" min="1" max="10" step="1" value="9" oninput="document.getElementById('fb-val-overall').innerText = this.value + ' / 10'" style="cursor: pointer;">
+            <div style="display: flex; justify-content: space-between; font-size: 0.72rem; color: var(--text-muted);">
+              <span>1 = Difficult &amp; Confusing</span>
+              <span>10 = Intuitive &amp; Seamless</span>
+            </div>
+          </div>
+
+          <!-- Metric 2 -->
+          <div>
+            <div style="display: flex; justify-content: space-between; font-size: 0.84rem; font-weight: 600; margin-bottom: 0.25rem;">
+              <span>2. Speech-to-Text &amp; Voice Interaction Quality:</span>
+              <span id="fb-val-voice" style="color: var(--primary); font-weight: 700;">9 / 10</span>
+            </div>
+            <input type="range" class="form-control" id="fb-rate-voice" min="1" max="10" step="1" value="9" oninput="document.getElementById('fb-val-voice').innerText = this.value + ' / 10'" style="cursor: pointer;">
+            <div style="display: flex; justify-content: space-between; font-size: 0.72rem; color: var(--text-muted);">
+              <span>1 = Sluggish / Unreliable</span>
+              <span>10 = Fast &amp; Accurate</span>
+            </div>
+          </div>
+
+          <!-- Metric 3 -->
+          <div>
+            <div style="display: flex; justify-content: space-between; font-size: 0.84rem; font-weight: 600; margin-bottom: 0.25rem;">
+              <span>3. AI Feedback Realism &amp; Rubric Rigor:</span>
+              <span id="fb-val-feedback" style="color: var(--primary); font-weight: 700;">8 / 10</span>
+            </div>
+            <input type="range" class="form-control" id="fb-rate-feedback" min="1" max="10" step="1" value="8" oninput="document.getElementById('fb-val-feedback').innerText = this.value + ' / 10'" style="cursor: pointer;">
+            <div style="display: flex; justify-content: space-between; font-size: 0.72rem; color: var(--text-muted);">
+              <span>1 = Vague / Hallucinatory</span>
+              <span>10 = Constructive &amp; Insightful</span>
+            </div>
+          </div>
+
+          <!-- Metric 4 -->
+          <div>
+            <div style="display: flex; justify-content: space-between; font-size: 0.84rem; font-weight: 600; margin-bottom: 0.25rem;">
+              <span>4. Learning Lift &amp; Interview Confidence:</span>
+              <span id="fb-val-learning" style="color: var(--primary); font-weight: 700;">9 / 10</span>
+            </div>
+            <input type="range" class="form-control" id="fb-rate-learning" min="1" max="10" step="1" value="9" oninput="document.getElementById('fb-val-learning').innerText = this.value + ' / 10'" style="cursor: pointer;">
+            <div style="display: flex; justify-content: space-between; font-size: 0.72rem; color: var(--text-muted);">
+              <span>1 = No learning effect</span>
+              <span>10 = High confidence boost</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Qualitative Fields -->
+        <div class="form-group" style="margin-bottom: 0.85rem;">
+          <label class="form-label" style="font-weight: 600; font-size: 0.84rem;">What worked best during your practice?</label>
+          <textarea class="form-control" id="fb-worked-well" rows="2" placeholder="e.g., Live real-time speech transcription, structured STAR reflection, Dr. Vance's contextual questions..." style="font-size: 0.84rem;"></textarea>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 1.25rem;">
+          <label class="form-label" style="font-weight: 600; font-size: 0.84rem;">What suggestions or improvements do you recommend?</label>
+          <textarea class="form-control" id="fb-improvements" rows="2" placeholder="e.g., More question domains, optional video avatar, pacing timer..." style="font-size: 0.84rem;"></textarea>
+        </div>
+
+        <!-- Feedback Action Bar -->
+        <div style="display: flex; justify-content: flex-end; align-items: center; gap: 0.6rem; border-top: 1px solid var(--border); padding-top: 1rem;">
+          <button type="button" class="btn btn-secondary btn-sm" onclick="closeConfigModal()">Cancel</button>
+          <button type="button" class="btn btn-primary btn-sm" id="btn-submit-feedback" onclick="submitUserStudyFeedback()">
+            📨 Submit Feedback
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================== -->
+  <!-- MODAL: CUSTOM CONFIRMATION DIALOG          -->
+  <!-- ========================================== -->
+  <div class="modal-overlay" id="modal-app-confirm" style="display: none; z-index: 2100;">
+    <div class="modal-content" style="max-width: 440px; text-align: center; padding: 2rem 1.5rem; border-radius: 14px;">
+      <div id="confirm-modal-icon" style="font-size: 2.4rem; margin-bottom: 0.6rem;">⚠️</div>
+      <h3 id="confirm-modal-title" style="font-size: 1.25rem; color: var(--text-main); margin-bottom: 0.4rem; font-weight: 700;">Confirm Action</h3>
+      <p id="confirm-modal-message" style="color: var(--text-muted); font-size: 0.92rem; line-height: 1.5; margin-bottom: 1.5rem;">Are you sure you want to proceed?</p>
+      <div style="display: flex; gap: 0.75rem; justify-content: center;">
+        <button class="btn btn-outline" id="confirm-modal-cancel-btn" style="min-width: 105px; border-radius: 8px;">Cancel</button>
+        <button class="btn btn-primary" id="confirm-modal-ok-btn" style="min-width: 125px; border-radius: 8px;">Confirm</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div id="app-toast-container" style="position: fixed; bottom: 1.5rem; right: 1.5rem; z-index: 3000; display: flex; flex-direction: column; gap: 0.6rem; pointer-events: none;"></div>
+
+  <script src="/static/app.js?v=20261112_v36"></script>
+</body>
+</html>
