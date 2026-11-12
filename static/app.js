@@ -4300,26 +4300,58 @@ async function saveConfigSettings() {
   closeConfigModal();
 }
 
+const LIKERT_5_LABELS = {
+  "1": "1 / 5 (Strongly Disagree)",
+  "2": "2 / 5 (Disagree)",
+  "3": "3 / 5 (Neutral)",
+  "4": "4 / 5 (Agree)",
+  "5": "5 / 5 (Strongly Agree)"
+};
+
+function updateFbLikertDisplay(qNum, val) {
+  const el = document.getElementById(`fb-val-${qNum}`);
+  if (el) {
+    el.innerText = LIKERT_5_LABELS[String(val)] || `${val} / 5`;
+  }
+}
+
 async function submitUserStudyFeedback() {
-  const protoEl = document.getElementById("fb-prototype");
-  const rateOverallEl = document.getElementById("fb-rate-overall");
-  const rateVoiceEl = document.getElementById("fb-rate-voice");
-  const rateFeedbackEl = document.getElementById("fb-rate-feedback");
-  const rateLearningEl = document.getElementById("fb-rate-learning");
-  const workedWellEl = document.getElementById("fb-worked-well");
-  const improvementsEl = document.getElementById("fb-improvements");
+  const q1 = document.getElementById("fb-q1");
+  const q2 = document.getElementById("fb-q2");
+  const q3 = document.getElementById("fb-q3");
+  const q4 = document.getElementById("fb-q4");
+  const q5 = document.getElementById("fb-q5");
+  const q6 = document.getElementById("fb-q6");
+  const q7 = document.getElementById("fb-q7");
+  const commentsEl = document.getElementById("fb-comments");
   const submitBtn = document.getElementById("btn-submit-feedback");
+
+  const v1 = q1 ? parseInt(q1.value, 10) : 5;
+  const v2 = q2 ? parseInt(q2.value, 10) : 5;
+  const v3 = q3 ? parseInt(q3.value, 10) : 5;
+  const v4 = q4 ? parseInt(q4.value, 10) : 5;
+  const v5 = q5 ? parseInt(q5.value, 10) : 5;
+  const v6 = q6 ? parseInt(q6.value, 10) : 5;
+  const v7 = q7 ? parseInt(q7.value, 10) : 5;
+  const comments = commentsEl ? commentsEl.value.trim() : "";
 
   const payload = {
     participant_name: candidateProfile.name || "Candidate",
-    prototype_evaluated: protoEl ? protoEl.value : "Both Prototypes (Full Experience)",
+    prototype_evaluated: "Both Prototypes (Full Experience)",
     candidate_role: candidateProfile.role || "Software Engineer",
-    rating_overall: rateOverallEl ? parseInt(rateOverallEl.value, 10) : 9,
-    rating_voice: rateVoiceEl ? parseInt(rateVoiceEl.value, 10) : 9,
-    rating_ai_feedback: rateFeedbackEl ? parseInt(rateFeedbackEl.value, 10) : 8,
-    rating_learning_value: rateLearningEl ? parseInt(rateLearningEl.value, 10) : 9,
-    what_worked_well: workedWellEl ? workedWellEl.value.trim() : "",
-    suggestions_for_improvement: improvementsEl ? improvementsEl.value.trim() : ""
+    q1_navigation: v1,
+    q2_tasks_without_difficulty: v2,
+    q3_relevant_goals: v3,
+    q4_feedback_clear_strengths: v4,
+    q5_actionable_suggestions: v5,
+    q6_in_control_pace: v6,
+    q7_aili_improvement: v7,
+    additional_comments: comments,
+    suggestions_for_improvement: comments,
+    rating_overall: Math.round((v1 + v2 + v3 + v4 + v5 + v6 + v7) / 7 * 2),
+    rating_voice: v2 * 2,
+    rating_ai_feedback: v4 * 2,
+    rating_learning_value: v7 * 2
   };
 
   if (submitBtn) {
@@ -4335,8 +4367,7 @@ async function submitUserStudyFeedback() {
     });
     const data = await res.json();
     showAppToast("🎉 Thank you! Your evaluation feedback has been submitted.", "success");
-    if (workedWellEl) workedWellEl.value = "";
-    if (improvementsEl) improvementsEl.value = "";
+    if (commentsEl) commentsEl.value = "";
     closeConfigModal();
   } catch (err) {
     console.error("Feedback submit error:", err);
@@ -4423,6 +4454,7 @@ window.resetLongitudinalProgress = resetLongitudinalProgress;
 window.switchSettingsTab = switchSettingsTab;
 window.setSpeechRate = setSpeechRate;
 window.toggleAutoSpeak = toggleAutoSpeak;
+window.updateFbLikertDisplay = updateFbLikertDisplay;
 window.submitUserStudyFeedback = submitUserStudyFeedback;
 window.toggleGeminiKeyVisibility = toggleGeminiKeyVisibility;
 window.testGeminiConnectionUI = testGeminiConnectionUI;

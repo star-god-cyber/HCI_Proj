@@ -554,10 +554,19 @@ async def submit_feedback(req: FeedbackSubmissionRequest):
         "participant_name": req.participant_name or "Anonymous",
         "prototype_evaluated": req.prototype_evaluated or "Both Prototypes",
         "candidate_role": req.candidate_role or "Software Engineer",
-        "rating_overall": req.rating_overall if req.rating_overall is not None else 8,
-        "rating_voice": req.rating_voice if req.rating_voice is not None else 8,
-        "rating_ai_feedback": req.rating_ai_feedback if req.rating_ai_feedback is not None else 8,
-        "rating_learning_value": req.rating_learning_value if req.rating_learning_value is not None else 8,
+        # 7 HCI Likert Scale Questions (1-5)
+        "q1_website_easy_to_navigate": req.q1_navigation if req.q1_navigation is not None else 5,
+        "q2_completed_tasks_without_difficulty": req.q2_tasks_without_difficulty if req.q2_tasks_without_difficulty is not None else 5,
+        "q3_questions_relevant_to_goals": req.q3_relevant_goals if req.q3_relevant_goals is not None else 5,
+        "q4_feedback_relevant_clear_strengths": req.q4_feedback_clear_strengths if req.q4_feedback_clear_strengths is not None else 5,
+        "q5_feedback_actionable_suggestions": req.q5_actionable_suggestions if req.q5_actionable_suggestions is not None else 5,
+        "q6_in_control_at_own_pace": req.q6_in_control_pace if req.q6_in_control_pace is not None else 5,
+        "q7_aili_improved_interview_answers": req.q7_aili_improvement if req.q7_aili_improvement is not None else 5,
+        "additional_comments": req.additional_comments or req.suggestions_for_improvement or "",
+        "rating_overall": req.rating_overall,
+        "rating_voice": req.rating_voice,
+        "rating_ai_feedback": req.rating_ai_feedback,
+        "rating_learning_value": req.rating_learning_value,
         "what_worked_well": req.what_worked_well or "",
         "suggestions_for_improvement": req.suggestions_for_improvement or ""
     }

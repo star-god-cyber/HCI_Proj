@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>AI Interview Practice System</title>
-  <link rel="stylesheet" href="/static/style.css?v=20261112_v37">
+  <link rel="stylesheet" href="/static/style.css?v=20261112_v38">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Comic+Sans+MS&display=swap" rel="stylesheet">
@@ -1881,84 +1881,133 @@
 
       <!-- TAB 2: USER STUDY FEEDBACK -->
       <div id="cfg-tab-feedback" style="display: none;">
-        <p style="font-size: 0.84rem; color: var(--text-muted); margin-bottom: 1rem; line-height: 1.5;">
-          Please rate your experience with the prototype. Your responses directly support our HCI user evaluation study.
-        </p>
-
-        <!-- Mode Evaluated -->
-        <div class="form-group" style="margin-bottom: 1rem;">
-          <label class="form-label" style="font-weight: 600; font-size: 0.85rem;">Which prototype mode did you evaluate?</label>
-          <select class="form-control" id="fb-prototype" style="font-size: 0.88rem; padding: 0.45rem 0.65rem;">
-            <option value="Both Prototypes (Full Experience)" selected>Both Prototypes (Full Experience)</option>
-            <option value="Prototype A (Practice Mode • Formative Feedback)">Prototype A (Practice Mode • Formative Feedback)</option>
-            <option value="Prototype B (Simulation Mode • Continuous Mock)">Prototype B (Simulation Mode • Continuous Mock)</option>
-          </select>
+        <div style="background: var(--bg-surface, #f8fafc); border: 1.5px solid var(--border); border-radius: 8px; padding: 0.75rem 1rem; margin-bottom: 1rem;">
+          <strong style="color: var(--primary); font-size: 0.88rem;">📝 User Evaluation & Usability Study</strong>
+          <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0.25rem 0 0 0; line-height: 1.45;">
+            Please rate your agreement with each statement below on a <strong>1 to 5 scale</strong> (1 = Strongly Disagree, 5 = Strongly Agree).
+          </p>
         </div>
 
-        <!-- 1-10 Ratings Grid -->
-        <div style="display: flex; flex-direction: column; gap: 0.85rem; margin-bottom: 1.25rem;">
-          <!-- Metric 1 -->
-          <div>
-            <div style="display: flex; justify-content: space-between; font-size: 0.84rem; font-weight: 600; margin-bottom: 0.25rem;">
-              <span>1. Overall System Usability &amp; Experience:</span>
-              <span id="fb-val-overall" style="color: var(--primary); font-weight: 700;">9 / 10</span>
+        <div style="max-height: 52vh; overflow-y: auto; padding-right: 0.4rem; display: flex; flex-direction: column; gap: 0.85rem; margin-bottom: 1rem;">
+          
+          <!-- Prompt 1 -->
+          <div style="background: var(--bg-surface, #f8fafc); border: 1px solid var(--border); border-radius: 8px; padding: 0.75rem 0.95rem;">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem; margin-bottom: 0.35rem;">
+              <span style="font-size: 0.85rem; font-weight: 600; color: var(--text-main); line-height: 1.4;">
+                1. The website was easy to navigate and understand.
+              </span>
+              <span id="fb-val-1" style="font-size: 0.82rem; font-weight: 700; color: var(--primary); white-space: nowrap;">5 / 5 (Strongly Agree)</span>
             </div>
-            <input type="range" class="form-control" id="fb-rate-overall" min="1" max="10" step="1" value="9" oninput="document.getElementById('fb-val-overall').innerText = this.value + ' / 10'" style="cursor: pointer;">
-            <div style="display: flex; justify-content: space-between; font-size: 0.72rem; color: var(--text-muted);">
-              <span>1 = Difficult &amp; Confusing</span>
-              <span>10 = Intuitive &amp; Seamless</span>
-            </div>
-          </div>
-
-          <!-- Metric 2 -->
-          <div>
-            <div style="display: flex; justify-content: space-between; font-size: 0.84rem; font-weight: 600; margin-bottom: 0.25rem;">
-              <span>2. Speech-to-Text &amp; Voice Interaction Quality:</span>
-              <span id="fb-val-voice" style="color: var(--primary); font-weight: 700;">9 / 10</span>
-            </div>
-            <input type="range" class="form-control" id="fb-rate-voice" min="1" max="10" step="1" value="9" oninput="document.getElementById('fb-val-voice').innerText = this.value + ' / 10'" style="cursor: pointer;">
-            <div style="display: flex; justify-content: space-between; font-size: 0.72rem; color: var(--text-muted);">
-              <span>1 = Sluggish / Unreliable</span>
-              <span>10 = Fast &amp; Accurate</span>
+            <input type="range" class="form-control" id="fb-q1" min="1" max="5" step="1" value="5" oninput="updateFbLikertDisplay(1, this.value)" style="cursor: pointer; width: 100%;">
+            <div style="display: flex; justify-content: space-between; font-size: 0.7rem; color: var(--text-muted); margin-top: 0.2rem;">
+              <span>1 = Strongly Disagree</span>
+              <span>3 = Neutral</span>
+              <span>5 = Strongly Agree</span>
             </div>
           </div>
 
-          <!-- Metric 3 -->
-          <div>
-            <div style="display: flex; justify-content: space-between; font-size: 0.84rem; font-weight: 600; margin-bottom: 0.25rem;">
-              <span>3. AI Feedback Realism &amp; Rubric Rigor:</span>
-              <span id="fb-val-feedback" style="color: var(--primary); font-weight: 700;">8 / 10</span>
+          <!-- Prompt 2 -->
+          <div style="background: var(--bg-surface, #f8fafc); border: 1px solid var(--border); border-radius: 8px; padding: 0.75rem 0.95rem;">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem; margin-bottom: 0.35rem;">
+              <span style="font-size: 0.85rem; font-weight: 600; color: var(--text-main); line-height: 1.4;">
+                2. I was able to complete the practice tasks without difficulty.
+              </span>
+              <span id="fb-val-2" style="font-size: 0.82rem; font-weight: 700; color: var(--primary); white-space: nowrap;">5 / 5 (Strongly Agree)</span>
             </div>
-            <input type="range" class="form-control" id="fb-rate-feedback" min="1" max="10" step="1" value="8" oninput="document.getElementById('fb-val-feedback').innerText = this.value + ' / 10'" style="cursor: pointer;">
-            <div style="display: flex; justify-content: space-between; font-size: 0.72rem; color: var(--text-muted);">
-              <span>1 = Vague / Hallucinatory</span>
-              <span>10 = Constructive &amp; Insightful</span>
+            <input type="range" class="form-control" id="fb-q2" min="1" max="5" step="1" value="5" oninput="updateFbLikertDisplay(2, this.value)" style="cursor: pointer; width: 100%;">
+            <div style="display: flex; justify-content: space-between; font-size: 0.7rem; color: var(--text-muted); margin-top: 0.2rem;">
+              <span>1 = Strongly Disagree</span>
+              <span>3 = Neutral</span>
+              <span>5 = Strongly Agree</span>
+            </div>
+          </div>
+
+          <!-- Prompt 3 -->
+          <div style="background: var(--bg-surface, #f8fafc); border: 1px solid var(--border); border-radius: 8px; padding: 0.75rem 0.95rem;">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem; margin-bottom: 0.35rem;">
+              <span style="font-size: 0.85rem; font-weight: 600; color: var(--text-main); line-height: 1.4;">
+                3. The questions and practice experience were relevant to my interview goals.
+              </span>
+              <span id="fb-val-3" style="font-size: 0.82rem; font-weight: 700; color: var(--primary); white-space: nowrap;">5 / 5 (Strongly Agree)</span>
+            </div>
+            <input type="range" class="form-control" id="fb-q3" min="1" max="5" step="1" value="5" oninput="updateFbLikertDisplay(3, this.value)" style="cursor: pointer; width: 100%;">
+            <div style="display: flex; justify-content: space-between; font-size: 0.7rem; color: var(--text-muted); margin-top: 0.2rem;">
+              <span>1 = Strongly Disagree</span>
+              <span>3 = Neutral</span>
+              <span>5 = Strongly Agree</span>
             </div>
           </div>
 
-          <!-- Metric 4 -->
-          <div>
-            <div style="display: flex; justify-content: space-between; font-size: 0.84rem; font-weight: 600; margin-bottom: 0.25rem;">
-              <span>4. Learning Lift &amp; Interview Confidence:</span>
-              <span id="fb-val-learning" style="color: var(--primary); font-weight: 700;">9 / 10</span>
+          <!-- Prompt 4 -->
+          <div style="background: var(--bg-surface, #f8fafc); border: 1px solid var(--border); border-radius: 8px; padding: 0.75rem 0.95rem;">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem; margin-bottom: 0.35rem;">
+              <span style="font-size: 0.85rem; font-weight: 600; color: var(--text-main); line-height: 1.4;">
+                4. The AI feedback was relevant and clearly identified strengths and areas for improvement.
+              </span>
+              <span id="fb-val-4" style="font-size: 0.82rem; font-weight: 700; color: var(--primary); white-space: nowrap;">5 / 5 (Strongly Agree)</span>
             </div>
-            <input type="range" class="form-control" id="fb-rate-learning" min="1" max="10" step="1" value="9" oninput="document.getElementById('fb-val-learning').innerText = this.value + ' / 10'" style="cursor: pointer;">
-            <div style="display: flex; justify-content: space-between; font-size: 0.72rem; color: var(--text-muted);">
-              <span>1 = No learning effect</span>
-              <span>10 = High confidence boost</span>
+            <input type="range" class="form-control" id="fb-q4" min="1" max="5" step="1" value="5" oninput="updateFbLikertDisplay(4, this.value)" style="cursor: pointer; width: 100%;">
+            <div style="display: flex; justify-content: space-between; font-size: 0.7rem; color: var(--text-muted); margin-top: 0.2rem;">
+              <span>1 = Strongly Disagree</span>
+              <span>3 = Neutral</span>
+              <span>5 = Strongly Agree</span>
             </div>
           </div>
-        </div>
 
-        <!-- Qualitative Fields -->
-        <div class="form-group" style="margin-bottom: 0.85rem;">
-          <label class="form-label" style="font-weight: 600; font-size: 0.84rem;">What worked best during your practice?</label>
-          <textarea class="form-control" id="fb-worked-well" rows="2" placeholder="e.g., Live real-time speech transcription, structured STAR reflection, Dr. Vance's contextual questions..." style="font-size: 0.84rem;"></textarea>
-        </div>
+          <!-- Prompt 5 -->
+          <div style="background: var(--bg-surface, #f8fafc); border: 1px solid var(--border); border-radius: 8px; padding: 0.75rem 0.95rem;">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem; margin-bottom: 0.35rem;">
+              <span style="font-size: 0.85rem; font-weight: 600; color: var(--text-main); line-height: 1.4;">
+                5. The feedback and suggestions were understandable and actionable.
+              </span>
+              <span id="fb-val-5" style="font-size: 0.82rem; font-weight: 700; color: var(--primary); white-space: nowrap;">5 / 5 (Strongly Agree)</span>
+            </div>
+            <input type="range" class="form-control" id="fb-q5" min="1" max="5" step="1" value="5" oninput="updateFbLikertDisplay(5, this.value)" style="cursor: pointer; width: 100%;">
+            <div style="display: flex; justify-content: space-between; font-size: 0.7rem; color: var(--text-muted); margin-top: 0.2rem;">
+              <span>1 = Strongly Disagree</span>
+              <span>3 = Neutral</span>
+              <span>5 = Strongly Agree</span>
+            </div>
+          </div>
 
-        <div class="form-group" style="margin-bottom: 1.25rem;">
-          <label class="form-label" style="font-weight: 600; font-size: 0.84rem;">What suggestions or improvements do you recommend?</label>
-          <textarea class="form-control" id="fb-improvements" rows="2" placeholder="e.g., More question domains, optional video avatar, pacing timer..." style="font-size: 0.84rem;"></textarea>
+          <!-- Prompt 6 -->
+          <div style="background: var(--bg-surface, #f8fafc); border: 1px solid var(--border); border-radius: 8px; padding: 0.75rem 0.95rem;">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem; margin-bottom: 0.35rem;">
+              <span style="font-size: 0.85rem; font-weight: 600; color: var(--text-main); line-height: 1.4;">
+                6. I felt in control of the practice process and could work at my own pace.
+              </span>
+              <span id="fb-val-6" style="font-size: 0.82rem; font-weight: 700; color: var(--primary); white-space: nowrap;">5 / 5 (Strongly Agree)</span>
+            </div>
+            <input type="range" class="form-control" id="fb-q6" min="1" max="5" step="1" value="5" oninput="updateFbLikertDisplay(6, this.value)" style="cursor: pointer; width: 100%;">
+            <div style="display: flex; justify-content: space-between; font-size: 0.7rem; color: var(--text-muted); margin-top: 0.2rem;">
+              <span>1 = Strongly Disagree</span>
+              <span>3 = Neutral</span>
+              <span>5 = Strongly Agree</span>
+            </div>
+          </div>
+
+          <!-- Prompt 7 -->
+          <div style="background: var(--bg-surface, #f8fafc); border: 1px solid var(--border); border-radius: 8px; padding: 0.75rem 0.95rem;">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem; margin-bottom: 0.35rem;">
+              <span style="font-size: 0.85rem; font-weight: 600; color: var(--text-main); line-height: 1.4;">
+                7. Using AILI helped me identify how to improve my interview answers.
+              </span>
+              <span id="fb-val-7" style="font-size: 0.82rem; font-weight: 700; color: var(--primary); white-space: nowrap;">5 / 5 (Strongly Agree)</span>
+            </div>
+            <input type="range" class="form-control" id="fb-q7" min="1" max="5" step="1" value="5" oninput="updateFbLikertDisplay(7, this.value)" style="cursor: pointer; width: 100%;">
+            <div style="display: flex; justify-content: space-between; font-size: 0.7rem; color: var(--text-muted); margin-top: 0.2rem;">
+              <span>1 = Strongly Disagree</span>
+              <span>3 = Neutral</span>
+              <span>5 = Strongly Agree</span>
+            </div>
+          </div>
+
+          <!-- Optional qualitative comments -->
+          <div class="form-group" style="margin-top: 0.25rem;">
+            <label class="form-label" style="font-weight: 600; font-size: 0.82rem; margin-bottom: 0.25rem;">Additional Comments or Suggestions (Optional):</label>
+            <textarea class="form-control" id="fb-comments" rows="2" placeholder="Share any specific feedback, thoughts, or suggestions..." style="font-size: 0.84rem;"></textarea>
+          </div>
+
         </div>
 
         <!-- Feedback Action Bar -->
@@ -1990,6 +2039,6 @@
   <!-- Toast Notification Container -->
   <div id="app-toast-container" style="position: fixed; bottom: 1.5rem; right: 1.5rem; z-index: 3000; display: flex; flex-direction: column; gap: 0.6rem; pointer-events: none;"></div>
 
-  <script src="/static/app.js?v=20261112_v37"></script>
+  <script src="/static/app.js?v=20261112_v38"></script>
 </body>
 </html>

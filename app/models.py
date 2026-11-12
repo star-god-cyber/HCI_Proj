@@ -132,10 +132,20 @@ class UserEvaluationSubmission(BaseModel):
 class FeedbackSubmissionRequest(BaseModel):
     participant_name: Optional[str] = "Anonymous"
     prototype_evaluated: Optional[str] = "Both Prototypes"
-    rating_overall: Optional[int] = 9
-    rating_voice: Optional[int] = 9
-    rating_ai_feedback: Optional[int] = 9
-    rating_learning_value: Optional[int] = 9
+    candidate_role: Optional[str] = "Software Engineer"
+    # 7 Core Likert Prompts (Scale 1-5)
+    q1_navigation: Optional[int] = 5
+    q2_tasks_without_difficulty: Optional[int] = 5
+    q3_relevant_goals: Optional[int] = 5
+    q4_feedback_clear_strengths: Optional[int] = 5
+    q5_actionable_suggestions: Optional[int] = 5
+    q6_in_control_pace: Optional[int] = 5
+    q7_aili_improvement: Optional[int] = 5
+    additional_comments: Optional[str] = ""
+    # Backward compatibility fields
+    rating_overall: Optional[int] = 5
+    rating_voice: Optional[int] = 5
+    rating_ai_feedback: Optional[int] = 5
+    rating_learning_value: Optional[int] = 5
     what_worked_well: Optional[str] = ""
     suggestions_for_improvement: Optional[str] = ""
-    candidate_role: Optional[str] = "Software Engineer"
