@@ -1,6 +1,7 @@
 # =============================================================================
 # CS 435 AI Interview Practice Interface — Git Ignore Rules
-# Strictly prevents secret credentials, caches, and user data from git tracking
+# Strictly prevents secret credentials, reports, presentations, caches,
+# submission archives, large media, and temporary runtime files from git tracking.
 # =============================================================================
 
 # --- Environment & Secret Configuration Files ---
@@ -17,11 +18,67 @@ secrets/
 *.key
 *.cert
 *.p12
+*.token
+credentials.json
+client_secret*.json
+
+# --- Reports & Printables ---
+Report.pdf
+Report_Printable.html
+*.pdf
+
+# --- Presentations & Office Documents ---
+Presentation_Slides.pptx
+*.pptx
+*.docx
+*.xlsx
+~$*
+~$*.pptx
+~$*.docx
+~$*.xlsx
+
+# --- Media, Video & Audio Recordings ---
+Demo_Video.mp4
+*.mp4
+*.mov
+*.avi
+*.mkv
+*.webm
+*.wav
+*.mp3
+*.ogg
+
+# --- Submission Packages & Archives ---
+submission_package/
+Group_*/
+*.zip
+*.tar.gz
+*.tgz
+*.rar
+
+# --- Generated Export Artifacts & Runtime Logs ---
+exports/
+test_exports/
+*.log
+
+# --- Local Databases & Data Stores ---
+*.db
+*.sqlite
+*.sqlite3
+app/*.db
+app/interview_practice.db
+interview_practice.db
+
+# --- Offline Speech Models & Big Assets ---
+vosk_model/
+vosk-model*/
 
 # --- Python Bytecode & Compilation Artifacts ---
 __pycache__/
 app/__pycache__/
 tests/__pycache__/
+config/__pycache__/
+scripts/__pycache__/
 *.py[cod]
 *$py.class
 *.so
@@ -49,19 +106,6 @@ ENV/
 env/
 env.bak/
 venv.bak/
-
-# --- Local Databases & Data Stores ---
-*.db
-*.sqlite
-*.sqlite3
-app/*.db
-app/interview_practice.db
-
-# --- Generated Export Artifacts & Temp Files ---
-exports/*.docx
-exports/*.pptx
-test_exports/
-*.log
 
 # --- IDEs, Editors & OS Files ---
 .idea/
